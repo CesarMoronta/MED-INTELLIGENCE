@@ -1,0 +1,53 @@
+[
+    {
+        "id": "20260520205754",
+        "name": "Cesar Moronta",
+        "dob": "2004-09-18",
+        "gender": "Masculino",
+        "antecedentes": {
+            "Asma": true,
+            "EPOC": false,
+            "Cardiopatía": true,
+            "Diabetes": false,
+            "Hipertensión Arterial (HTA)": false,
+            "Meningitis": false,
+            "Cáncer": false,
+            "Inmunosupresión": false,
+            "Tabaquismo": false
+        }
+    },
+    {
+        "id": "20260521094031",
+        "name": "Don Ramón Valdés",
+        "dob": "1953-09-02",
+        "gender": "Masculino",
+        "antecedentes": {
+            "Asma": false,
+            "EPOC": true,
+            "Cardiopatía": false,
+            "Diabetes": true,
+            "Hipertensión Arterial (HTA)": true,
+            "Meningitis": false,
+            "Cáncer": true,
+            "Inmunosupresión": false,
+            "Tabaquismo": true
+        }
+    },
+    {
+        "id": "20260521094032",
+        "name": "Doña Florinda Corcuera",
+        "dob": "1949-01-29",
+        "gender": "Femenino",
+        "antecedentes": {
+            "Asma": true,
+            "EPOC": false,
+            "Cardiopatía": true,
+            "Diabetes": false,
+            "Hipertensión Arterial (HTA)": true,
+            "Meningitis": true,
+            "Cáncer": false,
+            "Inmunosupresión": false,
+            "Tabaquismo": false
+        }
+    }
+]

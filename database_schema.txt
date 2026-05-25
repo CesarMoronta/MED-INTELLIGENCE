@@ -1,0 +1,812 @@
+-- =============================================================================
+-- MED-INTELLIGENCE PRO — Schema de Base de Datos v2.0
+-- Normalizado según ISO/IEC 9075 (SQL Standard) - 3NF
+-- Incluye: Tablas, Vistas, Stored Procedures, Triggers, Índices
+-- =============================================================================
+
+-- Crear base de datos si no existe
+IF DB_ID(N'MedIntelligence') IS NULL
+BEGIN
+    CREATE DATABASE MedIntelligence
+        COLLATE Latin1_General_CI_AI;
+END
+GO
+
+USE MedIntelligence;
+GO
+
+-- =============================================================================
+-- SECCIÓN 1: TABLAS BASE
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.users — Cuentas de acceso al sistema (admin / doctor)
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.users', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.users (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        username        NVARCHAR(100)       NOT NULL,
+        password_hash   NVARCHAR(255)       NOT NULL,
+        role            NVARCHAR(20)        NOT NULL,  -- 'admin' | 'doctor'
+        full_name       NVARCHAR(200)       NULL,
+        email           NVARCHAR(200)       NULL,
+        is_active       BIT                 NOT NULL DEFAULT 1,
+        failed_logins   TINYINT             NOT NULL DEFAULT 0,
+        locked_until    DATETIME2           NULL,
+        last_login      DATETIME2           NULL,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_users           PRIMARY KEY (id),
+        CONSTRAINT UQ_users_username  UNIQUE (username),
+        CONSTRAINT CK_users_role      CHECK (role IN ('admin', 'doctor'))
+    );
+END
+GO
+
+-- Índices adicionales en users
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_users_role' AND object_id = OBJECT_ID('dbo.users'))
+    CREATE INDEX IX_users_role ON dbo.users (role);
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.doctors — Información profesional de doctores (extiende users)
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.doctors', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.doctors (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        user_id         INT                 NOT NULL,
+        matricula       NVARCHAR(50)        NULL,
+        especialidad    NVARCHAR(150)       NULL,
+        telefono        NVARCHAR(30)        NULL,
+        hospital        NVARCHAR(200)       NULL,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_doctors           PRIMARY KEY (id),
+        CONSTRAINT UQ_doctors_user_id   UNIQUE (user_id),
+        CONSTRAINT FK_doctors_users     FOREIGN KEY (user_id)
+            REFERENCES dbo.users(id) ON DELETE CASCADE
+    );
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.login_attempts — Registro de intentos de autenticación
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.login_attempts', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.login_attempts (
+        id          INT IDENTITY(1,1)   NOT NULL,
+        username    NVARCHAR(100)       NOT NULL,
+        ip_address  NVARCHAR(45)        NULL,
+        success     BIT                 NOT NULL DEFAULT 0,
+        attempted_at DATETIME2          NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_login_attempts PRIMARY KEY (id)
+    );
+    CREATE INDEX IX_login_attempts_username ON dbo.login_attempts (username, attempted_at DESC);
+    CREATE INDEX IX_login_attempts_ip       ON dbo.login_attempts (ip_address, attempted_at DESC);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.patients — Datos demográficos de pacientes
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.patients', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.patients (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        cedula          NVARCHAR(50)        NOT NULL,
+        name            NVARCHAR(200)       NOT NULL,
+        dob             DATE                NOT NULL,
+        gender          NVARCHAR(20)        NOT NULL,
+        phone           NVARCHAR(30)        NULL,
+        address         NVARCHAR(300)       NULL,
+        blood_type      NVARCHAR(5)         NULL,
+        registered_by   INT                 NULL,   -- FK → users(id)
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_patients          PRIMARY KEY (id),
+        CONSTRAINT UQ_patients_cedula   UNIQUE (cedula),
+        CONSTRAINT CK_patients_gender   CHECK (gender IN ('Masculino','Femenino','Otro')),
+        CONSTRAINT FK_patients_user     FOREIGN KEY (registered_by)
+            REFERENCES dbo.users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IX_patients_cedula ON dbo.patients (cedula);
+    CREATE INDEX IX_patients_name   ON dbo.patients (name);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.patient_antecedents — Antecedentes patológicos del paciente (1 fila por condición)
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.patient_antecedents', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.patient_antecedents (
+        id          INT IDENTITY(1,1)   NOT NULL,
+        patient_id  INT                 NOT NULL,
+        antecedent  NVARCHAR(200)       NOT NULL,
+        value       BIT                 NOT NULL DEFAULT 0,
+        notes       NVARCHAR(500)       NULL,
+        updated_at  DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_patient_antecedents           PRIMARY KEY (id),
+        CONSTRAINT UQ_patient_antecedents_pair      UNIQUE (patient_id, antecedent),
+        CONSTRAINT FK_patient_antecedents_patient   FOREIGN KEY (patient_id)
+            REFERENCES dbo.patients(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_pat_antecedents_pid ON dbo.patient_antecedents (patient_id);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.emergency_visits — Registro de visitas médicas (emergencia o consulta)
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.emergency_visits', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.emergency_visits (
+        id                  INT IDENTITY(1,1)   NOT NULL,
+        patient_id          INT                 NOT NULL,
+        doctor_id           INT                 NOT NULL,   -- FK → users(id)
+        visit_type          NVARCHAR(20)        NOT NULL DEFAULT 'consulta',  -- 'emergencia' | 'consulta'
+        motivo_consulta     NVARCHAR(MAX)       NULL,
+        motivo_emergencia   NVARCHAR(MAX)       NULL,       -- Solo si visit_type = 'emergencia'
+        visit_date          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        status              NVARCHAR(20)        NOT NULL DEFAULT 'abierta',  -- 'abierta' | 'cerrada'
+        created_at          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_emergency_visits             PRIMARY KEY (id),
+        CONSTRAINT CK_emergency_visits_type        CHECK (visit_type IN ('emergencia','consulta')),
+        CONSTRAINT CK_emergency_visits_status      CHECK (status IN ('abierta','cerrada')),
+        CONSTRAINT FK_emergency_visits_patient     FOREIGN KEY (patient_id)
+            REFERENCES dbo.patients(id),
+        CONSTRAINT FK_emergency_visits_doctor      FOREIGN KEY (doctor_id)
+            REFERENCES dbo.users(id)
+    );
+    CREATE INDEX IX_ev_patient   ON dbo.emergency_visits (patient_id, visit_date DESC);
+    CREATE INDEX IX_ev_doctor    ON dbo.emergency_visits (doctor_id, visit_date DESC);
+    CREATE INDEX IX_ev_date      ON dbo.emergency_visits (visit_date DESC);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.visit_vitals — Constantes vitales de la visita
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.visit_vitals', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.visit_vitals (
+        id          INT IDENTITY(1,1)   NOT NULL,
+        visit_id    INT                 NOT NULL,
+        name        NVARCHAR(50)        NOT NULL,   -- 'temperatura', 'spo2', 'pas', 'pad', 'fc', 'fr', 'edad'
+        value       DECIMAL(8,2)        NOT NULL,
+        unit        NVARCHAR(20)        NULL,
+        CONSTRAINT PK_visit_vitals          PRIMARY KEY (id),
+        CONSTRAINT UQ_visit_vitals_pair     UNIQUE (visit_id, name),
+        CONSTRAINT FK_visit_vitals_visit    FOREIGN KEY (visit_id)
+            REFERENCES dbo.emergency_visits(id) ON DELETE CASCADE
+    );
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.visit_symptoms — Síntomas registrados en la visita
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.visit_symptoms', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.visit_symptoms (
+        id          INT IDENTITY(1,1)   NOT NULL,
+        visit_id    INT                 NOT NULL,
+        symptom     NVARCHAR(200)       NOT NULL,
+        present     BIT                 NOT NULL DEFAULT 1,
+        CONSTRAINT PK_visit_symptoms        PRIMARY KEY (id),
+        CONSTRAINT UQ_visit_symptoms_pair   UNIQUE (visit_id, symptom),
+        CONSTRAINT FK_visit_symptoms_visit  FOREIGN KEY (visit_id)
+            REFERENCES dbo.emergency_visits(id) ON DELETE CASCADE
+    );
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.visit_tests — Pruebas/análisis solicitados y resultados
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.visit_tests', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.visit_tests (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        visit_id        INT                 NOT NULL,
+        test_name       NVARCHAR(200)       NOT NULL,
+        was_done        BIT                 NOT NULL DEFAULT 0,
+        result          NVARCHAR(200)       NULL,    -- valor categórico del resultado
+        result_value    NVARCHAR(500)       NULL,    -- valor numérico o texto libre
+        notes           NVARCHAR(MAX)       NULL,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_visit_tests          PRIMARY KEY (id),
+        CONSTRAINT FK_visit_tests_visit    FOREIGN KEY (visit_id)
+            REFERENCES dbo.emergency_visits(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_visit_tests_visit ON dbo.visit_tests (visit_id);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.diagnoses — Resultado final del diagnóstico bayesiano
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.diagnoses', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.diagnoses (
+        id                  INT IDENTITY(1,1)   NOT NULL,
+        visit_id            INT                 NOT NULL,
+        phase               NVARCHAR(20)        NOT NULL DEFAULT 'final', -- 'preliminar' | 'final'
+        diagnosis_primary   NVARCHAR(200)       NOT NULL,
+        probability         FLOAT               NOT NULL,
+        alert_level         NVARCHAR(20)        NOT NULL,
+        alert_color         NVARCHAR(10)        NULL,
+        specialist          NVARCHAR(200)       NULL,
+        differentials_json  NVARCHAR(MAX)       NULL,   -- JSON de diagnósticos diferenciales
+        clinical_report     NVARCHAR(MAX)       NULL,   -- Reporte clínico Markdown
+        created_at          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_diagnoses             PRIMARY KEY (id),
+        CONSTRAINT CK_diagnoses_phase       CHECK (phase IN ('preliminar','final')),
+        CONSTRAINT FK_diagnoses_visit       FOREIGN KEY (visit_id)
+            REFERENCES dbo.emergency_visits(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_diagnoses_visit ON dbo.diagnoses (visit_id);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.model_priors — Probabilidades previas del modelo bayesiano
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.model_priors', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.model_priors (
+        disease     NVARCHAR(200)   NOT NULL,
+        prior       FLOAT           NOT NULL,
+        updated_at  DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_model_priors PRIMARY KEY (disease)
+    );
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.model_conditionals — Probabilidades condicionales del modelo
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.model_conditionals', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.model_conditionals (
+        sintoma     NVARCHAR(200)   NOT NULL,
+        disease     NVARCHAR(200)   NOT NULL,
+        p           FLOAT           NOT NULL,
+        updated_at  DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_model_conditionals PRIMARY KEY (sintoma, disease)
+    );
+    CREATE INDEX IX_mc_disease ON dbo.model_conditionals (disease);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.audit_log — Registro de auditoría de todas las operaciones sensibles
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.audit_log', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.audit_log (
+        id          INT IDENTITY(1,1)   NOT NULL,
+        user_id     INT                 NULL,
+        username    NVARCHAR(100)       NULL,
+        action      NVARCHAR(50)        NOT NULL,   -- 'CREATE','UPDATE','DELETE','LOGIN','LOGOUT','RESET'
+        entity      NVARCHAR(100)       NOT NULL,   -- 'Patient','User','Doctor','BayesParams',...
+        entity_id   NVARCHAR(100)       NULL,
+        details     NVARCHAR(MAX)       NULL,
+        ip_address  NVARCHAR(45)        NULL,
+        logged_at   DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_audit_log PRIMARY KEY (id)
+    );
+    CREATE INDEX IX_audit_log_user   ON dbo.audit_log (user_id, logged_at DESC);
+    CREATE INDEX IX_audit_log_entity ON dbo.audit_log (entity, entity_id, logged_at DESC);
+    CREATE INDEX IX_audit_log_date   ON dbo.audit_log (logged_at DESC);
+END
+GO
+
+-- Mantener compatibilidad con la tabla 'records' anterior (si existe, hacer backup)
+-- La tabla 'records' ya no se usará; los nuevos registros van en emergency_visits + diagnoses
+
+
+-- =============================================================================
+-- SECCIÓN 2: VISTAS
+-- =============================================================================
+
+-- Vista: Pacientes con antecedentes en JSON
+DROP VIEW IF EXISTS dbo.vw_patients;
+GO
+CREATE VIEW dbo.vw_patients AS
+SELECT
+    p.id,
+    p.cedula,
+    p.name,
+    p.dob,
+    p.gender,
+    p.phone,
+    p.blood_type,
+    p.registered_by,
+    p.created_at,
+    p.updated_at,
+    DATEDIFF(YEAR, p.dob, GETDATE())
+        - CASE WHEN MONTH(p.dob) > MONTH(GETDATE())
+                OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE()))
+               THEN 1 ELSE 0 END AS age,
+    (
+        SELECT pa.antecedent, pa.value
+        FROM dbo.patient_antecedents pa
+        WHERE pa.patient_id = p.id
+        FOR JSON PATH
+    ) AS antecedentes
+FROM dbo.patients p;
+GO
+
+-- Vista: Visitas con datos del paciente y doctor
+DROP VIEW IF EXISTS dbo.vw_visits;
+GO
+CREATE VIEW dbo.vw_visits AS
+SELECT
+    ev.id,
+    ev.visit_type,
+    ev.motivo_consulta,
+    ev.motivo_emergencia,
+    ev.visit_date,
+    ev.status,
+    ev.created_at,
+    -- Paciente
+    p.id            AS patient_id,
+    p.cedula        AS patient_cedula,
+    p.name          AS patient_name,
+    p.dob           AS patient_dob,
+    p.gender        AS patient_gender,
+    -- Doctor
+    u.id            AS doctor_id,
+    u.username      AS doctor_username,
+    u.full_name     AS doctor_fullname,
+    -- Diagnóstico más reciente de la visita
+    d.id            AS diagnosis_id,
+    d.phase         AS diagnosis_phase,
+    d.diagnosis_primary,
+    d.probability   AS diagnosis_probability,
+    d.alert_level,
+    d.alert_color,
+    d.specialist
+FROM dbo.emergency_visits ev
+INNER JOIN dbo.patients p ON ev.patient_id = p.id
+INNER JOIN dbo.users    u ON ev.doctor_id  = u.id
+LEFT JOIN (
+    SELECT visit_id, id, phase, diagnosis_primary, probability, alert_level, alert_color, specialist,
+           ROW_NUMBER() OVER (PARTITION BY visit_id ORDER BY id DESC) AS rn
+    FROM dbo.diagnoses
+) d ON d.visit_id = ev.id AND d.rn = 1;
+GO
+
+-- Vista: Usuarios con datos de doctor (si aplica)
+DROP VIEW IF EXISTS dbo.vw_users;
+GO
+CREATE VIEW dbo.vw_users AS
+SELECT
+    u.id,
+    u.username,
+    u.role,
+    u.full_name,
+    u.email,
+    u.is_active,
+    u.failed_logins,
+    u.locked_until,
+    u.last_login,
+    u.created_at,
+    u.updated_at,
+    -- Datos de doctor (si existe)
+    doc.id          AS doctor_id,
+    doc.matricula,
+    doc.especialidad,
+    doc.telefono,
+    doc.hospital
+FROM dbo.users u
+LEFT JOIN dbo.doctors doc ON doc.user_id = u.id;
+GO
+
+-- Vista: Historial completo de diagnósticos con información clínica
+DROP VIEW IF EXISTS dbo.vw_clinical_history;
+GO
+CREATE VIEW dbo.vw_clinical_history AS
+SELECT
+    d.id                AS diagnosis_id,
+    d.visit_id,
+    d.phase,
+    d.diagnosis_primary,
+    d.probability,
+    d.alert_level,
+    d.alert_color,
+    d.specialist,
+    d.created_at        AS diagnosis_date,
+    -- Visita
+    ev.visit_type,
+    ev.motivo_consulta,
+    ev.motivo_emergencia,
+    ev.visit_date,
+    -- Paciente
+    p.id                AS patient_id,
+    p.cedula            AS patient_cedula,
+    p.name              AS patient_name,
+    -- Doctor
+    u.id                AS doctor_id,
+    u.username          AS doctor_username,
+    u.full_name         AS doctor_fullname
+FROM dbo.diagnoses d
+INNER JOIN dbo.emergency_visits ev ON d.visit_id = ev.id
+INNER JOIN dbo.patients p          ON ev.patient_id = p.id
+INNER JOIN dbo.users    u          ON ev.doctor_id  = u.id;
+GO
+
+-- Vista: Dashboard stats globales
+DROP VIEW IF EXISTS dbo.vw_dashboard_stats;
+GO
+CREATE VIEW dbo.vw_dashboard_stats AS
+SELECT
+    (SELECT COUNT(1) FROM dbo.patients)                                         AS total_patients,
+    (SELECT COUNT(1) FROM dbo.emergency_visits)                                 AS total_visits,
+    (SELECT COUNT(1) FROM dbo.emergency_visits WHERE visit_type = 'emergencia') AS total_emergencias,
+    (SELECT COUNT(1) FROM dbo.diagnoses WHERE phase = 'final')                  AS total_diagnoses,
+    (SELECT COUNT(1) FROM dbo.users WHERE role = 'doctor' AND is_active = 1)    AS active_doctors,
+    (SELECT COUNT(1) FROM dbo.users WHERE role = 'admin')                       AS total_admins,
+    (SELECT COUNT(1) FROM dbo.diagnoses WHERE alert_level = 'Rojo' AND phase = 'final') AS red_alerts;
+GO
+
+
+-- =============================================================================
+-- SECCIÓN 3: STORED PROCEDURES
+-- =============================================================================
+
+-- SP: Crear usuario con datos de doctor (transaccional)
+IF OBJECT_ID(N'dbo.sp_create_user', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_create_user;
+GO
+CREATE PROCEDURE dbo.sp_create_user
+    @username       NVARCHAR(100),
+    @password_hash  NVARCHAR(255),
+    @role           NVARCHAR(20),
+    @full_name      NVARCHAR(200) = NULL,
+    @email          NVARCHAR(200) = NULL,
+    @matricula      NVARCHAR(50)  = NULL,
+    @especialidad   NVARCHAR(150) = NULL,
+    @telefono       NVARCHAR(30)  = NULL,
+    @hospital       NVARCHAR(200) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+
+    INSERT INTO dbo.users (username, password_hash, role, full_name, email)
+    VALUES (@username, @password_hash, @role, @full_name, @email);
+
+    DECLARE @new_id INT = SCOPE_IDENTITY();
+
+    IF @role = 'doctor'
+    BEGIN
+        INSERT INTO dbo.doctors (user_id, matricula, especialidad, telefono, hospital)
+        VALUES (@new_id, @matricula, @especialidad, @telefono, @hospital);
+    END
+
+    COMMIT TRANSACTION;
+    SELECT @new_id AS user_id;
+END
+GO
+
+-- SP: Actualizar usuario
+IF OBJECT_ID(N'dbo.sp_update_user', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_update_user;
+GO
+CREATE PROCEDURE dbo.sp_update_user
+    @user_id        INT,
+    @username       NVARCHAR(100) = NULL,
+    @password_hash  NVARCHAR(255) = NULL,
+    @role           NVARCHAR(20)  = NULL,
+    @full_name      NVARCHAR(200) = NULL,
+    @email          NVARCHAR(200) = NULL,
+    @is_active      BIT           = NULL,
+    @matricula      NVARCHAR(50)  = NULL,
+    @especialidad   NVARCHAR(150) = NULL,
+    @telefono       NVARCHAR(30)  = NULL,
+    @hospital       NVARCHAR(200) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.users
+    SET username      = COALESCE(@username, username),
+        password_hash = COALESCE(@password_hash, password_hash),
+        role          = COALESCE(@role, role),
+        full_name     = COALESCE(@full_name, full_name),
+        email         = COALESCE(@email, email),
+        is_active     = COALESCE(@is_active, is_active),
+        updated_at    = SYSUTCDATETIME()
+    WHERE id = @user_id;
+
+    -- Actualizar o crear datos de doctor
+    IF (@matricula IS NOT NULL OR @especialidad IS NOT NULL OR @telefono IS NOT NULL OR @hospital IS NOT NULL)
+    BEGIN
+        IF EXISTS (SELECT 1 FROM dbo.doctors WHERE user_id = @user_id)
+            UPDATE dbo.doctors
+            SET matricula   = COALESCE(@matricula, matricula),
+                especialidad = COALESCE(@especialidad, especialidad),
+                telefono    = COALESCE(@telefono, telefono),
+                hospital    = COALESCE(@hospital, hospital),
+                updated_at  = SYSUTCDATETIME()
+            WHERE user_id = @user_id;
+        ELSE
+            INSERT INTO dbo.doctors (user_id, matricula, especialidad, telefono, hospital)
+            VALUES (@user_id, @matricula, @especialidad, @telefono, @hospital);
+    END
+
+    SELECT @@ROWCOUNT AS rows_affected;
+END
+GO
+
+-- SP: Registrar intento de login y evaluar bloqueo
+IF OBJECT_ID(N'dbo.sp_register_login_attempt', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_register_login_attempt;
+GO
+CREATE PROCEDURE dbo.sp_register_login_attempt
+    @username   NVARCHAR(100),
+    @ip_address NVARCHAR(45),
+    @success    BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.login_attempts (username, ip_address, success)
+    VALUES (@username, @ip_address, @success);
+
+    IF @success = 0
+    BEGIN
+        -- Incrementar failed_logins y bloquear si corresponde
+        UPDATE dbo.users
+        SET failed_logins = failed_logins + 1,
+            locked_until  = CASE
+                                WHEN failed_logins + 1 >= 5
+                                THEN DATEADD(MINUTE, 15, SYSUTCDATETIME())
+                                ELSE locked_until
+                            END
+        WHERE username = @username;
+    END
+    ELSE
+    BEGIN
+        -- Login exitoso: resetear contadores y guardar último login
+        UPDATE dbo.users
+        SET failed_logins = 0,
+            locked_until  = NULL,
+            last_login    = SYSUTCDATETIME()
+        WHERE username = @username;
+    END
+END
+GO
+
+-- SP: Crear paciente
+IF OBJECT_ID(N'dbo.sp_create_patient', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_create_patient;
+GO
+CREATE PROCEDURE dbo.sp_create_patient
+    @cedula         NVARCHAR(50),
+    @name           NVARCHAR(200),
+    @dob            DATE,
+    @gender         NVARCHAR(20),
+    @phone          NVARCHAR(30)  = NULL,
+    @blood_type     NVARCHAR(5)   = NULL,
+    @registered_by  INT           = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by)
+    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by);
+    SELECT SCOPE_IDENTITY() AS patient_id;
+END
+GO
+
+-- SP: Actualizar paciente
+IF OBJECT_ID(N'dbo.sp_update_patient', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_update_patient;
+GO
+CREATE PROCEDURE dbo.sp_update_patient
+    @patient_id INT,
+    @cedula     NVARCHAR(50)  = NULL,
+    @name       NVARCHAR(200) = NULL,
+    @dob        DATE          = NULL,
+    @gender     NVARCHAR(20)  = NULL,
+    @phone      NVARCHAR(30)  = NULL,
+    @blood_type NVARCHAR(5)   = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.patients
+    SET cedula      = COALESCE(@cedula, cedula),
+        name        = COALESCE(@name, name),
+        dob         = COALESCE(@dob, dob),
+        gender      = COALESCE(@gender, gender),
+        phone       = COALESCE(@phone, phone),
+        blood_type  = COALESCE(@blood_type, blood_type),
+        updated_at  = SYSUTCDATETIME()
+    WHERE id = @patient_id;
+    SELECT @@ROWCOUNT AS rows_affected;
+END
+GO
+
+-- SP: Crear visita médica
+IF OBJECT_ID(N'dbo.sp_create_visit', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_create_visit;
+GO
+CREATE PROCEDURE dbo.sp_create_visit
+    @patient_id         INT,
+    @doctor_id          INT,
+    @visit_type         NVARCHAR(20),
+    @motivo_consulta    NVARCHAR(MAX) = NULL,
+    @motivo_emergencia  NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.emergency_visits (patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia)
+    VALUES (@patient_id, @doctor_id, @visit_type, @motivo_consulta, @motivo_emergencia);
+    SELECT SCOPE_IDENTITY() AS visit_id;
+END
+GO
+
+-- SP: Guardar diagnóstico
+IF OBJECT_ID(N'dbo.sp_save_diagnosis', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_save_diagnosis;
+GO
+CREATE PROCEDURE dbo.sp_save_diagnosis
+    @visit_id           INT,
+    @phase              NVARCHAR(20),
+    @diagnosis_primary  NVARCHAR(200),
+    @probability        FLOAT,
+    @alert_level        NVARCHAR(20),
+    @alert_color        NVARCHAR(10),
+    @specialist         NVARCHAR(200),
+    @differentials_json NVARCHAR(MAX) = NULL,
+    @clinical_report    NVARCHAR(MAX) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.diagnoses (visit_id, phase, diagnosis_primary, probability, alert_level,
+                                alert_color, specialist, differentials_json, clinical_report)
+    VALUES (@visit_id, @phase, @diagnosis_primary, @probability, @alert_level,
+            @alert_color, @specialist, @differentials_json, @clinical_report);
+
+    -- Cerrar la visita si es diagnóstico final
+    IF @phase = 'final'
+        UPDATE dbo.emergency_visits SET status = 'cerrada' WHERE id = @visit_id;
+
+    SELECT SCOPE_IDENTITY() AS diagnosis_id;
+END
+GO
+
+-- SP: Registrar acción de auditoría
+IF OBJECT_ID(N'dbo.sp_audit_log', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_audit_log;
+GO
+CREATE PROCEDURE dbo.sp_audit_log
+    @user_id    INT           = NULL,
+    @username   NVARCHAR(100) = NULL,
+    @action     NVARCHAR(50),
+    @entity     NVARCHAR(100),
+    @entity_id  NVARCHAR(100) = NULL,
+    @details    NVARCHAR(MAX) = NULL,
+    @ip_address NVARCHAR(45)  = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.audit_log (user_id, username, action, entity, entity_id, details, ip_address)
+    VALUES (@user_id, @username, @action, @entity, @entity_id, @details, @ip_address);
+END
+GO
+
+
+-- =============================================================================
+-- SECCIÓN 4: TRIGGERS
+-- =============================================================================
+
+-- Trigger: Auditar cambios en la tabla patients
+IF OBJECT_ID(N'dbo.trg_patients_audit', N'TR') IS NOT NULL DROP TRIGGER dbo.trg_patients_audit;
+GO
+CREATE TRIGGER dbo.trg_patients_audit
+ON dbo.patients
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM deleted)
+    BEGIN
+        DECLARE @action NVARCHAR(50);
+        IF EXISTS (SELECT 1 FROM inserted)
+            SET @action = 'UPDATE';
+        ELSE
+            SET @action = 'DELETE';
+
+        INSERT INTO dbo.audit_log (username, action, entity, entity_id, details, logged_at)
+        SELECT 'SYSTEM_TRIGGER', @action, 'Patient', CAST(d.id AS NVARCHAR), 
+               'Paciente: ' + d.name + ' | Cédula: ' + d.cedula,
+               SYSUTCDATETIME()
+        FROM deleted d;
+    END
+END
+GO
+
+-- Trigger: Auditar cambios en usuarios
+IF OBJECT_ID(N'dbo.trg_users_audit', N'TR') IS NOT NULL DROP TRIGGER dbo.trg_users_audit;
+GO
+CREATE TRIGGER dbo.trg_users_audit
+ON dbo.users
+AFTER UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @action NVARCHAR(50);
+    IF EXISTS (SELECT 1 FROM inserted)
+        SET @action = 'UPDATE';
+    ELSE
+        SET @action = 'DELETE';
+
+    INSERT INTO dbo.audit_log (username, action, entity, entity_id, details, logged_at)
+    SELECT 'SYSTEM_TRIGGER', @action, 'User', CAST(d.id AS NVARCHAR),
+           'Usuario: ' + d.username + ' | Rol: ' + d.role,
+           SYSUTCDATETIME()
+    FROM deleted d;
+END
+GO
+
+-- Trigger: Actualizar updated_at automáticamente en patients
+IF OBJECT_ID(N'dbo.trg_patients_updated_at', N'TR') IS NOT NULL DROP TRIGGER dbo.trg_patients_updated_at;
+GO
+CREATE TRIGGER dbo.trg_patients_updated_at
+ON dbo.patients
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.patients
+    SET updated_at = SYSUTCDATETIME()
+    WHERE id IN (SELECT id FROM inserted);
+END
+GO
+
+-- Trigger: Actualizar updated_at en users
+IF OBJECT_ID(N'dbo.trg_users_updated_at', N'TR') IS NOT NULL DROP TRIGGER dbo.trg_users_updated_at;
+GO
+CREATE TRIGGER dbo.trg_users_updated_at
+ON dbo.users
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT UPDATE(updated_at)  -- Evitar recursión
+    BEGIN
+        UPDATE dbo.users
+        SET updated_at = SYSUTCDATETIME()
+        WHERE id IN (SELECT id FROM inserted);
+    END
+END
+GO
+
+
+-- =============================================================================
+-- SECCIÓN 5: DATOS INICIALES (seeding)
+-- =============================================================================
+
+-- Insertar admin por defecto si no existen usuarios
+-- La contraseña se settea desde Python en la primera ejecución
+-- Este bloque es solo de referencia; el seeding real lo hace database.py
+
+-- Crear tabla de configuración del sistema
+IF OBJECT_ID(N'dbo.system_config', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.system_config (
+        key_name    NVARCHAR(100) NOT NULL,
+        key_value   NVARCHAR(MAX) NULL,
+        updated_at  DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_system_config PRIMARY KEY (key_name)
+    );
+
+    INSERT INTO dbo.system_config (key_name, key_value) VALUES
+        ('schema_version', '2.0'),
+        ('max_login_attempts', '5'),
+        ('lockout_minutes', '15'),
+        ('session_timeout_hours', '8');
+END
+GO
+
+-- =============================================================================
+-- FIN DEL SCHEMA v2.0 — MED-INTELLIGENCE PRO
+-- =============================================================================

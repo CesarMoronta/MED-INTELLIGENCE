@@ -1,0 +1,73 @@
+[
+    {
+        "id": "20260520205927",
+        "fecha": "20/05/2026 08:59 PM",
+        "patient_name": "Cesar Moronta",
+        "motivo_consulta": "Paciente llega con dificultad respiratoria y fiebre",
+        "constantes": {
+            "edad": 21,
+            "temperatura": 39,
+            "spo2": 94,
+            "pas": 164,
+            "pad": 113,
+            "fc": 49,
+            "fr": 10
+        },
+        "antecedentes": [
+            "Asma",
+            "Cardiopatía"
+        ],
+        "sintomas": [
+            "Dolor de Cabeza Severo",
+            "Dolor en el Pecho",
+            "Dolor de Cuerpo Generalizado",
+            "Dificultad Respiratoria (Disnea)"
+        ],
+        "diagnosis": "Miocarditis",
+        "probability": 0.6635042609632184,
+        "alert_level": "Rojo",
+        "specialist": "Cardiología / Medicina Interna",
+        "probabilities": {
+            "Accidente Cerebrovascular (ACV)": 4.647301761818803e-06,
+            "Bronquitis Aguda": 0.02405836685346251,
+            "Crisis Asmática Aguda": 0.004159093285289599,
+            "Dengue": 0.03341252474854674,
+            "Encefalitis": 0.00011639423248001,
+            "Exacerbación Aguda de EPOC": 0.002231836674555659,
+            "Gripe Común / Influenza": 0.055840527259189775,
+            "Infarto Agudo de Miocardio (IAM)": 0.13692539292365127,
+            "Insuficiencia Cardíaca Congestiva (ICC)": 0.04806042281536709,
+            "Migraña Severa": 4.8476926762670385e-05,
+            "Miocarditis": 0.6635042609632184,
+            "Neumonía": 0.0314642202605035,
+            "Otitis Media": 6.232705315293415e-06,
+            "Sinusitis Aguda": 0.00016760304989573804
+        }
+    },
+    {
+        "id": "20260520202623",
+        "fecha": "20/05/2026 08:26 PM",
+        "patient_name": "Cesar",
+        "antecedentes": [
+            "Asma",
+            "Edad Avanzada"
+        ],
+        "sintomas": [
+            "Fiebre Alta",
+            "Tos Persistente"
+        ],
+        "diagnosis": "Gripe",
+        "probability": 0.80021584769576,
+        "alert_level": "Verde",
+        "specialist": "Medicina General / Familiar",
+        "probabilities": {
+            "Bronquitis": 0.15191597733599194,
+            "EPOC Descompensado": 0.005159286386459506,
+            "Encefalitis": 0.0017161491831710536,
+            "Gripe": 0.80021584769576,
+            "Miocarditis": 0.0008580745915855278,
+            "Neumonía": 0.03386362343093319,
+            "Otitis/Sinusitis": 0.006271041376098739
+        }
+    }
+]

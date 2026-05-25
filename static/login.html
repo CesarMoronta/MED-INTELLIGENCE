@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MED-INTELLIGENCE PRO — Acceso Seguro</title>
+  <meta name="description"
+    content="Sistema Médico Inteligente con diagnóstico bayesiano. Acceso exclusivo para personal médico autorizado." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/css/login.css" />
+</head>
+
+<body>
+  <div class="bg-scene"></div>
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="login-wrapper">
+    <div class="login-card">
+
+      <div class="login-header">
+        <div class="logo-ring">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+        </div>
+        <div class="login-title">MED-INTELLIGENCE PRO</div>
+        <div class="login-subtitle">Sistema Médico con IA Bayesiana</div>
+        <div class="login-desc">Acceso restringido al personal médico autorizado.<br>Todas las sesiones son auditadas.
+        </div>
+      </div>
+
+      <!-- Alert de errores -->
+      <div id="alert-box" style="display:none;"></div>
+
+      <!-- Barra de intentos fallidos -->
+      <div class="attempt-bar" id="attempt-bar" style="display:none;">
+        <div class="attempt-label">
+          <span>Intentos fallidos</span>
+          <span id="attempt-count">0 / 5</span>
+        </div>
+        <div class="attempt-track">
+          <div class="attempt-fill" id="attempt-fill" style="width:0%; background:#10b981;"></div>
+        </div>
+      </div>
+
+      <form id="login-form" autocomplete="off">
+
+        <div class="form-group">
+          <label class="form-label" for="username">Usuario</label>
+          <div class="input-wrap">
+            <input type="text" id="username" class="form-input" placeholder="Ingresa tu usuario" autocomplete="username"
+              required />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round"
+              style="pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Contraseña</label>
+          <div class="input-wrap">
+            <input type="password" id="password" class="form-input" placeholder="Ingresa tu contraseña"
+              autocomplete="current-password" required />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round"
+              style="pointer-events:none;position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="login-btn">
+          <span class="btn-text">Iniciar Sesión</span>
+          <div class="btn-spinner">
+            <div class="spinner"></div>
+          </div>
+        </button>
+
+      </form>
+
+      <div class="patient-portal-divider">
+        <span>O eres paciente?</span>
+      </div>
+      
+      <button class="btn-patient-portal" id="btn-open-portal">
+        <span class="btn-text">💬 Portal de Consulta Remota</span>
+      </button>
+
+      <div class="login-footer">
+        <div>UTESA © 2026 — Informática Médica · Proyecto Integrador</div>
+        <div class="security-badges">
+          <div class="badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Sesiones cifradas
+          </div>
+          <div class="badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4l3 3" />
+            </svg>
+            Expiración 8h
+          </div>
+          <div class="badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 12l2 2 4-4" />
+              <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
+            </svg>
+            Auditoría activa
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal del Portal de Pacientes -->
+  <div class="modal-overlay" id="portal-modal">
+    <div class="portal-card">
+      <button class="portal-close" id="btn-close-portal">×</button>
+      
+      <!-- Vista 1: Autenticación / Registro -->
+      <div class="portal-view active" id="portal-view-auth">
+        <h2 class="portal-title">Portal de Pacientes</h2>
+        <p class="portal-subtitle">Accede para consultar tus síntomas con nuestro asistente virtual.</p>
+        
+        <div class="portal-tabs">
+          <button class="portal-tab active" data-target="portal-login-form">Ya soy paciente</button>
+          <button class="portal-tab" data-target="portal-register-form">Soy nuevo</button>
+        </div>
+        
+        <!-- Tab Login -->
+        <form id="portal-login-form" class="portal-tab-content active">
+          <div class="form-group">
+            <label class="form-label" for="portal-cedula">Cédula</label>
+            <input type="text" id="portal-cedula" class="form-input" placeholder="Ej: 402-1234567-8" required />
+          </div>
+          <button type="submit" class="btn-login" style="margin-top: 10px;">Ingresar</button>
+        </form>
+        
+        <!-- Tab Register -->
+        <form id="portal-register-form" class="portal-tab-content">
+          <div class="form-group">
+            <label class="form-label" for="portal-reg-name">Nombre Completo</label>
+            <input type="text" id="portal-reg-name" class="form-input" placeholder="Ej: Juan Pérez" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="portal-reg-cedula">Cédula</label>
+            <input type="text" id="portal-reg-cedula" class="form-input" placeholder="Ej: 402-1234567-8" required />
+          </div>
+          <button type="submit" class="btn-login" style="margin-top: 10px;">Registrarse e Ingresar</button>
+        </form>
+      </div>
+      
+      <!-- Vista 2: Chat -->
+      <div class="portal-view" id="portal-view-chat" style="display:none;">
+        <div class="chat-header">
+          <h2 class="portal-title" style="margin-bottom:0; font-size: 1.1rem;">Asistente Médico</h2>
+          <div style="font-size: 0.8rem; opacity: 0.8;" id="chat-patient-name">Cargando...</div>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+          <div class="chat-bubble bot">
+            ¡Hola! Soy MED-INTELLIGENCE, tu asistente virtual. ¿En qué te puedo ayudar hoy? Por favor, cuéntame tus síntomas.
+          </div>
+        </div>
+        
+        <form id="chat-form" class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="Escribe tus síntomas aquí..." autocomplete="off" required />
+          <button type="submit" class="chat-send-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </form>
+      </div>
+      
+    </div>
+  </div>
+
+  <script src="/js/login.js"></script>
+</body>
+
+</html>
