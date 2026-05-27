@@ -184,8 +184,8 @@ async function handleLogout() {
   window.location.href = '/login';
 }
 
-// // DASHBOARD
-// async function loadDashboard() {
+// DASHBOARD
+async function loadDashboard() {
   const data = await api('GET', '/api/dashboard/stats');
   if (!data.success) return;
   const s = data.stats;
@@ -207,8 +207,8 @@ async function loadAdminDashboard() {
   document.getElementById('adm-most-common').textContent    = s.most_common     || '—';
 }
 
-// // PACIENTES
-// async function loadPatients(search = '') {
+// PACIENTES
+async function loadPatients(search = '') {
   const url  = '/api/patients' + (search ? `?search=${encodeURIComponent(search)}` : '');
   const data = await api('GET', url);
   if (!data.success) return;
@@ -396,8 +396,8 @@ function clearPatientForm() {
   STATE.editingPatientId = null;
 }
 
-// // NUEVA VISITA — WIZARD
-// let visitWizardStep = 1;
+// NUEVA VISITA — WIZARD
+let visitWizardStep = 1;
 function loadVisitPatients() {
   resetVisitWizard();
   searchPatientsForVisit();
@@ -515,8 +515,8 @@ function resetVisitWizard() {
   searchPatientsForVisit();
 }
 
-// // CONSULTA CLÍNICA / DIAGNÓSTICO
-// function buildSymptomToggles() {
+// CONSULTA CLÍNICA / DIAGNÓSTICO
+function buildSymptomToggles() {
   buildGrid('symptoms-checkboxes',   ALL_SYMPTOMS,      {});
   buildGrid('antecedentes-checkboxes', ALL_ANTECEDENTES, {});
   buildGrid('sim-symptoms-grid',     ALL_SYMPTOMS,      {});
@@ -920,8 +920,8 @@ function printReport() {
   win.print();
 }
 
-// // HISTORIAL
-// async function loadHistory() {
+// HISTORIAL
+async function loadHistory() {
   const data = await api('GET', '/api/records');
   if (!data.success) { toast('error', 'Error cargando historial.'); return; }
   STATE.history = data.records || [];
@@ -985,8 +985,8 @@ function filterAdminHistory() {
   filterHistory();
 }
 
-// // SIMULADOR BAYES
-// function initSimulator() {
+// SIMULADOR BAYES
+function initSimulator() {
   // ya está construido en buildSymptomToggles
 }
 
@@ -1024,8 +1024,8 @@ function resetSimulation() {
   document.getElementById('sim-chart').innerHTML = '';
 }
 
-// // USUARIOS (ADMIN)
-// async function loadUsersTab() {
+// USUARIOS (ADMIN)
+async function loadUsersTab() {
   const data = await api('GET', '/api/users');
   if (!data.success) { toast('error', 'Error cargando usuarios.'); return; }
   STATE.allUsers = data.users;
@@ -1198,8 +1198,8 @@ function clearUserForm() {
   onRoleChange();
 }
 
-// // CONFIGURACIÓN BAYESIANA
-// async function loadBayesParams() {
+// CONFIGURACIÓN BAYESIANA
+async function loadBayesParams() {
   const data = await api('GET', '/api/parameters');
   if (!data.success) return;
   const priors = data.priors || {};
@@ -1235,8 +1235,8 @@ async function resetBayesParams() {
   else             { toast('error', res.error || 'Error al restablecer.'); }
 }
 
-// // AUDIT LOGS
-// async function loadAuditLogs() {
+// AUDIT LOGS
+async function loadAuditLogs() {
   const data = await api('GET', '/api/audit_logs');
   if (!data.success) return;
   const logs = data.logs || [];
@@ -1257,8 +1257,8 @@ async function resetBayesParams() {
   el.innerHTML = `<table class="data-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalles</th><th>IP</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// // UTILIDADES
-// function calcAge(dob) {
+// UTILIDADES
+function calcAge(dob) {
   if (!dob) return '?';
   const b  = new Date(dob);
   const n  = new Date();
