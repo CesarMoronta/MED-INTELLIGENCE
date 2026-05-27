@@ -358,23 +358,29 @@ def get_patient(patient_id: int) -> dict | None:
     return patient
 
 
-def list_patients(search: str = None) -> list:
+def list_patients(search: str = None, doctor_id: int = None) -> list:
     conn   = get_connection()
     cursor = conn.cursor()
+    
+    base_query = "SELECT p.id, p.cedula, p.name, p.dob, p.gender, p.phone, p.blood_type, p.age, p.antecedentes FROM dbo.vw_patients p"
+    where_clauses = []
+    params = []
+
+    if doctor_id:
+        where_clauses.append("(EXISTS (SELECT 1 FROM dbo.appointments a WHERE a.patient_id = p.id AND a.doctor_id = ?) OR EXISTS (SELECT 1 FROM dbo.emergency_visits v WHERE v.patient_id = p.id AND v.doctor_id = ?))")
+        params.extend([doctor_id, doctor_id])
+
     if search:
         like = f"%{search}%"
-        cursor.execute(
-            "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes "
-            "FROM dbo.vw_patients "
-            "WHERE cedula LIKE ? OR name LIKE ? "
-            "ORDER BY name ASC",
-            like, like
-        )
-    else:
-        cursor.execute(
-            "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes "
-            "FROM dbo.vw_patients ORDER BY name ASC"
-        )
+        where_clauses.append("(p.cedula LIKE ? OR p.name LIKE ?)")
+        params.extend([like, like])
+
+    query = base_query
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+    query += " ORDER BY p.name ASC"
+
+    cursor.execute(query, *params)
     rows = rows_to_dicts(cursor)
     cursor.close()
     conn.close()
@@ -428,13 +434,14 @@ def delete_patient(patient_id: int) -> bool:
 
 def create_visit(patient_id: int, doctor_id: int, visit_type: str,
                  motivo_consulta: str = None, motivo_emergencia: str = None,
+                 doctor_notes: str = None,
                  constantes: dict = None, sintomas: dict = None) -> int | None:
     """Crea una nueva visita médica y guarda constantes y síntomas."""
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_create_visit ?, ?, ?, ?, ?",
-        patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia
+        "EXEC dbo.sp_create_visit ?, ?, ?, ?, ?, ?",
+        patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes
     )
     row = cursor.fetchone()
     visit_id = int(row[0]) if row else None
@@ -458,7 +465,8 @@ def create_visit(patient_id: int, doctor_id: int, visit_type: str,
 def _save_visit_vitals(visit_id: int, constantes: dict):
     UNITS = {
         "temperatura": "°C", "spo2": "%", "pas": "mmHg",
-        "pad": "mmHg", "fc": "bpm", "fr": "rpm", "edad": "años"
+        "pad": "mmHg", "fc": "bpm", "fr": "rpm", "edad": "años",
+        "peso": "kg", "altura": "cm", "grasa_corporal": "%", "imc": ""
     }
     conn   = get_connection()
     cursor = conn.cursor()
@@ -514,7 +522,7 @@ def get_visit(visit_id: int) -> dict | None:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        """SELECT id, visit_type, motivo_consulta, motivo_emergencia, visit_date, status,
+        """SELECT id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes, visit_date, status,
                   patient_id, patient_cedula, patient_name, patient_dob, patient_gender,
                   doctor_id, doctor_username, doctor_fullname,
                   diagnosis_id, diagnosis_phase, diagnosis_primary, diagnosis_probability,
@@ -530,13 +538,13 @@ def get_visit(visit_id: int) -> dict | None:
 
     visit = {
         "id": row[0], "visit_type": row[1], "motivo_consulta": row[2],
-        "motivo_emergencia": row[3], "visit_date": _fmt_date(row[4]), "status": row[5],
-        "patient_id": row[6], "patient_cedula": row[7], "patient_name": row[8],
-        "patient_dob": _fmt_date(row[9]), "patient_gender": row[10],
-        "doctor_id": row[11], "doctor_username": row[12], "doctor_fullname": row[13],
-        "diagnosis_id": row[14], "diagnosis_phase": row[15],
-        "diagnosis_primary": row[16], "diagnosis_probability": row[17],
-        "alert_level": row[18], "alert_color": row[19], "specialist": row[20]
+        "motivo_emergencia": row[3], "doctor_notes": row[4], "visit_date": _fmt_date(row[5]), "status": row[6],
+        "patient_id": row[7], "patient_cedula": row[8], "patient_name": row[9],
+        "patient_dob": _fmt_date(row[10]), "patient_gender": row[11],
+        "doctor_id": row[12], "doctor_username": row[13], "doctor_fullname": row[14],
+        "diagnosis_id": row[15], "diagnosis_phase": row[16],
+        "diagnosis_primary": row[17], "diagnosis_probability": row[18],
+        "alert_level": row[19], "alert_color": row[20], "specialist": row[21]
     }
 
     # Constantes vitales
@@ -577,7 +585,7 @@ def list_visits(patient_id: int = None, doctor_id: int = None, limit: int = 100)
 
     where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
     cursor.execute(
-        f"""SELECT TOP ({limit}) id, visit_type, motivo_consulta, motivo_emergencia, visit_date, status,
+        f"""SELECT TOP ({limit}) id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes, visit_date, status,
                    patient_id, patient_cedula, patient_name, patient_dob, patient_gender,
                    doctor_id, doctor_username, doctor_fullname,
                    diagnosis_id, diagnosis_phase, diagnosis_primary, diagnosis_probability,
@@ -634,7 +642,7 @@ def list_clinical_history(limit: int = 200) -> list:
         f"""SELECT TOP ({limit})
                diagnosis_id, visit_id, phase, diagnosis_primary, probability,
                alert_level, alert_color, specialist, diagnosis_date,
-               visit_type, motivo_consulta, motivo_emergencia, visit_date,
+               visit_type, motivo_consulta, motivo_emergencia, doctor_notes, visit_date,
                patient_id, patient_cedula, patient_name,
                doctor_id, doctor_username, doctor_fullname
             FROM dbo.vw_clinical_history
@@ -675,6 +683,7 @@ def add_record(record: dict) -> bool:
         doctor_id=doctor_id,
         visit_type="consulta",
         motivo_consulta=record.get("motivo_consulta"),
+        doctor_notes=record.get("doctor_notes"),
         constantes=record.get("constantes", {}),
         sintomas={s: True for s in record.get("sintomas", [])}
     )
@@ -798,14 +807,137 @@ def log_audit_action(username: str, action: str, entity: str,
         conn   = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "EXEC dbo.sp_audit_log ?, ?, ?, ?, ?, ?, ?",
-            user_id, username, action, entity, entity_id, details, ip_address
+            "INSERT INTO dbo.audit_log (username, action, entity, entity_id, details, ip_address, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            username, action, entity, entity_id, details, ip_address, user_id
         )
         cursor.close()
         conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error en log_audit_action: {e}")
 
+# SETTINGS
+
+def get_clinic_name() -> str:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT key_value FROM dbo.system_config WHERE key_name = 'clinic_name'")
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return row[0] if row else "Consultorio Médico"
+
+def set_clinic_name(name: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "IF EXISTS (SELECT 1 FROM dbo.system_config WHERE key_name='clinic_name') "
+        "  UPDATE dbo.system_config SET key_value=?, updated_at=SYSUTCDATETIME() WHERE key_name='clinic_name' "
+        "ELSE "
+        "  INSERT INTO dbo.system_config (key_name, key_value) VALUES ('clinic_name', ?)",
+        name, name
+    )
+    cursor.close()
+    conn.close()
+
+# APPOINTMENTS
+
+def list_appointments(doctor_id: int = None) -> list:
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT a.id, a.patient_id, a.doctor_id, a.scheduled_date, a.scheduled_time, a.status, a.notes,
+               p.name AS patient_name, p.cedula AS patient_cedula,
+               u.full_name AS doctor_name
+        FROM dbo.appointments a
+        JOIN dbo.patients p ON a.patient_id = p.id
+        JOIN dbo.users u ON a.doctor_id = u.id
+    """
+    params = []
+    if doctor_id:
+        query += " WHERE a.doctor_id = ?"
+        params.append(doctor_id)
+    query += " ORDER BY a.scheduled_date ASC, a.scheduled_time ASC"
+    
+    cursor.execute(query, *params)
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["scheduled_date"] = _fmt_date(r.get("scheduled_date"))
+        r["scheduled_time"] = str(r.get("scheduled_time")) if r.get("scheduled_time") else None
+    return rows
+
+def create_appointment(patient_id: int, doctor_id: int, scheduled_date: str, scheduled_time: str, notes: str = None) -> int:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dbo.appointments (patient_id, doctor_id, scheduled_date, scheduled_time, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?)",
+        patient_id, doctor_id, scheduled_date, scheduled_time, notes
+    )
+    app_id = int(cursor.fetchone()[0])
+    cursor.close()
+    conn.close()
+    return app_id
+
+def update_appointment_status(appointment_id: int, status: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE dbo.appointments SET status = ?, updated_at = SYSUTCDATETIME() WHERE id = ?", status, appointment_id)
+    rows = cursor.rowcount
+    cursor.close()
+    conn.close()
+    return rows > 0
+
+def update_appointment(appointment_id: int, doctor_id: int, scheduled_date: str, scheduled_time: str, status: str, notes: str = None) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE dbo.appointments SET doctor_id = ?, scheduled_date = ?, scheduled_time = ?, status = ?, notes = ?, updated_at = SYSUTCDATETIME() WHERE id = ?",
+        doctor_id, scheduled_date, scheduled_time, status, notes, appointment_id
+    )
+    rows = cursor.rowcount
+    cursor.close()
+    conn.close()
+    return rows > 0
+
+def reschedule_appointment(appointment_id: int, new_date: str, new_time: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE dbo.appointments SET scheduled_date = ?, scheduled_time = ?, updated_at = SYSUTCDATETIME() WHERE id = ?",
+        new_date, new_time, appointment_id
+    )
+    rows = cursor.rowcount
+    cursor.close()
+    conn.close()
+    return rows > 0
+
+# PRESCRIPTIONS
+
+def add_prescription(visit_id: int, medication: str, dosage: str, frequency: str, duration_days: int, quantity: int, notes: str = None) -> int:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dbo.prescriptions (visit_id, medication, dosage, frequency, duration_days, quantity, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
+        visit_id, medication, dosage, frequency, duration_days, quantity, notes
+    )
+    pid = int(cursor.fetchone()[0])
+    cursor.close()
+    conn.close()
+    return pid
+
+def get_prescriptions_for_visit(visit_id: int) -> list:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, medication, dosage, frequency, duration_days, quantity, notes FROM dbo.prescriptions WHERE visit_id = ?",
+        visit_id
+    )
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    return rows
 
 # DASHBOARD STATS
 
@@ -829,4 +961,28 @@ def get_dashboard_stats() -> dict:
         "active_doctors":    row[4],
         "total_admins":      row[5],
         "red_alerts":        row[6]
+    }
+
+def get_doctor_dashboard_stats(doctor_id: int) -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS citas_hoy,
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status = 'abierta' THEN 1 ELSE 0 END) AS citas_pendientes,
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status = 'completada' THEN 1 ELSE 0 END) AS citas_hechas,
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(DATEADD(day, 1, GETDATE()) AS DATE) THEN 1 ELSE 0 END) AS citas_manana
+        FROM dbo.appointments
+        WHERE doctor_id = ? AND status != 'cancelada'
+    """, doctor_id)
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        return {"citas_hoy": 0, "citas_pendientes": 0, "citas_hechas": 0, "citas_manana": 0}
+    return {
+        "citas_hoy": row[0] or 0,
+        "citas_pendientes": row[1] or 0,
+        "citas_hechas": row[2] or 0,
+        "citas_manana": row[3] or 0
     }

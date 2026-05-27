@@ -8,12 +8,14 @@ patients_bp = Blueprint("patients_bp", __name__)
 @requires_login
 def api_get_patients():
     search   = (request.args.get("search") or "").strip()
-    patients = list_patients(search or None)
+    u = get_current_user()
+    doctor_id = u.get("id") if u.get("role") == "doctor" else None
+    patients = list_patients(search or None, doctor_id=doctor_id)
     return jsonify({"success": True, "patients": patients})
 
 @patients_bp.route("/api/patients", methods=["POST"])
 @requires_login
-@requires_role("doctor", "admin")
+@requires_role("doctor", "admin", "secretaria")
 def api_save_patient():
     data         = request.json or {}
     cedula       = format_cedula((data.get("cedula") or "").strip())
@@ -53,7 +55,7 @@ def api_get_patient(patient_id):
 
 @patients_bp.route("/api/patients/<int:patient_id>", methods=["PUT"])
 @requires_login
-@requires_role("admin")
+@requires_role("admin", "secretaria")
 def api_update_patient(patient_id):
     data       = request.json or {}
     cedula     = format_cedula((data.get("cedula") or "").strip()) or None

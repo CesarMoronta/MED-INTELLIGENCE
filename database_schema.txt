@@ -39,7 +39,7 @@ BEGIN
         updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_users           PRIMARY KEY (id),
         CONSTRAINT UQ_users_username  UNIQUE (username),
-        CONSTRAINT CK_users_role      CHECK (role IN ('admin', 'doctor'))
+        CONSTRAINT CK_users_role      CHECK (role IN ('admin', 'doctor', 'secretaria'))
     );
 END
 GO
@@ -150,6 +150,7 @@ BEGIN
         visit_type          NVARCHAR(20)        NOT NULL DEFAULT 'consulta',  -- 'emergencia' | 'consulta'
         motivo_consulta     NVARCHAR(MAX)       NULL,
         motivo_emergencia   NVARCHAR(MAX)       NULL,       -- Solo si visit_type = 'emergencia'
+        doctor_notes        NVARCHAR(MAX)       NULL,       -- Anotaciones del doctor durante la consulta
         visit_date          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         status              NVARCHAR(20)        NOT NULL DEFAULT 'abierta',  -- 'abierta' | 'cerrada'
         created_at          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -305,6 +306,55 @@ BEGIN
 END
 GO
 
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.appointments — Citas médicas agendadas
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.appointments', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.appointments (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        patient_id      INT                 NOT NULL,
+        doctor_id       INT                 NOT NULL,
+        scheduled_date  DATE                NOT NULL,
+        scheduled_time  TIME                NOT NULL,
+        status          NVARCHAR(20)        NOT NULL DEFAULT 'abierta', -- 'abierta', 'en_curso', 'completada', 'cancelada'
+        notes           NVARCHAR(MAX)       NULL,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_appointments             PRIMARY KEY (id),
+        CONSTRAINT CK_appointments_status      CHECK (status IN ('abierta', 'en_curso', 'completada', 'cancelada')),
+        CONSTRAINT FK_appointments_patient     FOREIGN KEY (patient_id) REFERENCES dbo.patients(id),
+        CONSTRAINT FK_appointments_doctor      FOREIGN KEY (doctor_id) REFERENCES dbo.users(id)
+    );
+    CREATE INDEX IX_app_patient   ON dbo.appointments (patient_id, scheduled_date DESC);
+    CREATE INDEX IX_app_doctor    ON dbo.appointments (doctor_id, scheduled_date DESC);
+    CREATE INDEX IX_app_date      ON dbo.appointments (scheduled_date DESC);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.prescriptions — Recetas médicas emitidas
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.prescriptions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.prescriptions (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        visit_id        INT                 NOT NULL,
+        medication      NVARCHAR(200)       NOT NULL,
+        dosage          NVARCHAR(100)       NOT NULL,
+        frequency       NVARCHAR(100)       NOT NULL,
+        duration_days   INT                 NOT NULL,
+        quantity        INT                 NOT NULL,
+        notes           NVARCHAR(MAX)       NULL,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_prescriptions          PRIMARY KEY (id),
+        CONSTRAINT FK_prescriptions_visit    FOREIGN KEY (visit_id)
+            REFERENCES dbo.emergency_visits(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IX_prescriptions_visit ON dbo.prescriptions (visit_id);
+END
+GO
+
 -- Mantener compatibilidad con la tabla 'records' anterior (si existe, hacer backup)
 -- La tabla 'records' ya no se usará; los nuevos registros van en emergency_visits + diagnoses
 
@@ -350,6 +400,7 @@ SELECT
     ev.visit_type,
     ev.motivo_consulta,
     ev.motivo_emergencia,
+    ev.doctor_notes,
     ev.visit_date,
     ev.status,
     ev.created_at,
@@ -425,6 +476,7 @@ SELECT
     ev.visit_type,
     ev.motivo_consulta,
     ev.motivo_emergencia,
+    ev.doctor_notes,
     ev.visit_date,
     -- Paciente
     p.id                AS patient_id,
@@ -635,12 +687,13 @@ CREATE PROCEDURE dbo.sp_create_visit
     @doctor_id          INT,
     @visit_type         NVARCHAR(20),
     @motivo_consulta    NVARCHAR(MAX) = NULL,
-    @motivo_emergencia  NVARCHAR(MAX) = NULL
+    @motivo_emergencia  NVARCHAR(MAX) = NULL,
+    @doctor_notes       NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO dbo.emergency_visits (patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia)
-    VALUES (@patient_id, @doctor_id, @visit_type, @motivo_consulta, @motivo_emergencia);
+    INSERT INTO dbo.emergency_visits (patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes)
+    VALUES (@patient_id, @doctor_id, @visit_type, @motivo_consulta, @motivo_emergencia, @doctor_notes);
     SELECT SCOPE_IDENTITY() AS visit_id;
 END
 GO
@@ -803,7 +856,8 @@ BEGIN
         ('schema_version', '2.0'),
         ('max_login_attempts', '5'),
         ('lockout_minutes', '15'),
-        ('session_timeout_hours', '8');
+        ('session_timeout_hours', '8'),
+        ('clinic_name', 'Consultorio Médico');
 END
 GO
 

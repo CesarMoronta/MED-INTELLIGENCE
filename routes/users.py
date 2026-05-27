@@ -9,7 +9,7 @@ def _sanitize_user(user: dict) -> dict:
 
 @users_bp.route("/api/users", methods=["GET"])
 @requires_login
-@requires_role("admin")
+@requires_role("admin", "secretaria")
 def api_list_users():
     return jsonify({"success": True, "users": list_users()})
 
@@ -32,7 +32,7 @@ def api_create_user():
         return jsonify({"success": False, "error": "Usuario y contraseña son obligatorios."}), 400
     if len(password) < 6:
         return jsonify({"success": False, "error": "La contraseña debe tener al menos 6 caracteres."}), 400
-    if role not in ["admin", "doctor"]:
+    if role not in ["admin", "doctor", "secretaria"]:
         return jsonify({"success": False, "error": "Rol inválido."}), 400
 
     user = create_user(
@@ -80,7 +80,7 @@ def api_update_user(user_id):
     telefono     = (data.get("telefono") or "").strip() or None
     hospital     = (data.get("hospital") or "").strip() or None
 
-    if role and role not in ["admin", "doctor"]:
+    if role and role not in ["admin", "doctor", "secretaria"]:
         return jsonify({"success": False, "error": "Rol inválido."}), 400
     if password and len(password) < 6:
         return jsonify({"success": False, "error": "La contraseña debe tener al menos 6 caracteres."}), 400

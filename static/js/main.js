@@ -16,6 +16,8 @@ const STATE = {
   diagAntecedentes:{},
   allUsers:        [],
   editingPatientId: null,
+  rxList:          [],
+  allAppointments: [],
 };
 
 // Lista de síntomas y antecedentes
@@ -54,12 +56,21 @@ function resetDiagnose() {
   // Reset vital sliders to defaults
   const vitals = {
     'v-edad': 30, 'v-temperatura': 37.0, 'v-spo2': 98,
-    'v-pas': 120, 'v-pad': 80, 'v-fc': 80, 'v-fr': 16
+    'v-pas': 120, 'v-pad': 80, 'v-fc': 80, 'v-fr': 16,
+    'v-peso': 70, 'v-altura': 170, 'v-grasa_corporal': 20
   };
   Object.keys(vitals).forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.value = vitals[id]; updateVitalBadge(el); }
   });
+  const imcBadge = document.getElementById('badge-imc');
+  if (imcBadge) { imcBadge.className = 'vital-badge ok'; imcBadge.textContent = 'Normal'; }
+  const imcVal = document.getElementById('val-imc');
+  if (imcVal) imcVal.textContent = '24.2';
+  const imcHid = document.getElementById('v-imc');
+  if (imcHid) imcHid.value = '24.2';
+  const diagNotes = document.getElementById('diag-doctor-notes');
+  if (diagNotes) diagNotes.value = '';
 
   // Uncheck all symptoms and antecedents
   document.querySelectorAll('#symptoms-checkboxes input, #antecedentes-checkboxes input').forEach(cb => {
@@ -140,6 +151,7 @@ function switchTab(tab) {
     'dashboard':     loadDashboard,
     'admin-dashboard': loadAdminDashboard,
     'simulator':     initSimulator,
+    'appointments':  loadAppointments,
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -152,13 +164,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   STATE.user = status.user;
   setupUI();
   buildSymptomToggles();
+  loadClinicName();
 
   if (STATE.user.role === 'doctor') {
     loadDashboard();
+  } else if (STATE.user.role === 'secretaria') {
+    switchTab('appointments');
   } else {
     switchTab('admin-dashboard');
   }
 });
+
+async function loadClinicName() {
+  const data = await api('GET', '/api/settings/clinic_name');
+  if (data.success && data.clinic_name) {
+    const el = document.getElementById('app-clinic-name');
+    if (el) el.textContent = data.clinic_name;
+  }
+}
 
 function setupUI() {
   const u = STATE.user;
@@ -173,6 +196,9 @@ function setupUI() {
   if (u.role === 'admin') {
     document.getElementById('nav-admin').style.display = 'block';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = '');
+  } else if (u.role === 'secretaria') {
+    document.getElementById('nav-secretaria').style.display = 'block';
+    document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
   } else {
     document.getElementById('nav-doctor').style.display = 'block';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
@@ -184,16 +210,33 @@ async function handleLogout() {
   window.location.href = '/login';
 }
 
-// DASHBOARD
 async function loadDashboard() {
   const data = await api('GET', '/api/dashboard/stats');
   if (!data.success) return;
   const s = data.stats;
-  document.getElementById('stat-patients-val').textContent    = s.total_patients     ?? '—';
-  document.getElementById('stat-visits-val').textContent      = s.total_visits        ?? '—';
-  document.getElementById('stat-diagnoses-val').textContent   = s.total_diagnoses     ?? '—';
-  document.getElementById('stat-emergencias-val').textContent = s.total_emergencias   ?? '—';
-  document.getElementById('most-common-diag').textContent     = s.most_common         || '—';
+  
+  if (s.is_doctor) {
+    document.getElementById('stat-citas-hoy-val').textContent = s.citas_hoy ?? '0';
+    document.getElementById('stat-citas-pendientes-val').textContent = s.citas_pendientes ?? '0';
+    document.getElementById('stat-citas-hechas-val').textContent = s.citas_hechas ?? '0';
+    document.getElementById('stat-citas-manana-val').textContent = s.citas_manana ?? '0';
+  } else {
+    document.getElementById('stat-citas-hoy-val').textContent    = s.total_patients     ?? '—';
+    document.getElementById('stat-citas-pendientes-val').textContent      = s.total_visits        ?? '—';
+    document.getElementById('stat-citas-hechas-val').textContent   = s.total_diagnoses     ?? '—';
+    document.getElementById('stat-citas-manana-val').textContent = s.total_emergencias   ?? '—';
+    // Fix labels if admin visits doctor dashboard instead
+    document.querySelector('#stat-citas-hoy .stat-label').textContent = "Pacientes Registrados";
+    document.querySelector('#stat-citas-pendientes .stat-label').textContent = "Visitas Totales";
+    document.querySelector('#stat-citas-hechas .stat-label').textContent = "Diagnósticos Generados";
+    document.querySelector('#stat-citas-manana .stat-label').textContent = "Emergencias Atendidas";
+  }
+  
+  const emEl = document.getElementById('stat-emergencias-val');
+  if (emEl) emEl.textContent = s.total_emergencias ?? '—';
+  
+  const commonEl = document.getElementById('most-common-diag');
+  if (commonEl) commonEl.textContent = s.most_common || '—';
 }
 
 async function loadAdminDashboard() {
@@ -213,7 +256,8 @@ async function loadPatients(search = '') {
   const data = await api('GET', url);
   if (!data.success) return;
   STATE.patients = data.patients;
-  renderPatientsTable('patients-list', data.patients, false);
+  const canEdit = STATE.user && (STATE.user.role === 'admin' || STATE.user.role === 'secretaria');
+  renderPatientsTable('patients-list', data.patients, canEdit);
 }
 
 async function loadAdminPatients() {
@@ -309,7 +353,7 @@ async function viewPatient(id) {
   const editBtn = document.getElementById('btn-edit-patient-modal');
   if (editBtn) {
     editBtn.setAttribute('data-patient-id', id);
-    editBtn.style.display = STATE.user.role === 'admin' ? '' : 'none';
+    editBtn.style.display = (STATE.user.role === 'admin' || STATE.user.role === 'secretaria') ? '' : 'none';
   }
   STATE.editingPatientId = id;
   openModal('modal-view-patient');
@@ -629,6 +673,107 @@ function selectConsultPatient(id) {
   }
 }
 
+async function openAppointmentSelectModal() {
+  const data = await api('GET', '/api/appointments');
+  if (!data.success) return;
+  const docs = await api('GET', '/api/users');
+  if (docs.success) STATE.allUsers = docs.users;
+
+  STATE.allAppointments = data.appointments.filter(a => a.status !== 'completada' && a.status !== 'cancelada');
+  document.getElementById('search-select-patient').value = '';
+  document.getElementById('search-select-patient').onkeyup = filterSelectAppointments;
+  filterSelectAppointments();
+  openModal('modal-select-patient');
+}
+
+function filterSelectAppointments() {
+  const q = document.getElementById('search-select-patient').value.toLowerCase();
+  const listEl = document.getElementById('select-patient-list');
+  const apps = STATE.allAppointments.filter(a => a.patient_name.toLowerCase().includes(q) || a.patient_cedula.includes(q));
+  
+  if (!apps.length) {
+    listEl.innerHTML = '<div style="padding:16px;color:var(--text-muted);text-align:center;">No hay citas abiertas para consultar.</div>';
+    return;
+  }
+  
+  listEl.innerHTML = apps.map(a => `
+    <div class="patient-select-item" style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-weight: 600; color: var(--text-primary);">${a.patient_name}</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Cita: ${a.scheduled_date} ${a.scheduled_time || ''} | Motivo: ${a.notes || '—'}</div>
+      </div>
+      <button class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">Atender</button>
+    </div>
+  `).join('');
+}
+
+async function selectConsultAppointment(appId, ptId) {
+  const data = await api('GET', `/api/patients/${ptId}`);
+  if (!data.success) return;
+  const p = data.patient;
+  STATE.currentPatient = p;
+  STATE.currentVisitId = null;
+  document.getElementById('diag-appointment-id').value = appId;
+  
+  closeModal('modal-select-patient');
+  
+  const infoEl = document.getElementById('diag-patient-info');
+  infoEl.style.display = 'block';
+  infoEl.innerHTML = `<strong>Paciente en consulta (Cita):</strong> ${p.name} (${p.cedula})`;
+  
+  const nameInput = document.getElementById('diag-patient-name');
+  const nameGroup = document.getElementById('diag-name-group');
+  if (nameInput) { nameInput.value = p.name; nameGroup.style.display = 'block'; }
+  document.getElementById('diag-patient-id').value = p.id;
+  
+  const app = STATE.allAppointments.find(a => a.id === appId);
+  if (app && app.notes) {
+    document.getElementById('diag-motivo').value = app.notes;
+  }
+  
+  const edadInput = document.getElementById('v-edad');
+  if (edadInput) {
+    edadInput.value = p.age ?? calcAge(p.dob);
+    updateVitalBadge(edadInput);
+  }
+  
+  // Marcar antecedentes ...
+  if (p.antecedentes) {
+    document.querySelectorAll('#antecedentes-checkboxes input[type="checkbox"]').forEach(cb => {
+      if (cb.checked) { cb.checked = false; toggleSymptom(cb); }
+    });
+    Object.entries(p.antecedentes).forEach(([ant, has]) => {
+      if (has) {
+        const labels = document.querySelectorAll('#antecedentes-checkboxes .symptom-toggle');
+        for (let lbl of labels) {
+          if (lbl.textContent.trim() === ant) {
+            const cb = lbl.querySelector('input');
+            if (cb && !cb.checked) { cb.checked = true; toggleSymptom(cb); }
+            break;
+          }
+        }
+      }
+    });
+  }
+}
+
+function calculateIMC() {
+  const peso = parseFloat(document.getElementById('v-peso').value) || 0;
+  const altura = parseFloat(document.getElementById('v-altura').value) || 1;
+  const imc = peso / Math.pow(altura/100, 2);
+  const imcStr = imc.toFixed(1);
+  
+  document.getElementById('val-imc').textContent = imcStr;
+  document.getElementById('v-imc').value = imcStr;
+  
+  const badgeEl = document.getElementById('badge-imc');
+  if (!badgeEl) return;
+  if (imc < 18.5) { badgeEl.className = 'vital-badge warn'; badgeEl.textContent = 'Bajo peso'; }
+  else if (imc < 25) { badgeEl.className = 'vital-badge ok'; badgeEl.textContent = 'Normal'; }
+  else if (imc < 30) { badgeEl.className = 'vital-badge warn'; badgeEl.textContent = 'Sobrepeso'; }
+  else { badgeEl.className = 'vital-badge alert'; badgeEl.textContent = 'Obesidad'; }
+}
+
 
 function updateVitalBadge(input) {
   const rules = {
@@ -644,17 +789,18 @@ function updateVitalBadge(input) {
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    const rule = rules[id];
-    if (!rule) return;
     const val = parseFloat(el.value) || 0;
     
-    // Update visual label
+    // Update visual label regardless of rules
     const valDisplay = document.getElementById(`val-${id.replace('v-','')}`);
     if (valDisplay) valDisplay.textContent = el.step === "0.1" ? val.toFixed(1) : Math.round(val);
 
-    const [cls, label] = rule(val);
-    const badgeEl = document.getElementById(`badge-${id.replace('v-','')}`);
-    if (badgeEl) { badgeEl.className = `vital-badge ${cls}`; badgeEl.textContent = label; }
+    const rule = rules[id];
+    if (rule) {
+        const [cls, label] = rule(val);
+        const badgeEl = document.getElementById(`badge-${id.replace('v-','')}`);
+        if (badgeEl) { badgeEl.className = `vital-badge ${cls}`; badgeEl.textContent = label; }
+    }
   });
 }
 
@@ -667,6 +813,10 @@ function getConstantes() {
     pad:         parseInt(document.getElementById('v-pad')?.value)           || 80,
     fc:          parseInt(document.getElementById('v-fc')?.value)            || 80,
     fr:          parseInt(document.getElementById('v-fr')?.value)            || 16,
+    peso:        parseFloat(document.getElementById('v-peso')?.value)        || 70,
+    altura:      parseFloat(document.getElementById('v-altura')?.value)      || 170,
+    grasa_corporal: parseFloat(document.getElementById('v-grasa_corporal')?.value) || 20,
+    imc:         parseFloat(document.getElementById('v-imc')?.value)         || 24.2,
   };
 }
 
@@ -814,6 +964,7 @@ async function runPhase2() {
       patient_id: patientId,
       visit_type: 'consulta',
       motivo_consulta: motivoConsulta,
+      doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
       constantes: STATE.diagConstantes,
       sintomas: STATE.diagSintomas
     });
@@ -849,6 +1000,12 @@ async function runPhase2() {
   btn.disabled = false; btn.innerHTML = orig;
 
   if (!res.success) { toast('error', res.error || 'Error en diagnóstico final.'); return; }
+
+  // Marcar la cita como completada
+  const appId = document.getElementById('diag-appointment-id')?.value;
+  if (appId) {
+    api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+  }
 
   renderFinalResult(res);
   toast('success', '✅ Diagnóstico final calculado y guardado.');
@@ -918,6 +1075,367 @@ function printReport() {
     </style></head><body>${document.getElementById('diagnosis-result-content').innerHTML}</body></html>`);
   win.document.close();
   win.print();
+}
+
+// AGENDA / CITAS
+let calendarInstance = null;
+
+async function loadAppointments() {
+  const filterDoc = document.getElementById('appointment-doctor-filter')?.value;
+  const url = '/api/appointments' + (filterDoc ? `?doctor_id=${filterDoc}` : '');
+  const data = await api('GET', url);
+  if (!data.success) { toast('error', 'Error cargando citas.'); return; }
+  
+  STATE.allAppointments = data.appointments;
+  renderAppointmentsTable(STATE.allAppointments);
+  
+  // Update calendar if it's visible
+  if (calendarInstance && document.getElementById('app-calendar-view').style.display !== 'none') {
+    renderCalendar();
+  }
+  
+  // Cargar pacientes y doctores para el modal si no están cargados
+  if (STATE.user.role === 'admin' || STATE.user.role === 'secretaria') {
+    document.getElementById('appointment-doctor-filter').style.display = 'block';
+    document.getElementById('app-view-toggles').style.display = 'flex';
+    
+    const docs = await api('GET', '/api/users');
+    if (docs.success) {
+      const doctors = docs.users.filter(u => u.role === 'doctor');
+      
+      const docSelect = document.getElementById('app-doctor');
+      if (docSelect.options.length <= 1) {
+          docSelect.innerHTML = doctors.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
+      }
+      
+      const filterSelect = document.getElementById('appointment-doctor-filter');
+      if (filterSelect.options.length <= 1) {
+          filterSelect.innerHTML = `<option value="">Todos los doctores</option>` + doctors.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
+      }
+    }
+    const pts = await api('GET', '/api/patients');
+    if (pts.success) {
+      const ptSelect = document.getElementById('app-patient');
+      if (ptSelect.options.length <= 1) {
+          ptSelect.innerHTML = pts.patients.map(p => `<option value="${p.id}">${p.name} (${p.cedula})</option>`).join('');
+      }
+    }
+  } else {
+    // Si es doctor, no mostrar el botón de agendar ni el filtro de doctores
+    document.getElementById('btn-new-appointment').style.display = 'none';
+  }
+}
+
+function switchAppointmentView(viewType) {
+  document.getElementById('btn-view-table').style.background = viewType === 'table' ? 'var(--bg-hover)' : 'transparent';
+  document.getElementById('btn-view-calendar').style.background = viewType === 'calendar' ? 'var(--bg-hover)' : 'transparent';
+  
+  document.getElementById('app-table-view').style.display = viewType === 'table' ? 'block' : 'none';
+  document.getElementById('app-calendar-view').style.display = viewType === 'calendar' ? 'block' : 'none';
+  
+  if (viewType === 'calendar') {
+    renderCalendar();
+  }
+}
+
+function renderCalendar() {
+  const calendarEl = document.getElementById('calendar');
+  if (!calendarInstance) {
+    calendarInstance = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'timeGridWeek',
+      locale: 'es',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      slotMinTime: '00:00:00',
+      slotMaxTime: '24:00:00',
+      contentHeight: 'auto', // Expande el contenedor para evitar celdas apretadas
+      expandRows: true, // Expande las filas al máximo disponible
+      allDaySlot: false,
+      editable: true,
+      eventClick: function(info) {
+        if (STATE.user.role === 'secretaria' || STATE.user.role === 'admin') {
+            openEditAppointmentModal(info.event.id);
+        }
+      },
+      eventDrop: async function(info) {
+        const appId = info.event.id;
+        const d = info.event.start;
+        const pad = n => n.toString().padStart(2, '0');
+        const newDate = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const newTime = `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+        
+        const res = await api('PUT', `/api/appointments/${appId}/reschedule`, {
+          scheduled_date: newDate,
+          scheduled_time: newTime
+        });
+        
+        if (res.success) {
+          toast('success', 'Cita reprogramada correctamente.');
+          loadAppointments(); // refresh both table and state
+        } else {
+          toast('error', res.error || 'Error al reprogramar la cita.');
+          info.revert();
+        }
+      }
+    });
+    calendarInstance.render();
+  }
+  
+  calendarInstance.removeAllEvents();
+  
+  const activeApps = STATE.allAppointments.filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
+  const events = activeApps.map(a => {
+    let color = '#3b82f6';
+    if (a.status === 'completada') color = '#10b981';
+    else if (a.status === 'cancelada') color = '#ef4444';
+    else if (a.status === 'en_curso') color = '#f59e0b';
+    
+    let endStr = undefined;
+    let startStr = a.scheduled_date;
+    
+    if (a.scheduled_time) {
+        const timePart = a.scheduled_time.substring(0, 8); // Ensure HH:MM:SS
+        startStr = `${a.scheduled_date}T${timePart}`;
+        const d = new Date(startStr);
+        if (!isNaN(d.getTime())) {
+            d.setHours(d.getHours() + 1);
+            const pad = n => n.toString().padStart(2, '0');
+            endStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+        }
+    }
+    
+    return {
+      id: a.id,
+      title: `${a.patient_name} - ${a.doctor_name}`,
+      start: startStr,
+      end: endStr,
+      color: color,
+      allDay: !a.scheduled_time
+    };
+  });
+  
+  calendarInstance.addEventSource(events);
+}
+
+function searchAppointments() {
+  const q = (document.getElementById('appointment-search')?.value || '').toLowerCase();
+  const filtered = STATE.allAppointments.filter(a => 
+    (a.patient_name || '').toLowerCase().includes(q) ||
+    (a.patient_cedula || '').toLowerCase().includes(q)
+  );
+  renderAppointmentsTable(filtered);
+}
+
+function renderAppointmentsTable(apps) {
+  const el = document.getElementById('appointments-list');
+  if (!apps.length) {
+    el.innerHTML = `<div class="empty-state"><span>No hay citas agendadas.</span></div>`;
+    return;
+  }
+  const rows = apps.map(a => {
+    let statusBadge = '';
+    if (a.status === 'abierta') statusBadge = '<span class="badge" style="background:#3b82f6;color:white;">Abierta</span>';
+    else if (a.status === 'completada') statusBadge = '<span class="badge badge-verde">Completada</span>';
+    else if (a.status === 'cancelada') statusBadge = '<span class="badge badge-rojo">Cancelada</span>';
+    else statusBadge = `<span class="badge badge-amarillo">${a.status}</span>`;
+    
+    return `<tr>
+      <td><strong style="color:var(--text-primary)">${a.patient_name}</strong></td>
+      <td>${a.scheduled_date} ${a.scheduled_time || ''}</td>
+      <td>${a.doctor_name || '—'}</td>
+      <td>${a.notes || '—'}</td>
+      <td>${statusBadge}</td>
+      <td style="display:flex; gap:6px;">
+        ${(STATE.user.role === 'secretaria' || STATE.user.role === 'admin') ? 
+          `<button class="btn-icon" title="Editar Cita" style="color:var(--brand-primary);" onclick="openEditAppointmentModal(${a.id})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+           </button>
+           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--danger);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+          ` : ''
+        }
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="data-table"><thead><tr><th>Paciente</th><th>Fecha y Hora</th><th>Doctor</th><th>Notas</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function openNewAppointmentModal() {
+  document.getElementById('app-id').value = '';
+  document.getElementById('app-patient').value = '';
+  document.getElementById('app-doctor').value = '';
+  document.getElementById('app-date').value = '';
+  document.getElementById('app-time').value = '';
+  document.getElementById('app-status').value = 'abierta';
+  document.getElementById('app-notes').value = '';
+  
+  document.getElementById('app-status-group').style.display = 'none';
+  document.getElementById('modal-appointment-title').textContent = 'Agendar Nueva Cita';
+  document.getElementById('btn-save-appointment').textContent = 'Agendar Cita';
+  
+  openModal('modal-new-appointment');
+}
+
+function openEditAppointmentModal(id) {
+  const app = STATE.allAppointments.find(a => a.id == id);
+  if (!app) return;
+  document.getElementById('app-id').value = app.id;
+  document.getElementById('app-patient').value = app.patient_id;
+  document.getElementById('app-doctor').value = app.doctor_id;
+  document.getElementById('app-date').value = app.scheduled_date;
+  document.getElementById('app-time').value = app.scheduled_time ? app.scheduled_time.substring(0, 5) : '';
+  document.getElementById('app-status').value = app.status;
+  document.getElementById('app-notes').value = app.notes || '';
+  
+  document.getElementById('app-status-group').style.display = 'block';
+  document.getElementById('modal-appointment-title').textContent = 'Editar Cita';
+  document.getElementById('btn-save-appointment').textContent = 'Guardar Cambios';
+  
+  openModal('modal-new-appointment');
+}
+
+async function saveAppointment() {
+  const appId = document.getElementById('app-id').value;
+  const payload = {
+    patient_id: document.getElementById('app-patient').value,
+    doctor_id: document.getElementById('app-doctor').value,
+    scheduled_date: document.getElementById('app-date').value,
+    scheduled_time: document.getElementById('app-time').value,
+    status: document.getElementById('app-status').value || 'abierta',
+    notes: document.getElementById('app-notes').value.trim()
+  };
+  
+  if (!payload.patient_id || !payload.doctor_id || !payload.scheduled_date || !payload.scheduled_time) {
+    toast('warning', 'Faltan campos obligatorios'); return;
+  }
+  
+  const isEdit = !!appId;
+  const url = isEdit ? `/api/appointments/${appId}` : '/api/appointments';
+  const method = isEdit ? 'PUT' : 'POST';
+
+  const res = await api(method, url, payload);
+  if (res.success) {
+    toast('success', isEdit ? 'Cita actualizada correctamente' : 'Cita agendada correctamente');
+    closeModal('modal-new-appointment');
+    loadAppointments();
+  } else {
+    toast('error', res.error || 'Error al guardar cita');
+  }
+}
+
+async function cancelAppointment(id) {
+  if (!confirm('¿Desea cancelar esta cita?')) return;
+  const res = await api('POST', `/api/appointments/${id}/status`, { status: 'cancelada' });
+  if (res.success) {
+    toast('success', 'Cita cancelada');
+    loadAppointments();
+  } else {
+    toast('error', 'Error al cancelar');
+  }
+}
+
+// RECETAS MÉDICAS
+function openPrescriptionModal() {
+  STATE.rxList = [];
+  renderRxList();
+  document.getElementById('rx-medication').value = '';
+  document.getElementById('rx-dosage').value = '';
+  document.getElementById('rx-frequency').value = '';
+  document.getElementById('rx-days').value = '';
+  document.getElementById('rx-quantity').value = '';
+  document.getElementById('rx-notes').value = '';
+  openModal('modal-prescription');
+}
+
+function addMedicationToList() {
+  const med = document.getElementById('rx-medication').value.trim();
+  const dos = document.getElementById('rx-dosage').value.trim();
+  const freq = document.getElementById('rx-frequency').value.trim();
+  const days = document.getElementById('rx-days').value;
+  const qty = document.getElementById('rx-quantity').value;
+  const notes = document.getElementById('rx-notes').value.trim();
+  
+  if (!med || !dos || !freq || !days || !qty) {
+    toast('warning', 'Completa los campos obligatorios (*) del medicamento.');
+    return;
+  }
+  
+  STATE.rxList.push({ med, dos, freq, days, qty, notes });
+  renderRxList();
+  
+  document.getElementById('rx-medication').value = '';
+  document.getElementById('rx-dosage').value = '';
+  document.getElementById('rx-frequency').value = '';
+  document.getElementById('rx-days').value = '';
+  document.getElementById('rx-quantity').value = '';
+  document.getElementById('rx-notes').value = '';
+}
+
+function removeMedication(index) {
+  STATE.rxList.splice(index, 1);
+  renderRxList();
+}
+
+function renderRxList() {
+  const el = document.getElementById('rx-list');
+  if (STATE.rxList.length === 0) {
+    el.innerHTML = `<p style="color:var(--text-muted); font-size:13px; text-align:center; padding-top:20px;">No hay medicamentos en la receta.</p>`;
+    return;
+  }
+  
+  el.innerHTML = STATE.rxList.map((r, i) => `
+    <div style="background:var(--bg-card); padding:10px; margin-bottom:10px; border-radius:6px; border:1px solid var(--border); display:flex; justify-content:space-between;">
+      <div>
+        <div style="font-weight:bold;">${r.med}</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+          ${r.dos} | ${r.freq} | x${r.days} días | Cant: ${r.qty}
+          ${r.notes ? `<br/><i>Nota: ${r.notes}</i>` : ''}
+        </div>
+      </div>
+      <button class="btn-icon" style="color:var(--danger);" onclick="removeMedication(${i})"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  `).join('');
+}
+
+async function savePrescription() {
+  if (STATE.rxList.length === 0) {
+    toast('warning', 'Añade al menos un medicamento a la receta.');
+    return;
+  }
+  if (!STATE.currentVisitId) {
+    toast('error', 'Error: No hay visita activa.');
+    return;
+  }
+  
+  const btn = event.target;
+  const orig = btn.textContent;
+  btn.textContent = 'Guardando...';
+  btn.disabled = true;
+  
+  let successCount = 0;
+  for (const rx of STATE.rxList) {
+    const res = await api('POST', `/api/visits/${STATE.currentVisitId}/prescription`, {
+      medication: rx.med,
+      dosage: rx.dos,
+      frequency: rx.freq,
+      duration_days: rx.days,
+      quantity: rx.qty,
+      notes: rx.notes
+    });
+    if (res.success) successCount++;
+  }
+  
+  btn.textContent = orig;
+  btn.disabled = false;
+  
+  if (successCount === STATE.rxList.length) {
+    toast('success', 'Receta guardada correctamente en el historial.');
+    closeModal('modal-prescription');
+  } else {
+    toast('error', 'Ocurrió un error al guardar algunos medicamentos.');
+  }
 }
 
 // HISTORIAL
