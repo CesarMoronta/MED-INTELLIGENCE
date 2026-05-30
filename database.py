@@ -1,11 +1,11 @@
 """
-database.py — Capa de acceso a datos para MED-INTELLIGENCE PRO v2.0
+database.py — Capa de acceso a datos para MED-INTELLIGENCE PRO v3.0
 Gestiona todas las operaciones con SQL Server via pyodbc.
 """
 import os
 import json
 import pyodbc
-from datetime import datetime
+from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # ─── Cadena de conexión ───────────────────────────────────────────────────────
@@ -290,18 +290,18 @@ def list_users() -> list:
 def add_patient(cedula: str, name: str, dob: str, gender: str,
                 antecedentes: dict, phone: str = None,
                 blood_type: str = None, registered_by: int = None) -> bool:
-    conn   = get_connection()
-    cursor = conn.cursor()
+    """Crea un nuevo paciente. Retorna True si tuvo éxito, False si ya existe."""
+    conn      = get_connection()
+    cursor    = conn.cursor()
+    patient_id = None
     try:
         cursor.execute(
             "EXEC dbo.sp_create_patient ?, ?, ?, ?, ?, ?, ?",
             cedula, name, dob, gender, phone, blood_type, registered_by
         )
-        row = cursor.fetchone()
+        row        = cursor.fetchone()
         patient_id = int(row[0]) if row else None
     except pyodbc.IntegrityError:
-        cursor.close()
-        conn.close()
         return False
     finally:
         cursor.close()
@@ -544,7 +544,8 @@ def get_visit(visit_id: int) -> dict | None:
         "doctor_id": row[12], "doctor_username": row[13], "doctor_fullname": row[14],
         "diagnosis_id": row[15], "diagnosis_phase": row[16],
         "diagnosis_primary": row[17], "diagnosis_probability": row[18],
-        "alert_level": row[19], "alert_color": row[20], "specialist": row[21]
+        "alert_level": row[19], "alert_color": row[20], "specialist": row[21],
+        "parent_appointment_id": row[22]
     }
 
     # Constantes vitales
@@ -608,15 +609,21 @@ def list_visits(patient_id: int = None, doctor_id: int = None, limit: int = 100)
 def save_diagnosis(visit_id: int, phase: str, diagnosis_primary: str,
                    probability: float, alert_level: str, alert_color: str,
                    specialist: str, differentials: dict = None,
-                   clinical_report: str = None) -> int | None:
+                   clinical_report: str = None,
+                   is_refuted: bool = False,
+                   refutation_reason: str = None,
+                   doctor_override_diagnosis: str = None) -> int | None:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_save_diagnosis ?, ?, ?, ?, ?, ?, ?, ?, ?",
+        "EXEC dbo.sp_save_diagnosis ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
         visit_id, phase, diagnosis_primary, probability,
         alert_level, alert_color, specialist,
         json.dumps(differentials, ensure_ascii=False) if differentials else None,
-        clinical_report
+        clinical_report,
+        1 if is_refuted else 0,
+        refutation_reason,
+        doctor_override_diagnosis
     )
     row = cursor.fetchone()
     diag_id = int(row[0]) if row else None
@@ -635,9 +642,11 @@ def get_clinical_report(diagnosis_id: int):
     return row[0] if row else None
 
 
-def list_clinical_history(limit: int = 200) -> list:
+def list_clinical_history(limit: int = 200, doctor_id: int = None) -> list:
+    """Lista historial clínico. Si doctor_id se especifica, filtra por doctor."""
     conn   = get_connection()
     cursor = conn.cursor()
+    where  = f"WHERE doctor_id = {int(doctor_id)}" if doctor_id else ""
     cursor.execute(
         f"""SELECT TOP ({limit})
                diagnosis_id, visit_id, phase, diagnosis_primary, probability,
@@ -646,6 +655,7 @@ def list_clinical_history(limit: int = 200) -> list:
                patient_id, patient_cedula, patient_name,
                doctor_id, doctor_username, doctor_fullname
             FROM dbo.vw_clinical_history
+            {where}
             ORDER BY diagnosis_date DESC"""
     )
     rows = rows_to_dicts(cursor)
@@ -842,23 +852,32 @@ def set_clinic_name(name: str):
 
 # APPOINTMENTS
 
-def list_appointments(doctor_id: int = None) -> list:
-    conn = get_connection()
+def list_appointments(doctor_id: int = None, date_filter: str = None) -> list:
+    """Lista citas. Filtra por doctor y/o fecha si se especifican."""
+    conn   = get_connection()
     cursor = conn.cursor()
-    query = """
-        SELECT a.id, a.patient_id, a.doctor_id, a.scheduled_date, a.scheduled_time, a.status, a.notes,
+    query  = """
+        SELECT a.id, a.patient_id, a.doctor_id, a.scheduled_date, a.scheduled_time,
+               a.status, a.notes, a.confirmed, a.parent_appointment_id,
                p.name AS patient_name, p.cedula AS patient_cedula,
-               u.full_name AS doctor_name
+               u.full_name AS doctor_fullname
         FROM dbo.appointments a
         JOIN dbo.patients p ON a.patient_id = p.id
-        JOIN dbo.users u ON a.doctor_id = u.id
+        JOIN dbo.users    u ON a.doctor_id  = u.id
     """
-    params = []
+    where_clauses = []
+    params        = []
     if doctor_id:
-        query += " WHERE a.doctor_id = ?"
+        where_clauses.append("a.doctor_id = ?")
         params.append(doctor_id)
+    if date_filter:
+        where_clauses.append("CAST(a.scheduled_date AS DATE) = CAST(? AS DATE)")
+        params.append(date_filter)
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
     query += " ORDER BY a.scheduled_date ASC, a.scheduled_time ASC"
-    
+
     cursor.execute(query, *params)
     rows = rows_to_dicts(cursor)
     cursor.close()
@@ -866,14 +885,15 @@ def list_appointments(doctor_id: int = None) -> list:
     for r in rows:
         r["scheduled_date"] = _fmt_date(r.get("scheduled_date"))
         r["scheduled_time"] = str(r.get("scheduled_time")) if r.get("scheduled_time") else None
+        r["confirmed"]      = bool(r.get("confirmed", False))
     return rows
 
-def create_appointment(patient_id: int, doctor_id: int, scheduled_date: str, scheduled_time: str, notes: str = None) -> int:
+def create_appointment(patient_id: int, doctor_id: int, scheduled_date: str, scheduled_time: str, notes: str = None, parent_appointment_id: int = None) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO dbo.appointments (patient_id, doctor_id, scheduled_date, scheduled_time, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?)",
-        patient_id, doctor_id, scheduled_date, scheduled_time, notes
+        "INSERT INTO dbo.appointments (patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_appointment_id) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?)",
+        patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_appointment_id
     )
     app_id = int(cursor.fetchone()[0])
     cursor.close()
@@ -915,11 +935,13 @@ def reschedule_appointment(appointment_id: int, new_date: str, new_time: str) ->
 
 # PRESCRIPTIONS
 
-def add_prescription(visit_id: int, medication: str, dosage: str, frequency: str, duration_days: int, quantity: int, notes: str = None) -> int:
-    conn = get_connection()
+def add_prescription(visit_id: int, medication: str, dosage: str, frequency: str,
+                    duration_days: int, quantity: int, notes: str = None) -> int:
+    conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO dbo.prescriptions (visit_id, medication, dosage, frequency, duration_days, quantity, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO dbo.prescriptions (visit_id, medication, dosage, frequency, "
+        "duration_days, quantity, notes) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
         visit_id, medication, dosage, frequency, duration_days, quantity, notes
     )
     pid = int(cursor.fetchone()[0])
@@ -927,11 +949,13 @@ def add_prescription(visit_id: int, medication: str, dosage: str, frequency: str
     conn.close()
     return pid
 
+
 def get_prescriptions_for_visit(visit_id: int) -> list:
-    conn = get_connection()
+    conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, medication, dosage, frequency, duration_days, quantity, notes FROM dbo.prescriptions WHERE visit_id = ?",
+        "SELECT id, medication, dosage, frequency, duration_days, quantity, notes "
+        "FROM dbo.prescriptions WHERE visit_id = ?",
         visit_id
     )
     rows = rows_to_dicts(cursor)
@@ -939,9 +963,34 @@ def get_prescriptions_for_visit(visit_id: int) -> list:
     conn.close()
     return rows
 
+
+# Alias para uso en pdf_routes
+def get_prescriptions(visit_id: int) -> list:
+    return get_prescriptions_for_visit(visit_id)
+
+
+def get_visit_tests(visit_id: int) -> list:
+    """Retorna los tests/exámenes de una visita."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT test_name, was_done, result, result_value, notes "
+        "FROM dbo.visit_tests WHERE visit_id = ?",
+        visit_id
+    )
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    return rows
+
+
+def get_visit_with_details(visit_id: int) -> dict | None:
+    """Alias de get_visit para mayor claridad semántica."""
+    return get_visit(visit_id)
+
 # DASHBOARD STATS
 
-def get_dashboard_stats() -> dict:
+def get_dashboard_stats(user_id: int = None, role: str = None) -> dict:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -949,40 +998,485 @@ def get_dashboard_stats() -> dict:
         "active_doctors, total_admins, red_alerts FROM dbo.vw_dashboard_stats"
     )
     row = cursor.fetchone()
+
+    # Diagnóstico más frecuente
+    cursor.execute(
+        "SELECT TOP 1 diagnosis_primary, COUNT(*) AS cnt "
+        "FROM dbo.diagnoses WHERE phase='final' "
+        "GROUP BY diagnosis_primary ORDER BY cnt DESC"
+    )
+    mc_row     = cursor.fetchone()
+    most_common = mc_row[0] if mc_row else None
+
     cursor.close()
     conn.close()
-    if not row:
-        return {}
-    return {
-        "total_patients":    row[0],
-        "total_visits":      row[1],
-        "total_emergencias": row[2],
-        "total_diagnoses":   row[3],
-        "active_doctors":    row[4],
-        "total_admins":      row[5],
-        "red_alerts":        row[6]
+
+    base = {
+        "total_patients":    row[0] if row else 0,
+        "total_visits":      row[1] if row else 0,
+        "total_emergencias": row[2] if row else 0,
+        "total_diagnoses":   row[3] if row else 0,
+        "active_doctors":    row[4] if row else 0,
+        "total_admins":      row[5] if row else 0,
+        "red_alerts":        row[6] if row else 0,
+        "most_common":       most_common,
+        "is_doctor":         role == "doctor",
     }
 
+    if role == "doctor" and user_id:
+        doctor_stats = get_doctor_dashboard_stats(user_id)
+        base.update(doctor_stats)
+
+    return base
+
+
 def get_doctor_dashboard_stats(doctor_id: int) -> dict:
-    conn = get_connection()
+    conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT 
-            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS citas_hoy,
-            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status = 'abierta' THEN 1 ELSE 0 END) AS citas_pendientes,
-            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status = 'completada' THEN 1 ELSE 0 END) AS citas_hechas,
-            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(DATEADD(day, 1, GETDATE()) AS DATE) THEN 1 ELSE 0 END) AS citas_manana
+        SELECT
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END),
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status='abierta' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(GETDATE() AS DATE) AND status='completada' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN CAST(scheduled_date AS DATE) = CAST(DATEADD(day,1,GETDATE()) AS DATE) THEN 1 ELSE 0 END)
         FROM dbo.appointments
         WHERE doctor_id = ? AND status != 'cancelada'
     """, doctor_id)
     row = cursor.fetchone()
     cursor.close()
     conn.close()
-    if not row:
-        return {"citas_hoy": 0, "citas_pendientes": 0, "citas_hechas": 0, "citas_manana": 0}
     return {
         "citas_hoy": row[0] or 0,
         "citas_pendientes": row[1] or 0,
         "citas_hechas": row[2] or 0,
-        "citas_manana": row[3] or 0
+        "citas_manana": row[3] or 0,
+    } if row else {"citas_hoy": 0, "citas_pendientes": 0, "citas_hechas": 0, "citas_manana": 0}
+
+
+# ─── DASHBOARD CHARTS ─────────────────────────────────────────────────────────
+
+def get_dashboard_charts(doctor_id: int = None) -> dict:
+    """Retorna datos para todas las gráficas del dashboard admin/doctor."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    where  = f"AND ev.doctor_id = {int(doctor_id)}" if doctor_id else ""
+
+    # 1. Visitas por semana (últimas 8 semanas)
+    cursor.execute(f"""
+        SELECT
+            DATEPART(YEAR,  visit_date) AS yr,
+            DATEPART(WEEK,  visit_date) AS wk,
+            COUNT(*) AS total
+        FROM dbo.emergency_visits ev
+        WHERE visit_date >= DATEADD(WEEK, -8, GETDATE()) {where}
+        GROUP BY DATEPART(YEAR, visit_date), DATEPART(WEEK, visit_date)
+        ORDER BY yr ASC, wk ASC
+    """)
+    visits_by_week = [
+        {"year": r[0], "week": r[1], "total": r[2]}
+        for r in cursor.fetchall()
+    ]
+
+    # 2. Diagnósticos más frecuentes (top 8)
+    doc_filter = f"AND ev.doctor_id = {int(doctor_id)}" if doctor_id else ""
+    cursor.execute(f"""
+        SELECT TOP 8 d.diagnosis_primary, COUNT(*) AS cnt
+        FROM dbo.diagnoses d
+        JOIN dbo.emergency_visits ev ON d.visit_id = ev.id
+        WHERE d.phase = 'final' {doc_filter}
+        GROUP BY d.diagnosis_primary
+        ORDER BY cnt DESC
+    """)
+    diag_dist = [
+        {"diagnosis": r[0], "count": r[1]}
+        for r in cursor.fetchall()
+    ]
+
+    # 3. Nuevos pacientes por mes (últimos 6 meses)
+    cursor.execute("""
+        SELECT
+            YEAR(created_at)  AS yr,
+            MONTH(created_at) AS mo,
+            COUNT(*) AS total
+        FROM dbo.patients
+        WHERE created_at >= DATEADD(MONTH, -6, GETDATE())
+        GROUP BY YEAR(created_at), MONTH(created_at)
+        ORDER BY yr ASC, mo ASC
+    """)
+    patients_growth = [
+        {"year": r[0], "month": r[1], "total": r[2]}
+        for r in cursor.fetchall()
+    ]
+
+    # 4. Emergencias vs Consultas (últimos 6 meses)
+    cursor.execute(f"""
+        SELECT visit_type, COUNT(*) AS total
+        FROM dbo.emergency_visits ev
+        WHERE visit_date >= DATEADD(MONTH, -6, GETDATE()) {where}
+        GROUP BY visit_type
+    """)
+    visit_types = {r[0]: r[1] for r in cursor.fetchall()}
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "visits_by_week":  visits_by_week,
+        "diag_distribution": diag_dist,
+        "patients_growth": patients_growth,
+        "visit_types":     visit_types,
     }
+
+
+# ─── SETTINGS AVANZADOS ───────────────────────────────────────────────────────
+
+SETTINGS_KEYS = [
+    "clinic_name", "clinic_address", "clinic_phone",
+    "clinic_rnc",  "clinic_hours",   "clinic_email",
+]
+
+
+def get_all_clinic_settings() -> dict:
+    """Retorna todos los ajustes del consultorio como dict {key: value}."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT key_name, key_value FROM dbo.system_config")
+    settings = {row[0]: row[1] for row in cursor.fetchall()}
+    cursor.close()
+    conn.close()
+    # Defaults
+    defaults = {k: "" for k in SETTINGS_KEYS}
+    defaults["clinic_name"] = "Consultorio Médico"
+    defaults.update(settings)
+    return defaults
+
+
+def set_clinic_settings(settings: dict):
+    """Guarda múltiples ajustes en batch."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    for key, value in settings.items():
+        cursor.execute(
+            "IF EXISTS (SELECT 1 FROM dbo.system_config WHERE key_name=?) "
+            "  UPDATE dbo.system_config SET key_value=?, updated_at=SYSUTCDATETIME() WHERE key_name=? "
+            "ELSE "
+            "  INSERT INTO dbo.system_config (key_name, key_value) VALUES (?, ?)",
+            key, value, key, key, value
+        )
+    cursor.close()
+    conn.close()
+
+
+# ─── SALA DE ESPERA ───────────────────────────────────────────────────────────
+
+def get_waiting_room(doctor_id: int = None) -> list:
+    """Citas del día ordenadas por hora de llegada."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    where  = "AND a.doctor_id = ?" if doctor_id else ""
+    params = [doctor_id] if doctor_id else []
+    cursor.execute(
+        f"""
+        SELECT a.id, a.patient_id, a.scheduled_date, a.scheduled_time, a.status,
+               a.notes, a.confirmed,
+               p.name AS patient_name, p.cedula AS patient_cedula,
+               u.full_name AS doctor_fullname
+        FROM dbo.appointments a
+        JOIN dbo.patients p ON a.patient_id = p.id
+        JOIN dbo.users    u ON a.doctor_id  = u.id
+        WHERE CAST(a.scheduled_date AS DATE) = CAST(GETDATE() AS DATE)
+          AND a.status NOT IN ('cancelada')
+          {where}
+        ORDER BY a.scheduled_time ASC
+        """,
+        *params
+    )
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["scheduled_date"] = _fmt_date(r.get("scheduled_date"))
+        r["scheduled_time"] = str(r.get("scheduled_time"))[:5] if r.get("scheduled_time") else None
+        r["confirmed"]      = bool(r.get("confirmed", False))
+    return rows
+
+
+def mark_patient_arrived(appointment_id: int) -> bool:
+    """Registra que el paciente llegó a la sala de espera."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE dbo.appointments SET status='en_curso', updated_at=SYSUTCDATETIME() "
+            "WHERE id=? AND status='abierta'",
+            appointment_id
+        )
+        rows = cursor.rowcount
+    finally:
+        cursor.close()
+        conn.close()
+    return rows > 0
+
+
+def confirm_appointment(appointment_id: int, notes: str = "") -> bool:
+    """Confirma la asistencia a la cita."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE dbo.appointments "
+            "SET confirmed=1, notes=COALESCE(NULLIF(?,N''), notes), updated_at=SYSUTCDATETIME() "
+            "WHERE id=?",
+            notes, appointment_id
+        )
+        rows = cursor.rowcount
+    finally:
+        cursor.close()
+        conn.close()
+    return rows > 0
+
+
+# ─── PERFIL ENRIQUECIDO DEL PACIENTE ─────────────────────────────────────────
+
+def get_patient_vitals_history(patient_id: int, limit: int = 10) -> list:
+    """Devuelve las últimas N visitas con sus constantes vitales."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"""SELECT TOP ({limit})
+               ev.id AS visit_id, ev.visit_date, ev.visit_type,
+               vv.name AS vital_name, vv.value, vv.unit
+            FROM dbo.emergency_visits ev
+            JOIN dbo.visit_vitals vv ON vv.visit_id = ev.id
+            WHERE ev.patient_id = ?
+            ORDER BY ev.visit_date DESC""",
+        patient_id
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Agrupar por visita
+    visits: dict = {}
+    for row in rows:
+        vid = row[0]
+        if vid not in visits:
+            visits[vid] = {
+                "visit_id":   vid,
+                "visit_date": _fmt_date(row[1]),
+                "visit_type": row[2],
+                "vitals":     {}
+            }
+        visits[vid]["vitals"][row[3]] = float(row[4])
+    return list(visits.values())
+
+
+def get_active_medications(patient_id: int) -> list:
+    """Recetas aún vigentes (fecha visita + duration_days >= hoy)."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT p.id, p.medication, p.dosage, p.frequency, p.duration_days,
+               p.quantity, p.notes, ev.visit_date,
+               DATEADD(DAY, p.duration_days, CAST(ev.visit_date AS DATE)) AS expires_on
+        FROM dbo.prescriptions p
+        JOIN dbo.emergency_visits ev ON ev.id = p.visit_id
+        WHERE ev.patient_id = ?
+          AND DATEADD(DAY, p.duration_days, CAST(ev.visit_date AS DATE)) >= CAST(GETDATE() AS DATE)
+        ORDER BY ev.visit_date DESC
+        """,
+        patient_id
+    )
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["visit_date"]  = _fmt_date(r.get("visit_date"))
+        r["expires_on"]  = _fmt_date(r.get("expires_on"))
+    return rows
+
+
+def get_patient_red_alerts(patient_id: int) -> list:
+    """Diagnósticos en alerta Roja anteriores del paciente."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT d.id, d.diagnosis_primary, d.probability, d.alert_level,
+               d.alert_color, d.specialist, d.created_at, ev.visit_date,
+               u.full_name AS doctor_fullname
+        FROM dbo.diagnoses d
+        JOIN dbo.emergency_visits ev ON ev.id = d.visit_id
+        JOIN dbo.users u ON u.id = ev.doctor_id
+        WHERE ev.patient_id = ? AND d.alert_level = 'Rojo' AND d.phase = 'final'
+        ORDER BY d.created_at DESC
+        """,
+        patient_id
+    )
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["created_at"] = _fmt_date(r.get("created_at"))
+        r["visit_date"] = _fmt_date(r.get("visit_date"))
+    return rows
+
+
+# ─── DOCUMENTOS DEL PACIENTE ──────────────────────────────────────────────────
+
+def list_patient_documents(patient_id: int) -> list:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """SELECT d.id, d.patient_id, d.filename, d.original_name, d.file_type,
+                      d.file_size, d.file_path, d.uploaded_at,
+                      u.full_name AS uploaded_by_name
+               FROM dbo.patient_documents d
+               LEFT JOIN dbo.users u ON u.id = d.uploaded_by
+               WHERE d.patient_id = ?
+               ORDER BY d.uploaded_at DESC""",
+            patient_id
+        )
+        rows = rows_to_dicts(cursor)
+    except Exception:
+        rows = []
+    finally:
+        cursor.close()
+        conn.close()
+    for r in rows:
+        r["uploaded_at"] = _fmt_date(r.get("uploaded_at"))
+    return rows
+
+
+def add_patient_document(patient_id: int, filename: str, original_name: str,
+                         file_type: str, file_size: int,
+                         file_path: str, uploaded_by: int) -> int:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dbo.patient_documents "
+        "(patient_id, filename, original_name, file_type, file_size, file_path, uploaded_by) "
+        "OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?, ?)",
+        patient_id, filename, original_name, file_type, file_size, file_path, uploaded_by
+    )
+    doc_id = int(cursor.fetchone()[0])
+    cursor.close()
+    conn.close()
+    return doc_id
+
+
+def get_patient_document(doc_id: int) -> dict | None:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, patient_id, filename, original_name, file_type, file_size, file_path, uploaded_at "
+        "FROM dbo.patient_documents WHERE id = ?",
+        doc_id
+    )
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0], "patient_id": row[1], "filename": row[2],
+        "original_name": row[3], "file_type": row[4],
+        "file_size": row[5], "file_path": row[6],
+        "uploaded_at": _fmt_date(row[7])
+    }
+
+
+def delete_patient_document(doc_id: int) -> bool:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM dbo.patient_documents WHERE id = ?", doc_id)
+    rows   = cursor.rowcount
+    cursor.close()
+    conn.close()
+    return rows > 0
+
+
+# ─── NOTIFICACIONES / CHAT INTERNO ───────────────────────────────────────────
+
+def get_notifications(user_id: int, limit: int = 30) -> list:
+    """Obtiene notificaciones del usuario (recibidas o enviadas por él)."""
+    conn   = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"""SELECT TOP ({limit})
+                   n.id, n.from_user_id, n.to_user_id, n.message,
+                   n.type, n.is_read, n.created_at,
+                   uf.full_name AS from_name,
+                   ut.full_name AS to_name
+               FROM dbo.notifications n
+               LEFT JOIN dbo.users uf ON uf.id = n.from_user_id
+               LEFT JOIN dbo.users ut ON ut.id = n.to_user_id
+               WHERE n.to_user_id = ? OR n.from_user_id = ?
+               ORDER BY n.created_at DESC""",
+            user_id, user_id
+        )
+        rows = rows_to_dicts(cursor)
+    except Exception:
+        rows = []
+    finally:
+        cursor.close()
+        conn.close()
+    for r in rows:
+        r["created_at"] = _fmt_date(r.get("created_at"))
+        r["is_read"]    = bool(r.get("is_read", False))
+    return rows
+
+
+def get_unread_count(user_id: int) -> int:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT COUNT(1) FROM dbo.notifications WHERE to_user_id=? AND is_read=0",
+            user_id
+        )
+        row = cursor.fetchone()
+    except Exception:
+        row = None
+    finally:
+        cursor.close()
+        conn.close()
+    return row[0] if row else 0
+
+
+def create_notification(from_user_id: int, to_user_id: int,
+                        message: str, notif_type: str = "message") -> int:
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dbo.notifications (from_user_id, to_user_id, message, type) "
+        "OUTPUT INSERTED.id VALUES (?, ?, ?, ?)",
+        from_user_id, to_user_id, message, notif_type
+    )
+    nid = int(cursor.fetchone()[0])
+    cursor.close()
+    conn.close()
+    return nid
+
+
+def mark_notification_read(notification_id: int):
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE dbo.notifications SET is_read=1 WHERE id=?", notification_id
+    )
+    cursor.close()
+    conn.close()
+
+
+def mark_all_notifications_read(user_id: int):
+    conn   = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE dbo.notifications SET is_read=1 WHERE to_user_id=?", user_id
+    )
+    cursor.close()
+    conn.close()

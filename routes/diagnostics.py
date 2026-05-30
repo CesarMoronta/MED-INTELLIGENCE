@@ -2,25 +2,39 @@ from flask import Blueprint, request, jsonify
 from extensions import engine
 from database import save_diagnosis, save_visit_tests, get_medical_tests
 from diagnostic_engine import OfflineAIEngine, CLINICAL_METADATA
-from utils import requires_login
+from utils import requires_login, get_current_user
 
 diagnostics_bp = Blueprint("diagnostics_bp", __name__)
+
+
+def _block_secretaria():
+    """Retorna 403 si el usuario actual es secretaria."""
+    from utils import get_current_user
+    u = get_current_user()
+    if u.get("role") == "secretaria":
+        return jsonify({"success": False, "error": "Permiso denegado."}), 403
+    return None
+
 
 @diagnostics_bp.route("/api/diagnose/preliminar", methods=["POST"])
 @requires_login
 def api_diagnose_preliminar():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
     data         = request.json or {}
     antecedentes = data.get("antecedentes", {})
     sintomas     = data.get("sintomas", {})
     constantes   = data.get("constantes", {})
 
-    edad       = int(constantes.get("edad") or data.get("edad") or 30)
+    edad        = int(constantes.get("edad") or data.get("edad") or 30)
     temperatura = float(constantes.get("temperatura") or data.get("temperatura") or 37.0)
-    spo2       = int(constantes.get("spo2") or data.get("spo2") or 98)
-    pas        = int(constantes.get("pas") or data.get("pas") or 120)
-    pad        = int(constantes.get("pad") or data.get("pad") or 80)
-    fc         = int(constantes.get("fc") or data.get("fc") or 80)
-    fr         = int(constantes.get("fr") or data.get("fr") or 16)
+    spo2        = int(constantes.get("spo2") or data.get("spo2") or 98)
+    pas         = int(constantes.get("pas") or data.get("pas") or 120)
+    pad         = int(constantes.get("pad") or data.get("pad") or 80)
+    fc          = int(constantes.get("fc") or data.get("fc") or 80)
+    fr          = int(constantes.get("fr") or data.get("fr") or 16)
 
     constantes_dict = {
         "edad": edad, "temperatura": temperatura, "spo2": spo2,
@@ -36,8 +50,8 @@ def api_diagnose_preliminar():
             custom_priors, custom_conditionals
         )
         diagnostico_preliminar = max(probabilidades, key=probabilidades.get)
-        meta       = CLINICAL_METADATA.get(diagnostico_preliminar, {})
-        raw_tests  = meta.get("clinical_tests", [])
+        meta      = CLINICAL_METADATA.get(diagnostico_preliminar, {})
+        raw_tests = meta.get("clinical_tests", [])
         clean_tests = []
         for t in raw_tests:
             if "**" in t:
@@ -56,9 +70,14 @@ def api_diagnose_preliminar():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
 @diagnostics_bp.route("/api/diagnose/final", methods=["POST"])
 @requires_login
 def api_diagnose_final():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
     data              = request.json or {}
     patient_id        = data.get("patient_id")
     patient_name      = data.get("patient_name", "Paciente Anónimo")
@@ -77,7 +96,7 @@ def api_diagnose_final():
             preliminar_probs, tests_resultados
         )
 
-        diagnostico = max(probabilidades, key=probabilidades.get)
+        diagnostico  = max(probabilidades, key=probabilidades.get)
         probabilidad = probabilidades[diagnostico]
 
         sintomas_activos     = [s for s, pres in sintomas.items() if pres]
@@ -91,7 +110,12 @@ def api_diagnose_final():
 
         meta = CLINICAL_METADATA.get(diagnostico, {})
 
-        if visit_id:
+        is_refuted = data.get("is_refuted", False)
+        refutation_reason = data.get("refutation_reason")
+        doctor_override_diagnosis = data.get("doctor_override_diagnosis")
+        should_save = data.get("save_diagnosis", False)
+
+        if visit_id and should_save:
             save_diagnosis(
                 visit_id=int(visit_id),
                 phase="final",
@@ -101,7 +125,10 @@ def api_diagnose_final():
                 alert_color=meta.get("color", "#10b981"),
                 specialist=meta.get("specialist", "Medicina General"),
                 differentials=probabilidades,
-                clinical_report=explicacion
+                clinical_report=explicacion,
+                is_refuted=is_refuted,
+                refutation_reason=refutation_reason,
+                doctor_override_diagnosis=doctor_override_diagnosis
             )
             if tests_resultados:
                 save_visit_tests(int(visit_id), tests_resultados)
@@ -126,15 +153,23 @@ def api_diagnose_final():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
 @diagnostics_bp.route("/api/clinical_metadata/<disease>", methods=["GET"])
 @requires_login
 def api_clinical_metadata(disease):
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
     meta = CLINICAL_METADATA.get(disease)
     if not meta:
         return jsonify({"success": False, "error": "Enfermedad no encontrada."}), 404
     return jsonify({"success": True, "disease": disease, "metadata": meta})
 
+
 @diagnostics_bp.route("/api/medical_tests", methods=["GET"])
 @requires_login
 def api_get_medical_tests():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
     return jsonify({"success": True, "tests": get_medical_tests()})

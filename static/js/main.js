@@ -169,7 +169,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (STATE.user.role === 'doctor') {
     loadDashboard();
   } else if (STATE.user.role === 'secretaria') {
-    switchTab('appointments');
+    switchTab('waiting-room');
+    loadWaitingRoom();
   } else {
     switchTab('admin-dashboard');
   }
@@ -189,8 +190,9 @@ function setupUI() {
   document.getElementById('profile-avatar').textContent = first;
   document.getElementById('profile-name').textContent   = u.full_name || u.username;
   const roleEl = document.getElementById('profile-role');
-  roleEl.textContent  = u.role === 'admin' ? '⚙️ Administrador' : '🩺 Doctor';
-  roleEl.className    = `profile-role ${u.role}`;
+  const roleLabels = { admin: '⚙️ Administrador', doctor: '🩺 Doctor', secretaria: '📋 Secretaría' };
+  roleEl.textContent = roleLabels[u.role] || u.role;
+  roleEl.className   = `profile-role ${u.role}`;
 
   // Mostrar navegación según rol
   if (u.role === 'admin') {
@@ -200,9 +202,18 @@ function setupUI() {
     document.getElementById('nav-secretaria').style.display = 'block';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
   } else {
+    // doctor
     document.getElementById('nav-doctor').style.display = 'block';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
+    // Ocultar botón "Nuevo Paciente" para doctores
+    const btnNewPt = document.getElementById('btn-new-patient');
+    if (btnNewPt) btnNewPt.style.display = 'none';
   }
+
+  // Poblar selector de usuarios para notificaciones
+  loadNotifUserList();
+  // Cargar conteo de mensajes no leídos
+  loadUnreadCount();
 }
 
 async function handleLogout() {
@@ -248,6 +259,95 @@ async function loadAdminDashboard() {
   document.getElementById('adm-stat-diagnoses').textContent = s.total_diagnoses ?? '—';
   document.getElementById('adm-stat-red').textContent       = s.red_alerts      ?? '—';
   document.getElementById('adm-most-common').textContent    = s.most_common     || '—';
+
+  // Gráficas con Chart.js
+  renderAdminCharts(s);
+}
+
+function renderAdminCharts(s) {
+  const chartDefaults = {
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+    scales: {
+      x: { ticks: { color: '#475569' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: '#475569' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+    }
+  };
+
+  // 1. Visitas por semana (barras)
+  const ctxVisits = document.getElementById('chart-visits-week');
+  if (ctxVisits) {
+    if (ctxVisits._chartInstance) ctxVisits._chartInstance.destroy();
+    const visitLabels = s.visits_by_week?.labels || ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    const visitData   = s.visits_by_week?.data   || [0,0,0,0,0,0,0];
+    ctxVisits._chartInstance = new Chart(ctxVisits, {
+      type: 'bar',
+      data: {
+        labels: visitLabels,
+        datasets: [{ label: 'Visitas', data: visitData,
+          backgroundColor: 'rgba(59,130,246,0.4)', borderColor: '#3b82f6',
+          borderWidth: 1, borderRadius: 6 }]
+      },
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: true }
+    });
+  }
+
+  // 2. Top diagnósticos (dona)
+  const ctxDiag = document.getElementById('chart-diag-dist');
+  if (ctxDiag && s.top_diagnoses) {
+    if (ctxDiag._chartInstance) ctxDiag._chartInstance.destroy();
+    const colors = ['#3b82f6','#06b6d4','#10b981','#f59e0b','#8b5cf6','#ef4444'];
+    ctxDiag._chartInstance = new Chart(ctxDiag, {
+      type: 'doughnut',
+      data: {
+        labels: s.top_diagnoses.map(d => d.name),
+        datasets: [{ data: s.top_diagnoses.map(d => d.count),
+          backgroundColor: colors, borderColor: 'rgba(255,255,255,0.06)', borderWidth: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }
+      }
+    });
+  }
+
+  // 3. Nuevos pacientes / mes (línea)
+  const ctxGrowth = document.getElementById('chart-patients-growth');
+  if (ctxGrowth) {
+    if (ctxGrowth._chartInstance) ctxGrowth._chartInstance.destroy();
+    const labels = s.patients_by_month?.labels || [];
+    const pdata  = s.patients_by_month?.data   || [];
+    ctxGrowth._chartInstance = new Chart(ctxGrowth, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{ label: 'Nuevos Pacientes', data: pdata,
+          borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)',
+          fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#10b981' }]
+      },
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: true }
+    });
+  }
+
+  // 4. Consultas vs Emergencias (dona)
+  const ctxTypes = document.getElementById('chart-visit-types');
+  if (ctxTypes) {
+    if (ctxTypes._chartInstance) ctxTypes._chartInstance.destroy();
+    const consultas   = s.total_visits   - (s.total_emergencias || 0) || 0;
+    const emergencias = s.total_emergencias || 0;
+    ctxTypes._chartInstance = new Chart(ctxTypes, {
+      type: 'doughnut',
+      data: {
+        labels: ['Consultas', 'Emergencias'],
+        datasets: [{ data: [consultas, emergencias],
+          backgroundColor: ['rgba(59,130,246,0.6)', 'rgba(239,68,68,0.6)'],
+          borderColor: ['#3b82f6','#ef4444'], borderWidth: 2 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }
+      }
+    });
+  }
 }
 
 // PACIENTES
@@ -1001,14 +1101,78 @@ async function runPhase2() {
 
   if (!res.success) { toast('error', res.error || 'Error en diagnóstico final.'); return; }
 
+  // Guardar datos temporalmente para la decisión final
+  STATE.finalDiagnosisRes = res;
+  STATE.finalTestsResultados = testsResultados;
+
+  renderFinalResult(res);
+  toast('success', '✅ Diagnóstico final calculado. Verifique y finalice la consulta.');
+}
+
+function toggleRefutationFields(chk) {
+  const fields = document.getElementById('refutation-fields');
+  if (fields) fields.style.display = chk.checked ? 'block' : 'none';
+}
+
+async function saveFinalDecision(createPrescription) {
+  const btn1 = document.getElementById('btn-finish-prescribe');
+  const btn2 = document.getElementById('btn-finish-only');
+  if (btn1) btn1.disabled = true;
+  if (btn2) btn2.disabled = true;
+
+  const isRefuted = document.getElementById('chk-refute-ai')?.checked || false;
+  const doctorOverride = document.getElementById('doctor-override-diagnosis')?.value.trim();
+  const refutationReason = document.getElementById('refutation-reason')?.value.trim();
+
+  if (isRefuted && !doctorOverride) {
+    toast('warning', 'Si refutas el diagnóstico, debes escribir el diagnóstico médico real.');
+    if (btn1) btn1.disabled = false;
+    if (btn2) btn2.disabled = false;
+    return;
+  }
+
+  // Guardar usando /api/diagnose/final pero con save_diagnosis: true
+  const patientName = document.getElementById('diag-patient-name').value.trim() || 'Paciente Anónimo';
+  const motivoConsulta = document.getElementById('diag-motivo').value.trim() || 'Sin especificar';
+
+  const res = await api('POST', '/api/diagnose/final', {
+    patient_id: STATE.currentPatient?.id,
+    patient_name: patientName,
+    motivo_consulta: motivoConsulta,
+    visit_id: STATE.currentVisitId,
+    preliminar_probs: STATE.phase1Probs,
+    tests_resultados: STATE.finalTestsResultados,
+    sintomas: STATE.diagSintomas,
+    antecedentes: STATE.diagAntecedentes,
+    constantes: STATE.diagConstantes,
+    save_diagnosis: true,
+    is_refuted: isRefuted,
+    refutation_reason: refutationReason,
+    doctor_override_diagnosis: doctorOverride
+  });
+
+  if (!res.success) {
+    toast('error', res.error || 'Error al guardar el diagnóstico final.');
+    if (btn1) btn1.disabled = false;
+    if (btn2) btn2.disabled = false;
+    return;
+  }
+
   // Marcar la cita como completada
   const appId = document.getElementById('diag-appointment-id')?.value;
   if (appId) {
     api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
   }
 
-  renderFinalResult(res);
-  toast('success', '✅ Diagnóstico final calculado y guardado.');
+  toast('success', 'Consulta finalizada con éxito.');
+
+  if (createPrescription && STATE.currentPatient && STATE.currentVisitId) {
+    // Abrir modal de receta
+    openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+  } else {
+    // Limpiar para nueva consulta
+    resetDiagnose();
+  }
 }
 
 function renderFinalResult(res) {
@@ -1036,6 +1200,45 @@ function renderFinalResult(res) {
         <button class="btn-outline" onclick="openFullReport()">Ver en pantalla completa</button>
       </div>
       <div class="clinical-report" id="clinical-report-preview">${report}</div>
+    </div>
+    
+    <div class="section-card" style="margin-top:20px; border: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02);">
+      <div class="section-header">
+        <h2>⚖️ Decisión del Especialista</h2>
+        <span class="badge badge-verde" id="ai-accepted-badge">Diagnóstico IA Aceptado por defecto</span>
+      </div>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Si difieres del diagnóstico proporcionado por el motor bayesiano, puedes refutarlo e indicar el diagnóstico médico final.
+      </p>
+      
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="chk-refute-ai" onchange="toggleRefutationFields(this)" />
+          Refutar este diagnóstico de IA
+        </label>
+      </div>
+
+      <div id="refutation-fields" style="display:none; padding:16px; background:rgba(239, 68, 68, 0.05); border-radius:8px; margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Diagnóstico Final Real (Doctor)</label>
+          <input type="text" id="doctor-override-diagnosis" class="form-input" placeholder="Ej. Migraña Crónica" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motivo de Refutación Clínica</label>
+          <textarea id="refutation-reason" class="form-input" rows="2" placeholder="Ej. El paciente presenta historial de X, los exámenes descartan Y..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:24px; border-top:1px solid var(--border-color); padding-top:16px; justify-content: flex-start; gap: 12px;">
+        <button id="btn-finish-prescribe" class="btn-primary" onclick="saveFinalDecision(true)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-right:6px;vertical-align:middle;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Finalizar y Crear Receta
+        </button>
+        <button id="btn-finish-only" class="btn-secondary" onclick="saveFinalDecision(false)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-right:6px;vertical-align:middle;"><path d="M5 12l5 5L20 7"/></svg>
+          Solo Finalizar Consulta
+        </button>
+      </div>
     </div>
   `;
 
@@ -1209,7 +1412,7 @@ function renderCalendar() {
     
     return {
       id: a.id,
-      title: `${a.patient_name} - ${a.doctor_name}`,
+      title: `${a.patient_name} - ${a.doctor_fullname}`,
       start: startStr,
       end: endStr,
       color: color,
@@ -1243,9 +1446,12 @@ function renderAppointmentsTable(apps) {
     else statusBadge = `<span class="badge badge-amarillo">${a.status}</span>`;
     
     return `<tr>
-      <td><strong style="color:var(--text-primary)">${a.patient_name}</strong></td>
+      <td>
+        <strong style="color:var(--text-primary)">${a.patient_name}</strong>
+        ${a.parent_appointment_id ? '<span class="badge badge-amarillo" style="font-size:10px; margin-left:8px;">Seguimiento</span>' : ''}
+      </td>
       <td>${a.scheduled_date} ${a.scheduled_time || ''}</td>
-      <td>${a.doctor_name || '—'}</td>
+      <td>${a.doctor_fullname || '—'}</td>
       <td>${a.notes || '—'}</td>
       <td>${statusBadge}</td>
       <td style="display:flex; gap:6px;">
@@ -1270,12 +1476,15 @@ function openNewAppointmentModal() {
   document.getElementById('app-time').value = '';
   document.getElementById('app-status').value = 'abierta';
   document.getElementById('app-notes').value = '';
+  document.getElementById('app-parent-appointment').value = '';
   
   document.getElementById('app-status-group').style.display = 'none';
+  document.getElementById('app-parent-group').style.display = 'block';
   document.getElementById('modal-appointment-title').textContent = 'Agendar Nueva Cita';
   document.getElementById('btn-save-appointment').textContent = 'Agendar Cita';
   
   openModal('modal-new-appointment');
+  loadPatientFollowupAppointments();
 }
 
 function openEditAppointmentModal(id) {
@@ -1290,10 +1499,25 @@ function openEditAppointmentModal(id) {
   document.getElementById('app-notes').value = app.notes || '';
   
   document.getElementById('app-status-group').style.display = 'block';
+  document.getElementById('app-parent-group').style.display = 'none'; // No se edita el seguimiento
   document.getElementById('modal-appointment-title').textContent = 'Editar Cita';
   document.getElementById('btn-save-appointment').textContent = 'Guardar Cambios';
   
   openModal('modal-new-appointment');
+}
+
+function loadPatientFollowupAppointments() {
+  const patientId = document.getElementById('app-patient').value;
+  const select = document.getElementById('app-parent-appointment');
+  select.innerHTML = '<option value="">-- No es seguimiento --</option>';
+  if (!patientId || !STATE.allAppointments) return;
+
+  const pastCompleted = STATE.allAppointments.filter(a => a.patient_id == patientId && a.status === 'completada');
+  pastCompleted.sort((a,b) => new Date(b.scheduled_date) - new Date(a.scheduled_date));
+
+  pastCompleted.forEach(a => {
+    select.innerHTML += `<option value="${a.id}">${fmtDate(a.scheduled_date)} - Dr. ${a.doctor_fullname}</option>`;
+  });
 }
 
 async function saveAppointment() {
@@ -1304,7 +1528,8 @@ async function saveAppointment() {
     scheduled_date: document.getElementById('app-date').value,
     scheduled_time: document.getElementById('app-time').value,
     status: document.getElementById('app-status').value || 'abierta',
-    notes: document.getElementById('app-notes').value.trim()
+    notes: document.getElementById('app-notes').value.trim(),
+    parent_appointment_id: document.getElementById('app-parent-appointment').value || null
   };
   
   if (!payload.patient_id || !payload.doctor_id || !payload.scheduled_date || !payload.scheduled_time) {
@@ -1563,7 +1788,9 @@ function renderUsersTable(users) {
   const rows = users.map(u => {
     const roleBadge = u.role === 'admin'
       ? `<span class="badge badge-admin">Admin</span>`
-      : `<span class="badge badge-doctor">Doctor</span>`;
+      : u.role === 'secretaria'
+        ? `<span class="badge badge-amarillo">Secretaria</span>`
+        : `<span class="badge badge-doctor">Doctor</span>`;
     const activeBadge = u.is_active
       ? `<span class="badge badge-active">Activo</span>`
       : `<span class="badge badge-inactive">Inactivo</span>`;
@@ -1827,11 +2054,6 @@ function markdownToHtml(md) {
     .replace(/\n/g,     '<br/>');
 }
 
-// Inicializar modal de paciente con antecedentes al abrir
-document.getElementById('modal-new-patient')?.addEventListener('click', function(e) {
-  if (this === e.target) return;
-});
-
 // Re-inicializar grid de antecedentes cuando se abre el modal
 const openModalOrig = openModal;
 window.openModal = function(id) {
@@ -1843,4 +2065,458 @@ window.openModal = function(id) {
     if (!document.getElementById('edit-user-id')?.value) clearUserForm();
   }
   openModalOrig(id);
+};
+
+// =============================================================================
+// v3.0 — NUEVAS FUNCIONES
+// =============================================================================
+
+// ── MODAL PACIENTE CON TABS ──────────────────────────────────────────────────
+STATE.viewingPatientId = null;
+
+function switchPatientTab(tab) {
+  ['info','vitals','meds','alerts','docs'].forEach(t => {
+    document.getElementById(`patient-tab-${t}`).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById(`mtab-${t}`);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  // Lazy-load según pestaña
+  if (tab === 'vitals')  loadPatientVitals(STATE.viewingPatientId);
+  if (tab === 'meds')    loadPatientMeds(STATE.viewingPatientId);
+  if (tab === 'alerts')  loadPatientAlerts(STATE.viewingPatientId);
+  if (tab === 'docs')    loadPatientDocs(STATE.viewingPatientId);
+}
+
+async function viewPatient(id) {
+  STATE.viewingPatientId = id;
+  // Reset tabs
+  switchPatientTab('info');
+
+  const data = await api('GET', `/api/patients/${id}`);
+  if (!data.success) { toast('error', 'No se pudo cargar el paciente.'); return; }
+  const p = data.patient;
+
+  document.getElementById('view-patient-title').textContent = p.name || 'Paciente';
+
+  const age = calcAge(p.date_of_birth);
+  const ants = Array.isArray(p.antecedentes) ? p.antecedentes.join(', ') : (p.antecedentes || '—');
+
+  document.getElementById('patient-tab-info').innerHTML = `
+    <div style="padding:20px 28px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Cédula / ID</div>
+          <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.cedula || '—')}</div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Tipo de Sangre</div>
+          <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.blood_type || '—')}</div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Fecha de Nacimiento</div>
+          <div style="color:var(--text-primary);">${escHtml(p.date_of_birth || '—')} (${age} años)</div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Género</div>
+          <div style="color:var(--text-primary);">${escHtml(p.gender || '—')}</div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Teléfono</div>
+          <div style="color:var(--text-primary);">${escHtml(p.phone || '—')}</div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <div class="form-label">Registrado</div>
+          <div style="color:var(--text-muted);font-size:13px;">${fmtDate(p.created_at)}</div>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div class="form-label">Antecedentes Patológicos</div>
+        <div style="color:var(--text-secondary);font-size:13px;line-height:1.6;">${escHtml(ants)}</div>
+      </div>
+    </div>
+  `;
+
+  openModalOrig('modal-view-patient');
+}
+
+async function loadPatientVitals(id) {
+  if (!id) return;
+  const el = document.getElementById('patient-vitals-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  const data = await api('GET', `/api/history?patient_id=${id}&limit=10`);
+  if (!data.success || !data.records?.length) {
+    el.innerHTML = '<div class="empty-state"><span>Sin registros de vitales.</span></div>'; return;
+  }
+  const headers = ['Fecha','Temp','SpO2','PAS','PAD','FC','FR','Peso','Altura','IMC'];
+  const rows = data.records.map(r => {
+    const c = r.constantes || {};
+    return `<tr>
+      <td>${fmtDate(r.created_at)}</td>
+      <td>${c.temperatura ?? '—'}</td><td>${c.spo2 ?? '—'}</td>
+      <td>${c.pas ?? '—'}</td><td>${c.pad ?? '—'}</td>
+      <td>${c.fc ?? '—'}</td><td>${c.fr ?? '—'}</td>
+      <td>${c.peso ?? '—'}</td><td>${c.altura ?? '—'}</td>
+      <td>${c.imc ?? '—'}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="vitals-history-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function loadPatientMeds(id) {
+  if (!id) return;
+  const el = document.getElementById('patient-meds-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  const data = await api('GET', `/api/documents/prescriptions?patient_id=${id}`);
+  if (!data.success || !data.prescriptions?.length) {
+    el.innerHTML = '<div class="empty-state"><span>Sin recetas registradas.</span></div>'; return;
+  }
+  el.innerHTML = data.prescriptions.map(rx => `
+    <div class="doc-item">
+      <div class="doc-info">
+        <div class="doc-name">${escHtml(rx.medication)} — ${escHtml(rx.dosage)}</div>
+        <div class="doc-meta">${escHtml(rx.frequency)} &bull; ${rx.days} días &bull; ${fmtDate(rx.created_at)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadPatientAlerts(id) {
+  if (!id) return;
+  const el = document.getElementById('patient-alerts-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  const data = await api('GET', `/api/history?patient_id=${id}&alert=rojo`);
+  if (!data.success || !data.records?.length) {
+    el.innerHTML = '<div class="empty-state"><span>Sin alertas críticas registradas. ✅</span></div>'; return;
+  }
+  el.innerHTML = data.records.map(r => `
+    <div class="doc-item" style="border-color:rgba(239,68,68,0.3);">
+      <div class="doc-info">
+        <div class="doc-name" style="color:#f87171;">&#x26A0;&#xFE0F; ${escHtml(r.final_diagnosis || r.phase1_diagnosis || '—')}</div>
+        <div class="doc-meta">${fmtDate(r.created_at)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadPatientDocs(id) {
+  if (!id) return;
+  const el = document.getElementById('patient-docs-content');
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  const data = await api('GET', `/api/documents?patient_id=${id}`);
+  if (!data.success) { el.innerHTML = '<div class="empty-state"><span>No disponible.</span></div>'; return; }
+  const docs = data.documents || [];
+  if (!docs.length) { el.innerHTML = '<div class="empty-state"><span>No hay documentos subidos aún.</span></div>'; return; }
+  el.innerHTML = docs.map(d => `
+    <div class="doc-item">
+      <div class="doc-info">
+        <div class="doc-name">${escHtml(d.original_name)}</div>
+        <div class="doc-meta">${d.file_type} &bull; ${(d.file_size/1024).toFixed(1)}KB &bull; ${fmtDate(d.uploaded_at)}</div>
+      </div>
+      <div class="doc-actions">
+        <a href="/api/documents/${d.id}/download" class="btn-icon" title="Descargar" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </a>
+        <button class="btn-icon danger" title="Eliminar" onclick="deleteDocument(${d.id}, ${id})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function uploadDocument(event) {
+  const file = event.target.files[0];
+  if (!file || !STATE.viewingPatientId) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('patient_id', STATE.viewingPatientId);
+
+  toast('info', 'Subiendo archivo...');
+  try {
+    const res = await fetch('/api/documents/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) { toast('success', 'Archivo subido correctamente.'); loadPatientDocs(STATE.viewingPatientId); }
+    else { toast('error', data.error || 'Error al subir el archivo.'); }
+  } catch (e) { toast('error', 'Error de conexión.'); }
+  event.target.value = '';
+}
+
+async function deleteDocument(docId, patientId) {
+  if (!confirm('¿Eliminar este documento?')) return;
+  const res = await api('DELETE', `/api/documents/${docId}`);
+  if (res.success) { toast('success', 'Documento eliminado.'); loadPatientDocs(patientId); }
+  else { toast('error', res.error || 'Error al eliminar.'); }
+}
+
+// ── SALA DE ESPERA ────────────────────────────────────────────────────────────
+async function loadWaitingRoom() {
+  const el = document.getElementById('waiting-room-list');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div>';
+  const data = await api('GET', '/api/appointments?today=1');
+  if (!data.success) { el.innerHTML = '<div class="empty-state"><span>No se pudo cargar la sala de espera.</span></div>'; return; }
+  
+  let apps = data.appointments || [];
+  // Ocultar de la sala de espera las citas que ya están completadas
+  apps = apps.filter(a => a.status !== 'completada');
+  
+  if (!apps.length) { el.innerHTML = '<div class="empty-state"><span>Sin pacientes en espera para hoy.</span></div>'; return; }
+
+  el.innerHTML = apps.map(a => {
+    const isArrived = a.confirmed || a.status === 'en_curso' || a.status === 'completada';
+    const time = a.appointment_time ? a.appointment_time.substring(0,5) : '—';
+    return `
+    <div class="waiting-row ${isArrived ? 'arrived' : ''}" id="wr-${a.id}">
+      <span class="wr-time">${time}</span>
+      <div class="wr-patient">
+        <div class="wr-patient-name">
+          ${escHtml(a.patient_name || '—')}
+          ${a.parent_appointment_id ? '<span class="badge badge-amarillo" style="font-size:10px; margin-left:8px;">Seguimiento</span>' : ''}
+        </div>
+        <div class="wr-patient-cedula">${escHtml(a.patient_cedula || '')} &bull; Dr. ${escHtml(a.doctor_fullname || '-')}</div>
+      </div>
+      <span class="badge ${a.status === 'completada' ? 'badge-verde' : a.status === 'en_curso' ? 'badge-amarillo' : 'badge-rojo'}"
+            style="font-size:10px;">${a.status || 'abierta'}</span>
+      <div class="wr-actions">
+        ${!isArrived ? `<button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="confirmArrival(${a.id}, ${a.doctor_id}, '${escHtml(a.patient_name)}')">Marcar Llegada</button>` : '<span style="color:var(--green);font-size:13px;">&#10003; Llegó</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function confirmArrival(appointmentId, doctorId, patientName) {
+  const res = await api('PUT', `/api/appointments/${appointmentId}`, { status: 'en_curso', confirmed: true });
+  if (res.success) { 
+    toast('success', 'Llegada confirmada.'); 
+    loadWaitingRoom(); 
+    
+    // Auto-enviar notificación al doctor si hay doctor y nombre
+    if (doctorId && patientName) {
+      const msg = `🔔 El paciente ${patientName} ha llegado a su cita y está en la Sala de Espera.`;
+      api('POST', '/api/notifications/send', { to_user_id: doctorId, message: msg });
+    }
+  }
+  else { toast('error', res.error || 'No se pudo confirmar.'); }
+}
+
+// ── AJUSTES DEL CONSULTORIO ──────────────────────────────────────────────────
+async function loadClinicSettings() {
+  const data = await api('GET', '/api/settings/all');
+  if (!data.success) return;
+  const s = data.settings || {};
+  const fields = {
+    'cfg-clinic-name':    'clinic_name',
+    'cfg-clinic-address': 'clinic_address',
+    'cfg-clinic-phone':   'clinic_phone',
+    'cfg-clinic-rnc':     'clinic_rnc',
+    'cfg-clinic-email':   'clinic_email',
+    'cfg-clinic-hours':   'clinic_hours',
+  };
+  Object.entries(fields).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (el) el.value = s[key] || '';
+  });
+}
+
+async function saveClinicSettings() {
+  const fields = {
+    'cfg-clinic-name':    'clinic_name',
+    'cfg-clinic-address': 'clinic_address',
+    'cfg-clinic-phone':   'clinic_phone',
+    'cfg-clinic-rnc':     'clinic_rnc',
+    'cfg-clinic-email':   'clinic_email',
+    'cfg-clinic-hours':   'clinic_hours',
+  };
+  const payload = {};
+  Object.entries(fields).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (el) payload[key] = el.value.trim();
+  });
+
+  const res = await api('POST', '/api/settings/update', payload);
+  if (res.success) {
+    toast('success', 'Ajustes guardados correctamente.');
+    loadClinicName(); // Actualizar nombre en sidebar
+  } else {
+    toast('error', res.error || 'Error al guardar ajustes.');
+  }
+}
+
+// ── NOTIFICACIONES / CHAT INTERNO ────────────────────────────────────────────
+async function loadNotifUserList() {
+  const data = await api('GET', '/api/notifications/contacts');
+  if (!data.success) return;
+  const sel = document.getElementById('notif-to-user');
+  if (!sel) return;
+  
+  let others = data.contacts || [];
+  
+  if (STATE.user?.role === 'doctor') {
+    // El doctor solo chatea con la secretaria
+    others = others.filter(u => u.role === 'secretaria');
+    if (others.length > 0) {
+      sel.innerHTML = `<option value="${others[0].id}">${escHtml(others[0].full_name || others[0].username)} (Secretaria)</option>`;
+    } else {
+      sel.innerHTML = `<option value="">Sin secretaria disponible</option>`;
+    }
+    sel.style.display = 'none'; // Ocultar el select para el doctor
+  } else {
+    // La secretaria o admin ven a los doctores
+    if (STATE.user?.role === 'secretaria') {
+       others = others.filter(u => u.role === 'doctor');
+    }
+    sel.innerHTML = `<option value="">Seleccione chat...</option>` +
+      others.map(u => `<option value="${u.id}">Dr. ${escHtml(u.full_name || u.username)}</option>`).join('');
+    sel.style.display = 'block';
+    sel.onchange = loadNotifMessages; // Al cambiar, recargar mensajes de ese chat
+  }
+}
+
+async function loadUnreadCount() {
+  const data = await api('GET', '/api/notifications/unread_count');
+  const el   = document.getElementById('notif-count');
+  if (!el) return;
+  const count = data.count || 0;
+  el.textContent = count > 99 ? '99+' : count;
+  el.style.display = count > 0 ? 'flex' : 'none';
+}
+
+async function openNotificationsPanel() {
+  document.getElementById('notif-panel-overlay').style.display = 'block';
+  document.getElementById('notif-panel').style.display = 'flex';
+  if (!document.getElementById('notif-to-user').options.length) {
+    await loadNotifUserList();
+  }
+  await loadNotifMessages();
+  // Marcar como leidas
+  api('POST', '/api/notifications/mark_read').then(() => {
+    loadUnreadCount();
+  });
+}
+
+function closeNotificationsPanel() {
+  document.getElementById('notif-panel-overlay').style.display = 'none';
+  document.getElementById('notif-panel').style.display = 'none';
+}
+
+async function loadNotifMessages(silent = false) {
+  const el = document.getElementById('notif-messages-list');
+  if (!silent) {
+    el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  }
+  
+  const data = await api('GET', '/api/notifications');
+  if (!data.success) return;
+  
+  let notifications = data.notifications || [];
+  const sel = document.getElementById('notif-to-user');
+  
+  // Filtrar notificaciones según el contacto seleccionado si no somos doctor
+  if (STATE.user?.role !== 'doctor') {
+    if (sel && sel.value) {
+      const selectedId = parseInt(sel.value, 10);
+      notifications = notifications.filter(n => n.from_user_id === selectedId || n.to_user_id === selectedId);
+    } else {
+      if (!silent) el.innerHTML = '<div class="empty-state" style="padding:24px;"><span>Seleccione un chat para ver los mensajes.</span></div>';
+      return;
+    }
+  }
+
+  if (!notifications.length) {
+    if (!silent) el.innerHTML = '<div class="empty-state" style="padding:24px;"><span>No hay mensajes aún en este chat.</span></div>';
+    return;
+  }
+  
+  const myId = STATE.user?.id;
+  // Ordenar por fecha ascendente para mostrar los más viejos arriba y los nuevos abajo
+  notifications.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  
+  const newHTML = notifications.map(n => {
+    const sent = n.from_user_id === myId;
+    return `
+    <div class="notif-message ${sent ? 'sent' : 'received'}">
+      <div>${escHtml(n.message)}</div>
+      <div class="notif-meta">${sent ? 'Tú' : escHtml(n.from_name || 'Sistema')} • ${fmtDate(n.created_at)}</div>
+    </div>`;
+  }).join('');
+  
+  // Si estamos en modo silencioso y no hay cambios en el HTML, no re-renderizar para no perder el foco
+  if (silent && el.innerHTML === newHTML) return;
+  
+  el.innerHTML = newHTML;
+  
+  // Scroll abajo
+  setTimeout(() => {
+    el.scrollTop = el.scrollHeight;
+  }, 100);
+}
+
+async function sendNotification() {
+  const toUser = document.getElementById('notif-to-user')?.value;
+  const msg    = document.getElementById('notif-message-input')?.value.trim();
+  
+  if (!msg) { toast('warning', 'Escribe un mensaje.'); return; }
+  if (!toUser) { toast('warning', 'Selecciona un chat primero.'); return; }
+
+  const res = await api('POST', '/api/notifications/send', { to_user_id: toUser, message: msg });
+  if (res.success) {
+    document.getElementById('notif-message-input').value = '';
+    await loadNotifMessages();
+    loadUnreadCount();
+    toast('success', 'Mensaje enviado.');
+  } else {
+    toast('error', res.error || 'Error al enviar.');
+  }
+}
+
+async function markAllNotificationsRead() {
+  await api('POST', '/api/notifications/mark_read');
+  loadUnreadCount();
+  loadNotifMessages();
+}
+
+// Polling de notificaciones (burbuja y chat en vivo) cada 5 segundos
+setInterval(() => {
+  if (STATE.user) {
+    loadUnreadCount();
+    const panel = document.getElementById('notif-panel-overlay');
+    if (panel && panel.style.display === 'block') {
+      loadNotifMessages(true);
+    }
+  }
+}, 5000);
+
+// ── PDF DOWNLOADS ────────────────────────────────────────────────────────────
+async function downloadPrescriptionPDF() {
+  const visitId = STATE.currentVisitId;
+  if (!visitId) { toast('warning', 'No hay una visita activa.'); return; }
+  window.open(`/api/pdf/prescription/${visitId}`, '_blank');
+}
+
+async function downloadLabOrderPDF() {
+  const visitId = STATE.currentVisitId;
+  if (!visitId) { toast('warning', 'No hay una visita activa.'); return; }
+  window.open(`/api/pdf/lab_order/${visitId}`, '_blank');
+}
+
+async function downloadDailySchedulePDF() {
+  const today = new Date().toISOString().split('T')[0];
+  window.open(`/api/pdf/agenda?date=${today}`, '_blank');
+}
+
+// Mostrar botones PDF en modal de diagnóstico cuando hay visita activa
+function showPdfButtons() {
+  document.getElementById('btn-pdf-prescription')?.style && (document.getElementById('btn-pdf-prescription').style.display = 'inline-flex');
+  document.getElementById('btn-pdf-lab')?.style && (document.getElementById('btn-pdf-lab').style.display = 'inline-flex');
+}
+
+// Hook en el final de fase 2 (cuando se guarda un diagnóstico)
+// Se llama desde el JS existente de runPhase2
+const _origSwitchTab = switchTab;
+window.switchTab = function(tab) {
+  _origSwitchTab(tab);
+  // Lazy-load por pestaña
+  if (tab === 'waiting-room')   loadWaitingRoom();
+  if (tab === 'admin-settings') loadClinicSettings();
+  if (tab === 'admin-dashboard') loadAdminDashboard();
 };

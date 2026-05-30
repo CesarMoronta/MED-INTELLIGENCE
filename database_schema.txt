@@ -853,14 +853,83 @@ BEGIN
     );
 
     INSERT INTO dbo.system_config (key_name, key_value) VALUES
-        ('schema_version', '2.0'),
+        ('schema_version', '3.0'),
         ('max_login_attempts', '5'),
         ('lockout_minutes', '15'),
         ('session_timeout_hours', '8'),
-        ('clinic_name', 'Consultorio Médico');
+        ('clinic_name', 'Consultorio Médico'),
+        ('clinic_address', ''),
+        ('clinic_phone', ''),
+        ('clinic_rnc', ''),
+        ('clinic_hours', ''),
+        ('clinic_email', '');
 END
 GO
 
 -- =============================================================================
--- FIN DEL SCHEMA v2.0 — MED-INTELLIGENCE PRO
+-- SECCIÓN 6: MIGRACIONES v3.0
+-- =============================================================================
+
+-- Agregar columnas de sala de espera a appointments (si no existen)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.appointments') AND name = 'confirmed')
+BEGIN
+    ALTER TABLE dbo.appointments ADD
+        confirmed       BIT          NOT NULL DEFAULT 0,
+        confirm_notes   NVARCHAR(500) NULL;
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.patient_documents — Documentos clínicos del paciente
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.patient_documents', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.patient_documents (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        patient_id      INT                 NOT NULL,
+        filename        NVARCHAR(300)       NOT NULL,   -- Nombre único en disco
+        original_name   NVARCHAR(300)       NOT NULL,   -- Nombre original del archivo
+        file_type       NVARCHAR(20)        NOT NULL,   -- PDF, PNG, JPG, DOCX, etc.
+        file_size       INT                 NOT NULL DEFAULT 0,  -- Bytes
+        file_path       NVARCHAR(500)       NOT NULL,
+        uploaded_by     INT                 NULL,       -- FK → users(id)
+        uploaded_at     DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_patient_documents     PRIMARY KEY (id),
+        CONSTRAINT FK_patdocs_patient       FOREIGN KEY (patient_id)
+            REFERENCES dbo.patients(id) ON DELETE CASCADE,
+        CONSTRAINT FK_patdocs_user          FOREIGN KEY (uploaded_by)
+            REFERENCES dbo.users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IX_patient_documents_patient ON dbo.patient_documents (patient_id, uploaded_at DESC);
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.notifications — Chat/alertas internas entre roles
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.notifications', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.notifications (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        from_user_id    INT                 NOT NULL,   -- FK → users(id)
+        to_user_id      INT                 NOT NULL,   -- FK → users(id)
+        message         NVARCHAR(MAX)       NOT NULL,
+        type            NVARCHAR(20)        NOT NULL DEFAULT 'message',  -- 'message' | 'alert' | 'info'
+        is_read         BIT                 NOT NULL DEFAULT 0,
+        created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_notifications         PRIMARY KEY (id),
+        CONSTRAINT CK_notifications_type    CHECK (type IN ('message', 'alert', 'info')),
+        CONSTRAINT FK_notif_from_user       FOREIGN KEY (from_user_id)
+            REFERENCES dbo.users(id),
+        CONSTRAINT FK_notif_to_user         FOREIGN KEY (to_user_id)
+            REFERENCES dbo.users(id)
+    );
+    CREATE INDEX IX_notif_to_user   ON dbo.notifications (to_user_id,   created_at DESC);
+    CREATE INDEX IX_notif_from_user ON dbo.notifications (from_user_id, created_at DESC);
+    CREATE INDEX IX_notif_unread    ON dbo.notifications (to_user_id, is_read, created_at DESC);
+END
+GO
+
+-- =============================================================================
+-- FIN DEL SCHEMA v3.0 — MED-INTELLIGENCE PRO
 -- =============================================================================

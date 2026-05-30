@@ -4,11 +4,12 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MED-INTELLIGENCE PRO — Panel Médico</title>
-  <meta name="description" content="Sistema de diagnóstico médico inteligente con motor bayesiano. Panel para doctores y administradores."/>
+  <meta name="description" content="Sistema de diagnóstico médico inteligente con motor bayesiano. Panel para doctores, secretarias y administradores."/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -20,7 +21,7 @@
     </div>
     <div>
       <div class="logo-name" id="app-clinic-name">MED-INTEL</div>
-      <div class="logo-tag">PRO v2.0</div>
+      <div class="logo-tag">PRO v3.0</div>
     </div>
   </div>
 
@@ -31,6 +32,11 @@
       <div class="profile-name" id="profile-name">Cargando...</div>
       <div class="profile-role" id="profile-role">—</div>
     </div>
+    <!-- Notificaciones badge -->
+    <button class="notif-badge-btn" id="btn-notif-badge" onclick="openNotificationsPanel()" title="Mensajes internos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="notif-count" id="notif-count" style="display:none;">0</span>
+    </button>
   </div>
 
   <!-- Navegación DOCTOR -->
@@ -44,15 +50,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Agenda / Citas
     </button>
+    <button class="nav-item" data-tab="waiting-room" onclick="switchTab('waiting-room')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Sala de Espera
+    </button>
     <button class="nav-item" data-tab="patients" onclick="switchTab('patients')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Pacientes
     </button>
-    <!-- Nueva Visita removed -->
-    <!-- <button class="nav-item" data-tab="new-visit" onclick="switchTab('new-visit')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-      Nueva Visita
-    </button> -->
     <button class="nav-item" data-tab="diagnose" onclick="switchTab('diagnose')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M22 20l-6-6"/><path d="M19.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M10 20v-4"/><circle cx="10" cy="20" r="2"/><path d="M7.5 7.5h6"/></svg>
       Consulta Clínica
@@ -71,7 +76,11 @@
   <!-- Navegación SECRETARIA -->
   <nav class="sidebar-nav" id="nav-secretaria" style="display:none;">
     <div class="nav-section-label">Recepción</div>
-    <button class="nav-item active" data-tab="appointments" onclick="switchTab('appointments')">
+    <button class="nav-item active" data-tab="waiting-room" onclick="switchTab('waiting-room')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Sala de Espera
+    </button>
+    <button class="nav-item" data-tab="appointments" onclick="switchTab('appointments')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Agenda / Citas
     </button>
@@ -108,6 +117,10 @@
     <button class="nav-item" data-tab="admin-users" onclick="switchTab('admin-users')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M16 16v2M8 16v2M4 20a8 8 0 0 1 16 0"/></svg>
       Usuarios y Admins
+    </button>
+    <button class="nav-item" data-tab="admin-settings" onclick="switchTab('admin-settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes Consultorio
     </button>
     <button class="nav-item" data-tab="admin-audit" onclick="switchTab('admin-audit')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -216,7 +229,8 @@
         <h1 class="page-title">Pacientes</h1>
         <p class="page-subtitle">Registro y consulta de pacientes</p>
       </div>
-      <button class="btn-primary" onclick="openModal('modal-new-patient')">
+      <!-- Solo secretaria/admin pueden crear pacientes. Doctor NO. Controlado por JS -->
+      <button class="btn-primary" onclick="openModal('modal-new-patient')" id="btn-new-patient">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo Paciente
       </button>
@@ -532,6 +546,12 @@
         <h1 class="page-title">Dashboard Global</h1>
         <p class="page-subtitle">Estado general del sistema MED-INTELLIGENCE</p>
       </div>
+      <div style="display:flex;gap:10px;">
+        <a href="/api/export/patients.csv" class="btn-outline" style="text-decoration:none; display:flex; align-items:center; gap:6px;" title="Exportar CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </a>
+      </div>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -558,6 +578,27 @@
     <div class="section-card">
       <div class="section-header"><h2>Diagnóstico Más Frecuente</h2></div>
       <div id="adm-most-common" class="most-common-display">—</div>
+    </div>
+    <!-- Gráficas -->
+    <div class="two-col-grid" style="margin-top:20px;">
+      <div class="section-card">
+        <div class="section-header"><h2>📈 Visitas por Semana</h2></div>
+        <canvas id="chart-visits-week" height="220"></canvas>
+      </div>
+      <div class="section-card">
+        <div class="section-header"><h2>🍩 Top Diagnósticos</h2></div>
+        <canvas id="chart-diag-dist" height="220"></canvas>
+      </div>
+    </div>
+    <div class="two-col-grid" style="margin-top:20px;">
+      <div class="section-card">
+        <div class="section-header"><h2>👥 Nuevos Pacientes / Mes</h2></div>
+        <canvas id="chart-patients-growth" height="220"></canvas>
+      </div>
+      <div class="section-card">
+        <div class="section-header"><h2>🏥 Consultas vs Emergencias</h2></div>
+        <canvas id="chart-visit-types" height="220"></canvas>
+      </div>
     </div>
   </div>
 
@@ -681,6 +722,88 @@
     </div>
   </div>
 
+  <!-- Ajustes del Consultorio (Admin) -->
+  <div class="tab-panel" id="tab-admin-settings">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Ajustes del Consultorio</h1>
+        <p class="page-subtitle">Configura la información general del consultorio</p>
+      </div>
+      <button class="btn-primary" onclick="saveClinicSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Guardar Cambios
+      </button>
+    </div>
+    <div class="two-col-grid">
+      <div class="section-card">
+        <div class="section-header"><h2>🏥 Información General</h2></div>
+        <div class="form-group">
+          <label class="form-label">Nombre del Consultorio <span class="badge-required">*</span></label>
+          <input type="text" id="cfg-clinic-name" class="form-input" placeholder="Consultorio Dr. García"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dirección</label>
+          <input type="text" id="cfg-clinic-address" class="form-input" placeholder="Calle Principal #100, Santo Domingo"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teléfono</label>
+          <input type="text" id="cfg-clinic-phone" class="form-input" placeholder="809-555-0000"/>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-header"><h2>📄 Datos Legales y Contacto</h2></div>
+        <div class="form-group">
+          <label class="form-label">RNC / RIF</label>
+          <input type="text" id="cfg-clinic-rnc" class="form-input" placeholder="1-23456789-0"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email del Consultorio</label>
+          <input type="email" id="cfg-clinic-email" class="form-input" placeholder="info@consultorio.com"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Horario de Atención</label>
+          <input type="text" id="cfg-clinic-hours" class="form-input" placeholder="Lunes a Viernes 8:00am - 5:00pm"/>
+        </div>
+      </div>
+    </div>
+    <div class="section-card" style="margin-top:20px;">
+      <div class="section-header"><h2>📥 Exportación de Datos</h2></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="/api/export/patients.csv" class="btn-outline" style="text-decoration:none; display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar Pacientes (CSV)
+        </a>
+        <a href="/api/export/history.csv" class="btn-outline" style="text-decoration:none; display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar Historial (CSV)
+        </a>
+        <button class="btn-outline" onclick="downloadDailySchedulePDF()" style="display:flex; align-items:center; gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Agenda del Día (PDF)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sala de Espera (Secretaria) -->
+  <div class="tab-panel" id="tab-waiting-room">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Sala de Espera</h1>
+        <p class="page-subtitle">Citas de hoy — Registra la llegada del paciente</p>
+      </div>
+      <button class="btn-outline" onclick="loadWaitingRoom()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="section-card">
+      <div id="waiting-room-list" class="table-wrap">
+        <div class="loading-state"><div class="spinner-ring"></div><span>Cargando sala de espera...</span></div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- MODALS -->
@@ -739,14 +862,55 @@
   </div>
 </div>
 
-<!-- Modal Ver Paciente -->
+<!-- Modal Ver Paciente (con Tabs) -->
 <div class="modal-overlay" id="modal-view-patient" onclick="closeModalOnBg(event,'modal-view-patient')">
   <div class="modal-box modal-wide">
     <div class="modal-header">
       <h3 id="view-patient-title">Detalle del Paciente</h3>
       <button class="modal-close" onclick="closeModal('modal-view-patient')">✕</button>
     </div>
-    <div class="modal-body" id="view-patient-body"></div>
+    <!-- Tabs del modal -->
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="mtab-info" onclick="switchPatientTab('info')">📋 Información</button>
+      <button class="modal-tab" id="mtab-vitals" onclick="switchPatientTab('vitals')">💓 Vitales</button>
+      <button class="modal-tab" id="mtab-meds" onclick="switchPatientTab('meds')">💊 Medicamentos</button>
+      <button class="modal-tab" id="mtab-alerts" onclick="switchPatientTab('alerts')">🚨 Alertas</button>
+      <button class="modal-tab" id="mtab-docs" onclick="switchPatientTab('docs')">📁 Documentos</button>
+    </div>
+    <div class="modal-body" style="padding-top:0;">
+      <div id="patient-tab-info"><!-- Se llena con JS --></div>
+      <div id="patient-tab-vitals" style="display:none;">
+        <div style="padding:16px;">
+          <h4 style="color:var(--text-muted); margin-bottom:12px;">Últimas 10 visitas — Evolución de constantes vitales</h4>
+          <div id="patient-vitals-content"><div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div></div>
+        </div>
+      </div>
+      <div id="patient-tab-meds" style="display:none;">
+        <div style="padding:16px;">
+          <h4 style="color:var(--text-muted); margin-bottom:12px;">Medicamentos activos (recetas vigentes)</h4>
+          <div id="patient-meds-content"><div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div></div>
+        </div>
+      </div>
+      <div id="patient-tab-alerts" style="display:none;">
+        <div style="padding:16px;">
+          <h4 style="color:var(--text-muted); margin-bottom:12px;">Diagnósticos anteriores en Alerta Roja</h4>
+          <div id="patient-alerts-content"><div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div></div>
+        </div>
+      </div>
+      <div id="patient-tab-docs" style="display:none;">
+        <div style="padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h4 style="color:var(--text-muted); margin:0;">Documentos clínicos del paciente</h4>
+            <label class="btn-primary" style="cursor:pointer; font-size:13px; padding:8px 16px; border-radius:8px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Subir Archivo
+              <input type="file" id="doc-file-input" style="display:none;" onchange="uploadDocument(event)"/>
+            </label>
+          </div>
+          <div id="patient-docs-content"><div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div></div>
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn-outline" onclick="closeModal('modal-view-patient')">Cerrar</button>
       <button class="btn-primary admin-only-btn" id="btn-edit-patient-modal" onclick="editPatientFromModal()">✏️ Editar</button>
@@ -855,6 +1019,14 @@
     </div>
     <div class="modal-footer">
       <button class="btn-primary" style="background-color: var(--cyan); border-color: var(--cyan);" onclick="openPrescriptionModal()">💊 Redactar Receta</button>
+      <button class="btn-outline" id="btn-pdf-prescription" onclick="downloadPrescriptionPDF()" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Receta PDF
+      </button>
+      <button class="btn-outline" id="btn-pdf-lab" onclick="downloadLabOrderPDF()" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px;"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+        Orden Lab PDF
+      </button>
       <button class="btn-primary" onclick="printReport()">🖨️ Imprimir Informe</button>
       <button class="btn-outline" onclick="closeModal('modal-diagnosis-result')">Cerrar</button>
     </div>
@@ -884,11 +1056,17 @@
       </div>
       <div class="form-group">
         <label class="form-label">Paciente <span class="badge-required">*</span></label>
-        <select id="app-patient" class="form-input"></select>
+        <select id="app-patient" class="form-input" onchange="loadPatientFollowupAppointments()"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Doctor <span class="badge-required">*</span></label>
         <select id="app-doctor" class="form-input"></select>
+      </div>
+      <div class="form-group" id="app-parent-group" style="display: none;">
+        <label class="form-label">Consulta de Seguimiento a (Opcional)</label>
+        <select id="app-parent-appointment" class="form-input">
+          <option value="">-- No es seguimiento --</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -962,6 +1140,28 @@
       <button class="btn-outline" onclick="closeModal('modal-prescription')">Cerrar</button>
       <button class="btn-primary" onclick="savePrescription()">Finalizar y Guardar Receta</button>
     </div>
+  </div>
+</div>
+
+<!-- Panel de Notificaciones (Chat Interno) -->
+<div class="notif-panel-overlay" id="notif-panel-overlay" onclick="closeNotificationsPanel()" style="display:none;"></div>
+<div class="notif-panel" id="notif-panel" style="display:none;">
+  <div class="notif-panel-header">
+    <h3>💬 Mensajes Internos</h3>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-outline" style="font-size:11px;padding:4px 10px;" onclick="markAllNotificationsRead()">Marcar leídos</button>
+      <button class="modal-close" onclick="closeNotificationsPanel()">✕</button>
+    </div>
+  </div>
+  <div class="notif-contacts">
+    <select id="notif-to-user" class="form-input" style="font-size:12px;"><option value="">Enviar a...</option></select>
+  </div>
+  <div class="notif-messages" id="notif-messages-list">
+    <div class="loading-state"><div class="spinner-ring"></div></div>
+  </div>
+  <div class="notif-compose">
+    <textarea id="notif-message-input" class="form-input" rows="2" placeholder="Escribe un mensaje..." style="resize:none; font-size:13px;"></textarea>
+    <button class="btn-primary" style="margin-top:8px;width:100%;" onclick="sendNotification()">Enviar Mensaje</button>
   </div>
 </div>
 

@@ -2,7 +2,7 @@ import os
 import sys
 
 # Forzar la codificación estándar (necesario en Windows)
-if sys.stdout.encoding.lower() != 'utf-8':
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     import codecs
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
@@ -14,7 +14,15 @@ from database import initialize_database
 
 # Inicializar Flask
 app = Flask(__name__, static_folder="static")
-app.secret_key = "clave_secreta_super_segura"
+
+# Seguridad: secret_key desde variables de entorno
+app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-key-change-in-production")
+
+# Configuración de uploads
+upload_folder = os.environ.get("UPLOAD_FOLDER", "uploads")
+os.makedirs(upload_folder, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = upload_folder
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", 10)) * 1024 * 1024
 
 # Importar blueprints
 from routes.static_routes import static_bp
@@ -29,6 +37,9 @@ from routes.dashboard import dashboard_bp
 from routes.patient_portal import patient_portal_bp
 from routes.settings import settings_bp
 from routes.appointments import appointments_bp
+from routes.pdf_routes import pdf_bp
+from routes.documents import documents_bp
+from routes.notifications import notifications_bp
 
 # Registrar blueprints
 app.register_blueprint(static_bp)
@@ -43,16 +54,19 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(patient_portal_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(appointments_bp)
+app.register_blueprint(pdf_bp)
+app.register_blueprint(documents_bp)
+app.register_blueprint(notifications_bp)
 
 if __name__ == "__main__":
     print("Iniciando base de datos...")
     initialize_database()
 
-    
     print("=====================================================")
-    print("🚀 MED-INTELLIGENCE PRO v2.0")
+    print("🚀 MED-INTELLIGENCE PRO v3.0")
     print("=====================================================")
     print("🌐 Servidor iniciado en http://127.0.0.1:5000")
     print("=====================================================")
-    
-    app.run(debug=True, port=5000)
+
+    debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(debug=debug_mode, port=5000)

@@ -1,21 +1,26 @@
 from flask import Blueprint, request, jsonify
-from database import list_patients, add_patient, get_patient, update_patient, delete_patient, log_audit_action
+from database import (list_patients, add_patient, get_patient, update_patient,
+                      delete_patient, log_audit_action, get_patient_vitals_history,
+                      get_active_medications, get_patient_red_alerts)
 from utils import requires_login, requires_role, get_current_user, get_client_ip, format_cedula
 
 patients_bp = Blueprint("patients_bp", __name__)
 
+
 @patients_bp.route("/api/patients", methods=["GET"])
 @requires_login
 def api_get_patients():
-    search   = (request.args.get("search") or "").strip()
+    search = (request.args.get("search") or "").strip()
     u = get_current_user()
+    # Doctor solo ve sus propios pacientes (los que tienen citas o visitas con él)
     doctor_id = u.get("id") if u.get("role") == "doctor" else None
     patients = list_patients(search or None, doctor_id=doctor_id)
     return jsonify({"success": True, "patients": patients})
 
+
 @patients_bp.route("/api/patients", methods=["POST"])
 @requires_login
-@requires_role("doctor", "admin", "secretaria")
+@requires_role("admin", "secretaria")  # Doctor NO puede crear pacientes
 def api_save_patient():
     data         = request.json or {}
     cedula       = format_cedula((data.get("cedula") or "").strip())
@@ -45,6 +50,7 @@ def api_save_patient():
         }})
     return jsonify({"success": False, "error": "Cédula ya registrada o error al guardar."}), 409
 
+
 @patients_bp.route("/api/patients/<int:patient_id>", methods=["GET"])
 @requires_login
 def api_get_patient(patient_id):
@@ -52,6 +58,7 @@ def api_get_patient(patient_id):
     if patient is None:
         return jsonify({"success": False, "error": "Paciente no encontrado."}), 404
     return jsonify({"success": True, "patient": patient})
+
 
 @patients_bp.route("/api/patients/<int:patient_id>", methods=["PUT"])
 @requires_login
@@ -78,6 +85,7 @@ def api_update_patient(patient_id):
     )
     return jsonify({"success": True, "patient": get_patient(patient_id)})
 
+
 @patients_bp.route("/api/patients/<int:patient_id>", methods=["DELETE"])
 @requires_login
 @requires_role("admin")
@@ -90,3 +98,30 @@ def api_delete_patient(patient_id):
         )
         return jsonify({"success": True, "message": "Paciente eliminado correctamente."})
     return jsonify({"success": False, "error": "Paciente no encontrado."}), 404
+
+
+# ─── Endpoints enriquecidos ───────────────────────────────────────────────────
+
+@patients_bp.route("/api/patients/<int:patient_id>/vitals-history", methods=["GET"])
+@requires_login
+def api_patient_vitals_history(patient_id):
+    """Retorna el historial de constantes vitales del paciente (últimas N visitas)."""
+    limit = request.args.get("limit", 10, type=int)
+    history = get_patient_vitals_history(patient_id, limit=limit)
+    return jsonify({"success": True, "vitals_history": history})
+
+
+@patients_bp.route("/api/patients/<int:patient_id>/active-medications", methods=["GET"])
+@requires_login
+def api_patient_active_medications(patient_id):
+    """Retorna los medicamentos activos del paciente (recetas vigentes)."""
+    meds = get_active_medications(patient_id)
+    return jsonify({"success": True, "medications": meds})
+
+
+@patients_bp.route("/api/patients/<int:patient_id>/alerts", methods=["GET"])
+@requires_login
+def api_patient_alerts(patient_id):
+    """Retorna los diagnósticos en alerta Roja anteriores del paciente."""
+    alerts = get_patient_red_alerts(patient_id)
+    return jsonify({"success": True, "alerts": alerts})
