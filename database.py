@@ -289,15 +289,16 @@ def list_users() -> list:
 
 def add_patient(cedula: str, name: str, dob: str, gender: str,
                 antecedentes: dict, phone: str = None,
-                blood_type: str = None, registered_by: int = None) -> bool:
+                blood_type: str = None, registered_by: int = None,
+                photo_url: str = None) -> bool:
     """Crea un nuevo paciente. Retorna True si tuvo éxito, False si ya existe."""
     conn      = get_connection()
     cursor    = conn.cursor()
     patient_id = None
     try:
         cursor.execute(
-            "EXEC dbo.sp_create_patient ?, ?, ?, ?, ?, ?, ?",
-            cedula, name, dob, gender, phone, blood_type, registered_by
+            "EXEC dbo.sp_create_patient ?, ?, ?, ?, ?, ?, ?, ?",
+            cedula, name, dob, gender, phone, blood_type, registered_by, photo_url
         )
         row        = cursor.fetchone()
         patient_id = int(row[0]) if row else None
@@ -336,7 +337,7 @@ def get_patient(patient_id: int) -> dict | None:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes, created_at, updated_at "
+        "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes, created_at, updated_at, photo_url "
         "FROM dbo.vw_patients WHERE id = ?",
         patient_id
     )
@@ -350,7 +351,7 @@ def get_patient(patient_id: int) -> dict | None:
         "dob": _fmt_date(row[3]), "gender": row[4],
         "phone": row[5], "blood_type": row[6], "age": row[7],
         "antecedentes": {}, "created_at": _fmt_date(row[9]),
-        "updated_at": _fmt_date(row[10])
+        "updated_at": _fmt_date(row[10]), "photo_url": row[11]
     }
     if row[8]:
         parsed = json.loads(row[8])
@@ -362,7 +363,7 @@ def list_patients(search: str = None, doctor_id: int = None) -> list:
     conn   = get_connection()
     cursor = conn.cursor()
     
-    base_query = "SELECT p.id, p.cedula, p.name, p.dob, p.gender, p.phone, p.blood_type, p.age, p.antecedentes FROM dbo.vw_patients p"
+    base_query = "SELECT p.id, p.cedula, p.name, p.dob, p.gender, p.phone, p.blood_type, p.age, p.antecedentes, p.photo_url FROM dbo.vw_patients p"
     where_clauses = []
     params = []
 
@@ -396,21 +397,23 @@ def list_patients(search: str = None, doctor_id: int = None) -> list:
 
 def update_patient(patient_id: int, cedula: str = None, name: str = None,
                    dob: str = None, gender: str = None, phone: str = None,
-                   blood_type: str = None, antecedentes: dict = None) -> bool:
+                   blood_type: str = None, antecedentes: dict = None,
+                   photo_url: str = None) -> bool:
     existing = get_patient(patient_id)
     if not existing:
         return False
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_update_patient ?, ?, ?, ?, ?, ?, ?",
+        "EXEC dbo.sp_update_patient ?, ?, ?, ?, ?, ?, ?, ?",
         patient_id,
         cedula   or None,
         name     or None,
         dob      or None,
         gender   or None,
         phone    or None,
-        blood_type or None
+        blood_type or None,
+        photo_url or None
     )
     cursor.fetchone()
     cursor.close()

@@ -459,6 +459,12 @@ async function viewPatient(id) {
   openModal('modal-view-patient');
 }
 
+function openNewPatientModal() {
+  clearPatientForm();
+  document.getElementById('modal-patient-title').textContent = 'Registrar Nuevo Paciente';
+  openModal('modal-new-patient');
+}
+
 async function editPatientFromModal() {
   closeModal('modal-view-patient');
   editPatient(STATE.editingPatientId);
@@ -475,6 +481,24 @@ async function editPatient(id) {
   document.getElementById('pt-gender').value = p.gender || 'Otro';
   document.getElementById('pt-phone').value  = p.phone  || '';
   document.getElementById('pt-blood').value  = p.blood_type || '';
+  
+  const photoUrlField = document.getElementById('pt-photo-url');
+  const photoPreview = document.getElementById('pt-photo-preview');
+  const photoPlaceholder = document.getElementById('pt-photo-placeholder');
+  
+  if (photoUrlField) photoUrlField.value = p.photo_url || '';
+  if (photoPreview && photoPlaceholder) {
+    if (p.photo_url) {
+      photoPreview.src = p.photo_url;
+      photoPreview.style.display = 'block';
+      photoPlaceholder.style.display = 'none';
+    } else {
+      photoPreview.src = '';
+      photoPreview.style.display = 'none';
+      photoPlaceholder.style.display = 'block';
+    }
+  }
+
   buildAntecedentesGrid('modal-antecedentes-grid', p.antecedentes || {});
   STATE.editingPatientId = id;
   openModal('modal-new-patient');
@@ -500,6 +524,7 @@ async function savePatient() {
   const gender  = document.getElementById('pt-gender').value;
   const phone   = document.getElementById('pt-phone').value.trim();
   const blood   = document.getElementById('pt-blood').value;
+  const photo_url = document.getElementById('pt-photo-url') ? document.getElementById('pt-photo-url').value : null;
 
   if (!cedula || !name) { toast('warning', 'Cédula y nombre son obligatorios.'); return; }
 
@@ -511,7 +536,7 @@ async function savePatient() {
   });
 
   const payload = { cedula, name, dob, gender, phone: phone || null,
-                    blood_type: blood || null, antecedentes: ants };
+                    blood_type: blood || null, antecedentes: ants, photo_url: photo_url };
 
   let res;
   if (STATE.editingPatientId) {
@@ -534,8 +559,14 @@ async function savePatient() {
 }
 
 function clearPatientForm() {
-  ['pt-cedula','pt-name','pt-dob','pt-gender','pt-phone','pt-blood']
+  ['pt-cedula','pt-name','pt-dob','pt-gender','pt-phone','pt-blood','pt-photo-url']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
+  
+  const photoPreview = document.getElementById('pt-photo-preview');
+  const photoPlaceholder = document.getElementById('pt-photo-placeholder');
+  if (photoPreview) { photoPreview.src = ''; photoPreview.style.display = 'none'; }
+  if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+
   buildAntecedentesGrid('modal-antecedentes-grid', {});
   STATE.editingPatientId = null;
 }
@@ -740,8 +771,16 @@ function selectConsultPatient(id) {
   closeModal('modal-select-patient');
   
   const infoEl = document.getElementById('diag-patient-info');
-  infoEl.style.display = 'block';
-  infoEl.innerHTML = `<strong>Paciente seleccionado:</strong> ${p.name} (${p.cedula})`;
+  infoEl.style.display = 'flex';
+  infoEl.style.alignItems = 'center';
+  infoEl.style.gap = '16px';
+  infoEl.innerHTML = `
+    ${p.photo_url ? `<img src="${p.photo_url}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />` : ''}
+    <div>
+      <strong>Paciente seleccionado:</strong><br/>
+      <span style="font-size: 16px;">${p.name}</span> <span style="color: var(--text-muted);">(${p.cedula})</span>
+    </div>
+  `;
   
   const nameInput = document.getElementById('diag-patient-name');
   const nameGroup = document.getElementById('diag-name-group');
@@ -818,8 +857,16 @@ async function selectConsultAppointment(appId, ptId) {
   closeModal('modal-select-patient');
   
   const infoEl = document.getElementById('diag-patient-info');
-  infoEl.style.display = 'block';
-  infoEl.innerHTML = `<strong>Paciente en consulta (Cita):</strong> ${p.name} (${p.cedula})`;
+  infoEl.style.display = 'flex';
+  infoEl.style.alignItems = 'center';
+  infoEl.style.gap = '16px';
+  infoEl.innerHTML = `
+    ${p.photo_url ? `<img src="${p.photo_url}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />` : ''}
+    <div>
+      <strong>Paciente en consulta (Cita):</strong><br/>
+      <span style="font-size: 16px;">${p.name}</span> <span style="color: var(--text-muted);">(${p.cedula})</span>
+    </div>
+  `;
   
   const nameInput = document.getElementById('diag-patient-name');
   const nameGroup = document.getElementById('diag-name-group');
@@ -2098,23 +2145,33 @@ async function viewPatient(id) {
 
   document.getElementById('view-patient-title').textContent = p.name || 'Paciente';
 
-  const age = calcAge(p.date_of_birth);
-  const ants = Array.isArray(p.antecedentes) ? p.antecedentes.join(', ') : (p.antecedentes || '—');
+  const age = p.age ?? calcAge(p.dob);
+  const antsObj = p.antecedentes || {};
+  const antsList = Object.keys(antsObj).filter(k => antsObj[k]);
+  const ants = antsList.length ? antsList.map(a => `<span class="badge badge-amarillo">${a}</span>`).join(' ') : 'Ninguno registrado';
+
+  const photoHtml = p.photo_url 
+    ? `<img src="${p.photo_url}" style="width: 100px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);" />`
+    : `<div style="width: 100px; height: 120px; border-radius: 8px; border: 1px dashed var(--border); background: var(--bg-input); display: flex; align-items: center; justify-content: center;"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" style="width: 40px; height: 40px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>`;
 
   document.getElementById('patient-tab-info').innerHTML = `
-    <div style="padding:20px 28px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Cédula / ID</div>
-          <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.cedula || '—')}</div>
-        </div>
+    <div style="padding:20px 28px; display: flex; gap: 24px; align-items: flex-start;">
+      <div style="flex-shrink: 0;">
+        ${photoHtml}
+      </div>
+      <div style="flex: 1;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group" style="margin:0;">
+            <div class="form-label">Cédula / ID</div>
+            <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.cedula || '—')}</div>
+          </div>
         <div class="form-group" style="margin:0;">
           <div class="form-label">Tipo de Sangre</div>
           <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.blood_type || '—')}</div>
         </div>
         <div class="form-group" style="margin:0;">
           <div class="form-label">Fecha de Nacimiento</div>
-          <div style="color:var(--text-primary);">${escHtml(p.date_of_birth || '—')} (${age} años)</div>
+          <div style="color:var(--text-primary);">${escHtml(p.dob || '—')} (${age} años)</div>
         </div>
         <div class="form-group" style="margin:0;">
           <div class="form-label">Género</div>
@@ -2128,10 +2185,11 @@ async function viewPatient(id) {
           <div class="form-label">Registrado</div>
           <div style="color:var(--text-muted);font-size:13px;">${fmtDate(p.created_at)}</div>
         </div>
-      </div>
-      <div style="margin-top:20px;">
-        <div class="form-label">Antecedentes Patológicos</div>
-        <div style="color:var(--text-secondary);font-size:13px;line-height:1.6;">${escHtml(ants)}</div>
+        </div>
+        <div style="margin-top:20px;">
+          <div class="form-label">Antecedentes Patológicos</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${ants}</div>
+        </div>
       </div>
     </div>
   `;
@@ -2520,3 +2578,60 @@ window.switchTab = function(tab) {
   if (tab === 'admin-settings') loadClinicSettings();
   if (tab === 'admin-dashboard') loadAdminDashboard();
 };
+
+async function autoFillCedula(cedula) {
+  const ced = cedula.replace(/-/g, '').trim();
+  if (ced.length !== 11 || isNaN(ced)) return;
+
+  toast('info', 'Consultando cédula...');
+  try {
+    const res = await fetch(`/api/patients/consulta-cedula/${ced}`);
+    const data = await res.json();
+    
+    if (data.success && data.data) {
+      const p = data.data;
+      const nameField = document.getElementById('pt-name');
+      if (nameField && !nameField.value) {
+        nameField.value = p.nombre || '';
+      }
+      
+      const dobField = document.getElementById('pt-dob');
+      if (dobField && p.fechaNacimiento) {
+        dobField.value = p.fechaNacimiento.substring(0, 10);
+      }
+      
+      const genderField = document.getElementById('pt-gender');
+      if (genderField && p.sexo) {
+        const s = p.sexo.toUpperCase();
+        if (s.startsWith('M')) {
+          genderField.value = 'Masculino';
+        } else if (s.startsWith('F')) {
+          genderField.value = 'Femenino';
+        } else {
+          genderField.value = 'Otro';
+        }
+      }
+      
+      const photoUrlField = document.getElementById('pt-photo-url');
+      const photoPreview = document.getElementById('pt-photo-preview');
+      const photoPlaceholder = document.getElementById('pt-photo-placeholder');
+      
+      if (p.foto) {
+        if (photoUrlField) photoUrlField.value = p.foto;
+        if (photoPreview && photoPlaceholder) {
+          photoPreview.src = p.foto;
+          photoPreview.style.display = 'block';
+          photoPlaceholder.style.display = 'none';
+        }
+      }
+      
+      toast('success', 'Datos obtenidos de la JCE');
+    } else if (data.error) {
+      toast('warning', data.error);
+    }
+  } catch (err) {
+    console.error(err);
+    toast('error', 'Error al consultar cédula.');
+  }
+}
+

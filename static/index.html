@@ -230,7 +230,7 @@
         <p class="page-subtitle">Registro y consulta de pacientes</p>
       </div>
       <!-- Solo secretaria/admin pueden crear pacientes. Doctor NO. Controlado por JS -->
-      <button class="btn-primary" onclick="openModal('modal-new-patient')" id="btn-new-patient">
+      <button class="btn-primary" onclick="openNewPatientModal()" id="btn-new-patient">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo Paciente
       </button>
@@ -628,7 +628,7 @@
         <h1 class="page-title">Gestión de Pacientes</h1>
         <p class="page-subtitle">Ver y editar datos de todos los pacientes</p>
       </div>
-      <button class="btn-primary" onclick="openModal('modal-new-patient')">
+      <button class="btn-primary" onclick="openNewPatientModal()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo Paciente
       </button>
@@ -816,18 +816,27 @@
       <button class="modal-close" onclick="closeModal('modal-new-patient')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Cédula / ID <span class="badge-required">*</span></label>
-          <input type="text" id="pt-cedula" class="form-input" placeholder="001-1234567-8"/>
+      <input type="hidden" id="pt-photo-url" />
+      <div style="display: flex; gap: 16px; margin-bottom: 12px; align-items: flex-start;">
+        <div class="patient-photo-preview" style="width: 100px; height: 120px; border-radius: 8px; border: 1px dashed var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-input); flex-shrink: 0;">
+          <img id="pt-photo-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+          <svg id="pt-photo-placeholder" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" style="width: 40px; height: 40px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
-        <div class="form-group">
-          <label class="form-label">Tipo de Sangre</label>
-          <select id="pt-blood" class="form-input">
-            <option value="">Desconocido</option>
-            <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
-            <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
-          </select>
+        <div style="flex: 1;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Cédula / ID <span class="badge-required">*</span></label>
+              <input type="text" id="pt-cedula" class="form-input" placeholder="001-1234567-8" onblur="autoFillCedula(this.value)"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipo de Sangre</label>
+              <select id="pt-blood" class="form-input">
+                <option value="">Desconocido</option>
+                <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="form-group">

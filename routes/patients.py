@@ -1,3 +1,4 @@
+import requests
 from flask import Blueprint, request, jsonify
 from database import (list_patients, add_patient, get_patient, update_patient,
                       delete_patient, log_audit_action, get_patient_vitals_history,
@@ -30,6 +31,7 @@ def api_save_patient():
     antecedentes = data.get("antecedentes") or {}
     phone        = (data.get("phone") or "").strip() or None
     blood_type   = (data.get("blood_type") or "").strip() or None
+    photo_url    = (data.get("photo_url") or "").strip() or None
 
     if not cedula:
         return jsonify({"success": False, "error": "La cédula del paciente es obligatoria."}), 400
@@ -39,7 +41,7 @@ def api_save_patient():
     u = get_current_user()
     registered_by = u.get("id")
 
-    if add_patient(cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by):
+    if add_patient(cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by, photo_url):
         log_audit_action(
             username=u.get("username"), action="CREATE", entity="Patient",
             details=f"Registrado paciente '{name}' cédula '{cedula}'",
@@ -71,9 +73,10 @@ def api_update_patient(patient_id):
     gender     = (data.get("gender") or "").strip() or None
     phone      = (data.get("phone") or "").strip() or None
     blood_type = (data.get("blood_type") or "").strip() or None
+    photo_url  = (data.get("photo_url") or "").strip() or None
     antecedentes = data.get("antecedentes")
 
-    if not update_patient(patient_id, cedula, name, dob, gender, phone, blood_type, antecedentes):
+    if not update_patient(patient_id, cedula, name, dob, gender, phone, blood_type, antecedentes, photo_url):
         return jsonify({"success": False, "error": "No se pudo actualizar el paciente."}), 404
 
     u = get_current_user()
@@ -125,3 +128,48 @@ def api_patient_alerts(patient_id):
     """Retorna los diagnósticos en alerta Roja anteriores del paciente."""
     alerts = get_patient_red_alerts(patient_id)
     return jsonify({"success": True, "alerts": alerts})
+
+
+@patients_bp.route("/api/patients/consulta-cedula/<cedula>", methods=["GET"])
+@requires_login
+def api_consultar_cedula(cedula):
+    cedula_clean = cedula.replace("-", "").strip()
+    if len(cedula_clean) != 11 or not cedula_clean.isdigit():
+        return jsonify({"success": False, "error": "La cédula debe tener exactamente 11 dígitos."}), 400
+
+    BASE_URL = "https://ecf-platform-backend-50801509587.us-central1.run.app"
+    API_KEY  = "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe"
+
+    url = f"{BASE_URL}/api/v1/dgii/jce?cedula={cedula_clean}"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": API_KEY
+    }
+
+    try:
+        res = requests.get(url, headers=headers)
+        data = res.json()
+
+        if not res.ok or not data.get("found"):
+            return jsonify({"success": False, "error": data.get("message", "Cédula no encontrada.")}), 404
+
+        import base64
+        foto_url = data.get("foto")
+        if foto_url and foto_url.startswith("http"):
+            try:
+                foto_res = requests.get(foto_url, timeout=5)
+                if foto_res.ok:
+                    b64 = base64.b64encode(foto_res.content).decode("utf-8")
+                    content_type = foto_res.headers.get("Content-Type", "image/jpeg")
+                    data["foto"] = f"data:{content_type};base64,{b64}"
+                else:
+                    data["foto"] = None
+            except Exception as ex:
+                data["foto"] = None
+
+        return jsonify({
+            "success": True,
+            "data": data
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error de conexión: {str(e)}"}), 500

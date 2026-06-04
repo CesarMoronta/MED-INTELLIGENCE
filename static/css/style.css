@@ -844,7 +844,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .wr-patient { flex: 1; }
 .wr-patient-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
 .wr-patient-cedula { font-size: 12px; color: var(--text-muted); }
-.wr-status { }
 .wr-actions { display: flex; gap: 6px; }
 
 /* Documents list */

@@ -104,6 +104,7 @@ BEGIN
         address         NVARCHAR(300)       NULL,
         blood_type      NVARCHAR(5)         NULL,
         registered_by   INT                 NULL,   -- FK → users(id)
+        photo_url       NVARCHAR(MAX)       NULL,
         created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_patients          PRIMARY KEY (id),
@@ -378,6 +379,7 @@ SELECT
     p.registered_by,
     p.created_at,
     p.updated_at,
+    p.photo_url,
     DATEDIFF(YEAR, p.dob, GETDATE())
         - CASE WHEN MONTH(p.dob) > MONTH(GETDATE())
                 OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE()))
@@ -642,12 +644,13 @@ CREATE PROCEDURE dbo.sp_create_patient
     @gender         NVARCHAR(20),
     @phone          NVARCHAR(30)  = NULL,
     @blood_type     NVARCHAR(5)   = NULL,
-    @registered_by  INT           = NULL
+    @registered_by  INT           = NULL,
+    @photo_url      NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by)
-    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by);
+    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by, photo_url)
+    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by, @photo_url);
     SELECT SCOPE_IDENTITY() AS patient_id;
 END
 GO
@@ -662,7 +665,8 @@ CREATE PROCEDURE dbo.sp_update_patient
     @dob        DATE          = NULL,
     @gender     NVARCHAR(20)  = NULL,
     @phone      NVARCHAR(30)  = NULL,
-    @blood_type NVARCHAR(5)   = NULL
+    @blood_type NVARCHAR(5)   = NULL,
+    @photo_url  NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -673,6 +677,7 @@ BEGIN
         gender      = COALESCE(@gender, gender),
         phone       = COALESCE(@phone, phone),
         blood_type  = COALESCE(@blood_type, blood_type),
+        photo_url   = COALESCE(@photo_url, photo_url),
         updated_at  = SYSUTCDATETIME()
     WHERE id = @patient_id;
     SELECT @@ROWCOUNT AS rows_affected;
