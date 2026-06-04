@@ -1,5 +1,6 @@
 import os
 import sys
+import pyodbc
 
 # Forzar la codificación estándar (necesario en Windows)
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':

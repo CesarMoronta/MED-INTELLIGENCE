@@ -645,11 +645,25 @@ def get_clinical_report(diagnosis_id: int):
     return row[0] if row else None
 
 
-def list_clinical_history(limit: int = 200, doctor_id: int = None) -> list:
-    """Lista historial clínico. Si doctor_id se especifica, filtra por doctor."""
+def list_clinical_history(limit: int = 200, doctor_id: int = None, patient_id: int = None, alert_level: str = None) -> list:
+    """Lista historial clínico. Si doctor_id, patient_id o alert_level se especifican, filtra por ellos."""
     conn   = get_connection()
     cursor = conn.cursor()
-    where  = f"WHERE doctor_id = {int(doctor_id)}" if doctor_id else ""
+    
+    where_clauses = []
+    params = []
+    if doctor_id:
+        where_clauses.append("doctor_id = ?")
+        params.append(int(doctor_id))
+    if patient_id:
+        where_clauses.append("patient_id = ?")
+        params.append(int(patient_id))
+    if alert_level:
+        where_clauses.append("alert_level = ?")
+        params.append(alert_level)
+        
+    where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+    
     cursor.execute(
         f"""SELECT TOP ({limit})
                diagnosis_id, visit_id, phase, diagnosis_primary, probability,
@@ -658,8 +672,9 @@ def list_clinical_history(limit: int = 200, doctor_id: int = None) -> list:
                patient_id, patient_cedula, patient_name,
                doctor_id, doctor_username, doctor_fullname
             FROM dbo.vw_clinical_history
-            {where}
-            ORDER BY diagnosis_date DESC"""
+            {where_sql}
+            ORDER BY diagnosis_date DESC""",
+        *params
     )
     rows = rows_to_dicts(cursor)
     cursor.close()
