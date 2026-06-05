@@ -1,3 +1,5 @@
 from diagnostic_engine import BayesianDiagnosticSystem
+from gemini_engine import GeminiDiagnosticLayer
 
-engine = BayesianDiagnosticSystem()
+engine       = BayesianDiagnosticSystem()
+gemini_layer = GeminiDiagnosticLayer()

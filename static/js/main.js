@@ -18,7 +18,12 @@ const STATE = {
   editingPatientId: null,
   rxList:          [],
   allAppointments: [],
+  finalDiagnosisRes: null,    // Resultado final del diagnóstico
+  finalTestsResultados: [],
+  geminiChatHistory: [],      // Historial del chat médico Gemini
+  lastReport:      '',
 };
+
 
 // Lista de síntomas y antecedentes
 const ALL_SYMPTOMS = [
@@ -1006,12 +1011,86 @@ async function runPhase1() {
 
   STATE.phase1Probs = res.probabilities;
   STATE.tests       = res.tests_sugeridos || [];
+  STATE.geminiChatHistory = []; // Reset chat on new diagnosis
 
   // Mostrar resultado y ocultar inputs
   document.getElementById('phase-1-inputs').style.display = 'none';
   renderPhase1Result(res);
   document.getElementById('phase1-result').style.display = '';
   document.getElementById('phase1-result').scrollIntoView({ behavior: 'smooth' });
+
+  // Lanzar análisis Gemini en paralelo (no bloquea la UI)
+  runGeminiAnalysis(res.probabilities);
+}
+
+async function runGeminiAnalysis(probs) {
+  const panel = document.getElementById('gemini-analisis-panel');
+  if (!panel) return;
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div class="gemini-panel">
+      <div class="gemini-panel-header">
+        <span class="gemini-badge">✨ Gemini AI</span>
+        <span>Analizando con IA clínica...</span>
+      </div>
+      <div class="gemini-loading">
+        <div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div>
+        <span>El motor de IA está procesando el contexto bayesiano...</span>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await api('POST', '/api/diagnose/gemini-analisis', {
+      probabilities: probs,
+      sintomas:      STATE.diagSintomas,
+      constantes:    STATE.diagConstantes,
+      antecedentes:  STATE.diagAntecedentes,
+    });
+
+    if (!res.success) {
+      panel.innerHTML = '';
+      return;
+    }
+
+    const alertas = (res.alertas_gemini || []).map(a =>
+      `<div class="gemini-alerta">⚠️ ${a}</div>`
+    ).join('');
+
+    const sugeridos = (res.sintomas_sugeridos || []).map(s =>
+      `<span class="gemini-tag">${s}</span>`
+    ).join('');
+
+    panel.innerHTML = `
+      <div class="gemini-panel">
+        <div class="gemini-panel-header">
+          <span class="gemini-badge">✨ Gemini AI</span>
+          <span style="color:var(--text-muted);font-size:12px;">${res.fallback ? 'Modo offline' : 'Análisis en tiempo real'}</span>
+        </div>
+
+        <div class="gemini-validacion">
+          <p>${res.validacion || ''}</p>
+        </div>
+
+        ${alertas ? `<div class="gemini-alertas-section">${alertas}</div>` : ''}
+
+        ${sugeridos ? `
+          <div class="gemini-sugeridos-section">
+            <div class="gemini-sugeridos-label">🔎 Explorar también:</div>
+            <div class="gemini-tags">${sugeridos}</div>
+          </div>
+        ` : ''}
+
+        ${res.confianza_gemini ? `
+          <div class="gemini-confianza">
+            <strong>Valoración Gemini:</strong> ${res.confianza_gemini}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  } catch(e) {
+    panel.innerHTML = '';
+  }
 }
 
 function renderPhase1Result(res) {
@@ -1069,6 +1148,7 @@ function renderPhase1Result(res) {
   // Populsar opciones del motor
   populateTestResultOptions(res.tests_sugeridos);
 }
+
 
 async function populateTestResultOptions(tests) {
   const data = await api('GET', '/api/medical_tests');
@@ -1225,6 +1305,7 @@ async function saveFinalDecision(createPrescription) {
 function renderFinalResult(res) {
   const alertClass = { Verde: 'verde', Amarillo: 'amarillo', Rojo: 'rojo' }[res.alert_level] || 'verde';
   const report     = markdownToHtml(res.explanation || '');
+  const geminiUsed = res.gemini_used === true;
 
   const html = `
     <div class="section-card">
@@ -1233,6 +1314,7 @@ function renderFinalResult(res) {
         <div style="display:flex;gap:8px;align-items:center;">
           <span class="badge badge-${alertClass}">${res.alert_level}</span>
           <span class="confidence-pill">${(res.probability * 100).toFixed(2)}%</span>
+          ${geminiUsed ? '<span class="gemini-badge" style="font-size:11px;">✨ Gemini AI</span>' : ''}
         </div>
       </div>
       <div class="diagnosis-display">
@@ -1243,12 +1325,42 @@ function renderFinalResult(res) {
     </div>
     <div class="section-card" style="margin-top:20px;">
       <div class="section-header">
-        <h2>📋 Informe Clínico Detallado</h2>
+        <h2>📋 Informe Clínico Detallado ${geminiUsed ? '<span class="gemini-badge" style="font-size:11px;margin-left:8px;">✨ IA Enriquecido</span>' : ''}</h2>
         <button class="btn-outline" onclick="openFullReport()">Ver en pantalla completa</button>
       </div>
       <div class="clinical-report" id="clinical-report-preview">${report}</div>
     </div>
-    
+
+    <!-- Panel de Chat Médico Gemini AI -->
+    <div class="section-card gemini-chat-card" style="margin-top:20px;">
+      <div class="section-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <h2>🧠 Consultar al Internista IA</h2>
+          <span class="gemini-badge">✨ Gemini AI</span>
+        </div>
+        <span style="font-size:12px;color:var(--text-muted);">Haz preguntas sobre el diagnóstico, medicamentos o señales de alarma</span>
+      </div>
+      <div id="gemini-chat-messages" class="gemini-chat-messages">
+        <div class="gemini-chat-msg model">
+          <div class="gemini-chat-bubble">
+            Hola, soy tu Internista de Apoyo IA. He analizado el caso de <strong>${res.patient_name || 'tu paciente'}</strong> y el diagnóstico bayesiano apunta a <strong>${res.diagnosis}</strong> con un ${(res.probability*100).toFixed(1)}% de confianza. ¿Qué deseas consultar sobre este caso?
+          </div>
+        </div>
+      </div>
+      <div class="gemini-chat-input-row">
+        <input
+          type="text"
+          id="gemini-chat-input"
+          class="form-input gemini-chat-input"
+          placeholder="Ej. ¿Cuáles son las señales de alarma para este diagnóstico?"
+          onkeydown="if(event.key==='Enter') sendGeminiMessage()"
+        />
+        <button class="btn-primary gemini-send-btn" id="gemini-send-btn" onclick="sendGeminiMessage()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+
     <div class="section-card" style="margin-top:20px; border: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02);">
       <div class="section-header">
         <h2>⚖️ Decisión del Especialista</h2>
@@ -1310,6 +1422,86 @@ function renderFinalResult(res) {
   // Guardar reporte para modal
   STATE.lastReport = res.explanation || '';
 }
+
+async function sendGeminiMessage() {
+  const input   = document.getElementById('gemini-chat-input');
+  const sendBtn = document.getElementById('gemini-send-btn');
+  const message = input?.value.trim();
+  if (!message || !STATE.finalDiagnosisRes) return;
+
+  const res = STATE.finalDiagnosisRes;
+  input.value = '';
+  sendBtn.disabled = true;
+
+  // Mostrar mensaje del usuario
+  appendGeminiMessage('user', message);
+
+  // Mostrar indicador de escritura
+  const typingId = 'gemini-typing-' + Date.now();
+  appendGeminiTyping(typingId);
+
+  // Añadir al historial
+  STATE.geminiChatHistory.push({ role: 'user', text: message });
+
+  try {
+    const chatRes = await api('POST', '/api/diagnose/chat-gemini', {
+      diagnostico:        res.diagnosis,
+      probabilidad:       res.probability,
+      sintomas_activos:   Object.keys(STATE.diagSintomas).filter(k => STATE.diagSintomas[k]),
+      antecedentes_activos: Object.keys(STATE.diagAntecedentes).filter(k => STATE.diagAntecedentes[k]),
+      constantes:         STATE.diagConstantes,
+      message:            message,
+      history:            STATE.geminiChatHistory.slice(-10), // últimos 10 turnos
+    });
+
+    removeGeminiTyping(typingId);
+
+    const responseText = chatRes.success
+      ? chatRes.response
+      : 'Lo siento, el asistente no está disponible en este momento. Consulte el informe clínico.';
+
+    appendGeminiMessage('model', responseText);
+    STATE.geminiChatHistory.push({ role: 'model', text: responseText });
+  } catch(e) {
+    removeGeminiTyping(typingId);
+    appendGeminiMessage('model', 'Error de conexión con el asistente médico. Intente nuevamente.');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendGeminiMessage(role, text) {
+  const container = document.getElementById('gemini-chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `gemini-chat-msg ${role}`;
+  // Simple markdown parsing for bold
+  const formatted = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>');
+  div.innerHTML = `<div class="gemini-chat-bubble">${formatted}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendGeminiTyping(id) {
+  const container = document.getElementById('gemini-chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'gemini-chat-msg model';
+  div.innerHTML = `<div class="gemini-chat-bubble gemini-typing-bubble">
+    <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+  </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeGeminiTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
 
 function openFullReport() {
   document.getElementById('diagnosis-result-content').innerHTML =

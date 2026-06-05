@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from extensions import engine
+from extensions import engine, gemini_layer
 from database import save_diagnosis, save_visit_tests, get_medical_tests
 from diagnostic_engine import OfflineAIEngine, CLINICAL_METADATA
 from utils import requires_login, get_current_user
@@ -71,6 +71,42 @@ def api_diagnose_preliminar():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@diagnostics_bp.route("/api/diagnose/gemini-analisis", methods=["POST"])
+@requires_login
+def api_diagnose_gemini_analisis():
+    """
+    Endpoint de enriquecimiento post-Bayes con Gemini AI.
+    Recibe las probabilidades bayesianas del preliminar y devuelve:
+    - Validación clínica del top diagnóstico
+    - Síntomas adicionales sugeridos que explorar
+    - Alertas clínicas detectadas por Gemini
+    - Nivel de confianza con justificación
+    """
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
+    data         = request.json or {}
+    probs_bayes  = data.get("probabilities", {})
+    sintomas     = data.get("sintomas", {})
+    constantes   = data.get("constantes", {})
+    antecedentes = data.get("antecedentes", {})
+
+    if not probs_bayes:
+        return jsonify({"success": False, "error": "Se requieren probabilidades bayesianas."}), 400
+
+    try:
+        resultado = gemini_layer.enriquecer_diagnostico_preliminar(
+            probs_bayes=probs_bayes,
+            sintomas=sintomas,
+            constantes=constantes,
+            antecedentes=antecedentes,
+        )
+        return jsonify({"success": True, **resultado})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @diagnostics_bp.route("/api/diagnose/final", methods=["POST"])
 @requires_login
 def api_diagnose_final():
@@ -102,13 +138,32 @@ def api_diagnose_final():
         sintomas_activos     = [s for s, pres in sintomas.items() if pres]
         antecedentes_activos = [a for a, pres in antecedentes.items() if pres]
 
+        meta = CLINICAL_METADATA.get(diagnostico, {})
+
+        # ── Intentar generar sección fisiopatológica con Gemini ───────────────
+        gemini_result = gemini_layer.generar_informe_clinico(
+            paciente_nombre=patient_name,
+            constantes=constantes,
+            diagnostico=diagnostico,
+            probabilidad=probabilidad,
+            sintomas_activos=sintomas_activos,
+            antecedentes_activos=antecedentes_activos,
+            diagnosticos_diferenciales=probabilidades,
+            motivo_consulta=motivo_consulta,
+            tipo_visita=visit_type,
+            meta_clinica=meta,
+        )
+
+        # ── Generar informe combinado: estructura Offline + sección Gemini ────
+        seccion_gemini = gemini_result.get("seccion_gemini")
+        gemini_fallback = gemini_result.get("fallback", True)
+
         explicacion = OfflineAIEngine.generar_explicacion(
             patient_name, constantes, diagnostico, probabilidad,
             sintomas_activos, antecedentes_activos, probabilidades,
-            motivo_consulta, visit_type
+            motivo_consulta, visit_type,
+            seccion_gemini_override=seccion_gemini,
         )
-
-        meta = CLINICAL_METADATA.get(diagnostico, {})
 
         is_refuted = data.get("is_refuted", False)
         refutation_reason = data.get("refutation_reason")
@@ -147,9 +202,53 @@ def api_diagnose_final():
             "color": meta.get("color", "#10b981"),
             "specialist": meta.get("specialist", "Medicina General"),
             "pasos_calculo": pasos,
-            "tests": tests_resultados
+            "tests": tests_resultados,
+            "gemini_used": not gemini_fallback,
         })
 
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@diagnostics_bp.route("/api/diagnose/chat-gemini", methods=["POST"])
+@requires_login
+def api_diagnose_chat_gemini():
+    """
+    Chatbot médico con contexto bayesiano completo del paciente.
+    Reemplaza el chatbot offline de palabras clave con Gemini.
+    """
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
+    data         = request.json or {}
+    diagnostico  = data.get("diagnostico", "")
+    probabilidad = float(data.get("probabilidad", 0.0))
+    sintomas     = data.get("sintomas_activos", [])
+    antecedentes = data.get("antecedentes_activos", [])
+    constantes   = data.get("constantes", {})
+    mensaje      = data.get("message", "")
+    historial    = data.get("history", [])
+
+    if not mensaje:
+        return jsonify({"success": False, "error": "Mensaje vacío."}), 400
+    if not diagnostico:
+        return jsonify({"success": False, "error": "Se requiere un diagnóstico activo."}), 400
+
+    meta = CLINICAL_METADATA.get(diagnostico, {})
+
+    try:
+        result = gemini_layer.chatear_medico(
+            diagnostico=diagnostico,
+            probabilidad=probabilidad,
+            sintomas_activos=sintomas,
+            antecedentes_activos=antecedentes,
+            constantes=constantes,
+            mensaje_usuario=mensaje,
+            historial=historial,
+            meta_clinica=meta,
+        )
+        return jsonify({"success": True, **result})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

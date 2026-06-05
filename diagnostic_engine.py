@@ -1322,9 +1322,13 @@ class OfflineAIEngine:
     def generar_explicacion(
         paciente_nombre, constantes, diagnostico, probabilidad,
         sintomas_activos, antecedentes_activos, diagnosticos_diferenciales,
-        motivo_consulta="No especificado", tipo_visita="consulta"
+        motivo_consulta="No especificado", tipo_visita="consulta",
+        seccion_gemini_override=None
     ):
-        """Genera una nota clínica formal en formato Markdown."""
+        """Genera una nota clínica formal en formato Markdown.
+        Si seccion_gemini_override está disponible, la sección 3 (Análisis
+        Fisiopatológico) es generada por Gemini AI en lugar del texto estático.
+        """
         meta = CLINICAL_METADATA.get(diagnostico, {})
         alert_text = meta.get("alert_level", "Verde").upper()
         emoji = "🟢" if alert_text == "VERDE" else ("🟡" if alert_text == "AMARILLO" else "🔴")
@@ -1414,12 +1418,12 @@ class OfflineAIEngine:
 
 ---
 
-#### 🔬 3. Análisis Fisiopatológico
+#### 🔬 3. Análisis Fisiopatológico{' ✨ *(Generado por Gemini AI)*' if seccion_gemini_override else ''}
 
-El cuadro de **{diagnostico}** es el más compatible clínicamente por:
+{seccion_gemini_override if seccion_gemini_override else f'''El cuadro de **{diagnostico}** es el más compatible clínicamente por:
 *   **Correlación de Constantes Vitales:** {"Alteraciones detectadas en los parámetros fisiológicos sustentan la sospecha." if banderas else "El paciente se mantiene hemodinámicamente estable con manifestaciones sintomáticas locales."}
-*   **Antecedentes de Riesgo:** {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno reportado'}
-*   **Síntomas Presentes:** {', '.join(sintomas_activos) if sintomas_activos else 'Ver evaluación de síntomas'}
+*   **Antecedentes de Riesgo:** {", ".join(antecedentes_activos) if antecedentes_activos else "Ninguno reportado"}
+*   **Síntomas Presentes:** {", ".join(sintomas_activos) if sintomas_activos else "Ver evaluación de síntomas"}'''}
 
 ---
 
@@ -1446,7 +1450,7 @@ El cuadro de **{diagnostico}** es el más compatible clínicamente por:
 {red_flags_html}
 
 ---
-*Nota Legal: Este informe es un soporte de apoyo a la decisión clínica basado en el Teorema de Bayes. No reemplaza el examen físico y el juicio médico profesional. UTESA — Informática Médica © 2026.*
+*Nota Legal: Este informe es un soporte de apoyo a la decisión clínica basado en el Teorema de Bayes {'complementado con análisis de lenguaje natural por Gemini AI' if seccion_gemini_override else ''}. No reemplaza el examen físico y el juicio médico profesional. UTESA — Informática Médica © 2026.*
 """
         return reporte_markdown
 
