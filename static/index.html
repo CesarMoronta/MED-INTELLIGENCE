@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="/css/style.css"/>
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- PayPal SDK for Subscriptions -->
+  <script src="https://www.paypal.com/sdk/js?client-id=sb&vault=true&intent=subscription"></script>
 </head>
 <body>
 
@@ -26,14 +28,14 @@
   </div>
 
   <!-- Perfil del usuario -->
-  <div class="sidebar-profile">
+  <div class="sidebar-profile" style="cursor: pointer;" onclick="openMyAccountModal()">
     <div class="profile-avatar" id="profile-avatar">A</div>
     <div class="profile-info">
       <div class="profile-name" id="profile-name">Cargando...</div>
       <div class="profile-role" id="profile-role">—</div>
     </div>
     <!-- Notificaciones badge -->
-    <button class="notif-badge-btn" id="btn-notif-badge" onclick="openNotificationsPanel()" title="Mensajes internos">
+    <button class="notif-badge-btn" id="btn-notif-badge" onclick="event.stopPropagation(); openNotificationsPanel()" title="Mensajes internos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       <span class="notif-count" id="notif-count" style="display:none;">0</span>
     </button>
@@ -343,6 +345,16 @@
       </button>
     </div>
     <div id="diagnose-content">
+      <!-- Banner sin suscripción -->
+      <div id="no-sub-banner" style="display: none; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px; color: var(--text-primary);">
+        <h4 style="margin: 0; display: flex; align-items: center; gap: 8px; color: #ef4444; font-weight: 600;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="20" height="20"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Suscripción VIP Requerida para Funciones de IA
+        </h4>
+        <p style="font-size: 13px; margin-top: 6px; color: var(--text-muted); margin-bottom: 0;">
+          Actualmente estás operando en el modo de <strong>Diagnóstico Manual</strong>. Para habilitar las recomendaciones automatizadas por motor Bayesiano y Gemini AI, activa tu suscripción en el panel de tu cuenta.
+        </p>
+      </div>
       <!-- Fase 1 -->
       <div id="phase-1-panel">
         <div id="phase-1-inputs">
@@ -455,6 +467,46 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Calcular Diagnóstico Preliminar (Fase 1)
           </button>
+        </div>
+
+        <!-- Formulario de Diagnóstico Manual (Para Doctores sin Suscripción) -->
+        <div id="manual-diagnosis-inputs" style="display: none; margin-top: 24px;">
+          <div class="section-card">
+            <div class="section-header"><h2>⚖️ Registro Manual de Diagnóstico</h2></div>
+            <div class="form-group" style="margin-top:12px;">
+              <label class="form-label">Diagnóstico Clínico del Médico <span class="badge-required">*</span></label>
+              <input type="text" id="manual-diag-primary" class="form-input" placeholder="Ej. Migraña Crónica, Hipertensión Esencial..." />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Nivel de Alerta</label>
+                <select id="manual-diag-alert" class="form-input">
+                  <option value="Verde">Verde (Bajo Riesgo)</option>
+                  <option value="Amarillo">Amarillo (Moderado)</option>
+                  <option value="Rojo">Rojo (Alto Riesgo / Emergencia)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Especialista Recomendado</label>
+                <input type="text" id="manual-diag-specialist" class="form-input" placeholder="Ej. Neurología, Cardiología..." />
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:12px;">
+              <label class="form-label">Informe Clínico / Indicaciones</label>
+              <textarea id="manual-diag-report" class="form-input" rows="4" placeholder="Escribe el informe clínico detallado y las indicaciones para el paciente..."></textarea>
+            </div>
+            
+            <div class="form-actions" style="margin-top: 20px; justify-content: flex-start; gap: 12px;">
+              <button class="btn-primary" onclick="saveManualDiagnosis(true)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-right:6px;vertical-align:middle;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Guardar y Crear Receta
+              </button>
+              <button class="btn-secondary" onclick="saveManualDiagnosis(false)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="margin-right:6px;vertical-align:middle;"><path d="M5 12l5 5L20 7"/></svg>
+                Solo Guardar Diagnóstico
+              </button>
+            </div>
+          </div>
         </div>
         </div> <!-- End of phase-1-inputs -->
 
@@ -1041,6 +1093,113 @@
       </button>
       <button class="btn-primary" onclick="printReport()">🖨️ Imprimir Informe</button>
       <button class="btn-outline" onclick="closeModal('modal-diagnosis-result')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Mi Cuenta / Perfil -->
+<div class="modal-overlay" id="modal-profile" onclick="closeModalOnBg(event,'modal-profile')">
+  <div class="modal-box modal-wide">
+    <div class="modal-header">
+      <h3>⚙️ Mi Cuenta</h3>
+      <button class="modal-close" onclick="closeModal('modal-profile')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+        <!-- Foto de Perfil -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; width: 140px; flex-shrink: 0;">
+          <div style="width: 120px; height: 120px; border-radius: 50%; border: 2px solid var(--brand); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-input);">
+            <img id="my-profile-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
+            <div id="my-profile-placeholder" style="font-size: 36px; font-weight: bold; color: var(--text-muted);">U</div>
+          </div>
+          <label class="btn-outline" style="cursor: pointer; font-size: 11px; padding: 6px 12px;">
+            Cambiar Foto
+            <input type="file" id="profile-photo-input" style="display: none;" onchange="uploadProfilePhoto(event)" />
+          </label>
+        </div>
+
+        <!-- Formulario de Datos -->
+        <div style="flex: 1; min-width: 250px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Usuario</label>
+              <input type="text" id="my-username" class="form-input" disabled />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Rol</label>
+              <input type="text" id="my-role" class="form-input" disabled style="text-transform: uppercase;" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nombre Completo</label>
+            <input type="text" id="my-fullname" class="form-input" placeholder="Dr. José García" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" id="my-email" class="form-input" placeholder="correo@ejemplo.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contraseña Nueva (dejar en blanco para conservar)</label>
+            <input type="password" id="my-password" class="form-input" placeholder="Mínimo 6 caracteres" />
+          </div>
+
+          <!-- Campos Doctor -->
+          <div id="my-doctor-fields" style="display: none; border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Matrícula Médica</label>
+                <input type="text" id="my-matricula" class="form-input" placeholder="DR-12345" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Especialidad</label>
+                <input type="text" id="my-especialidad" class="form-input" placeholder="Medicina Interna" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Teléfono</label>
+                <input type="text" id="my-telefono" class="form-input" placeholder="809-555-0000" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hospital Afiliado</label>
+                <input type="text" id="my-hospital" class="form-input" placeholder="Hospital General" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Sección de Suscripción (Doctores) -->
+          <div id="my-subscription-section" style="display: none; border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
+            <h4 style="margin-bottom: 12px; color: var(--brand-light); display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Suscripción MED-INTELLIGENCE VIP
+            </h4>
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>Estado de Suscripción:</span>
+                <span id="sub-status-badge" class="badge">Cargando...</span>
+              </div>
+              <div id="sub-details" style="display: none; font-size: 13px; color: var(--text-muted);">
+                <p>Plan: <strong id="sub-plan-name" style="color: var(--text-primary);">VIP</strong></p>
+                <p>Renovación/Vencimiento: <strong id="sub-renewal-date" style="color: var(--text-primary);">—</strong></p>
+                <p>ID PayPal: <strong id="sub-id-display" style="color: var(--text-primary); font-family: var(--mono);">—</strong></p>
+              </div>
+              <div id="sub-actions" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                <!-- Aquí se cargan dinámicamente los botones de PayPal o cancelación -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Correo de Prueba -->
+          <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: var(--text-muted);">¿Quieres validar el envío de notificaciones?</span>
+            <button class="btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="sendTestEmail()">Enviar Correo de Prueba</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-profile')">Cancelar</button>
+      <button class="btn-primary" onclick="saveMyProfile()">Guardar Cambios</button>
     </div>
   </div>
 </div>

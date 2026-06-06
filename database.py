@@ -82,7 +82,8 @@ def get_user_by_username(username: str) -> dict | None:
     cursor.execute(
         """SELECT u.id, u.username, u.password_hash, u.role, u.full_name,
                   u.email, u.is_active, u.failed_logins, u.locked_until, u.last_login,
-                  d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id
+                  d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id,
+                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at
            FROM dbo.users u
            LEFT JOIN dbo.doctors d ON d.user_id = u.id
            WHERE u.username = ?""",
@@ -99,7 +100,10 @@ def get_user_by_username(username: str) -> dict | None:
         "is_active": bool(row[6]), "failed_logins": row[7],
         "locked_until": row[8], "last_login": row[9],
         "matricula": row[10], "especialidad": row[11],
-        "telefono": row[12], "hospital": row[13], "doctor_id": row[14]
+        "telefono": row[12], "hospital": row[13], "doctor_id": row[14],
+        "photo_url": row[15], "subscription_active": bool(row[16]),
+        "subscription_id": row[17], "subscription_plan": row[18],
+        "subscription_expires_at": _fmt_date(row[19])
     }
 
 
@@ -109,7 +113,8 @@ def get_user_by_id(user_id: int) -> dict | None:
     cursor.execute(
         """SELECT u.id, u.username, u.password_hash, u.role, u.full_name,
                   u.email, u.is_active, u.failed_logins, u.locked_until, u.last_login,
-                  d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id
+                  d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id,
+                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at
            FROM dbo.users u
            LEFT JOIN dbo.doctors d ON d.user_id = u.id
            WHERE u.id = ?""",
@@ -126,7 +131,10 @@ def get_user_by_id(user_id: int) -> dict | None:
         "is_active": bool(row[6]), "failed_logins": row[7],
         "locked_until": _fmt_date(row[8]), "last_login": _fmt_date(row[9]),
         "matricula": row[10], "especialidad": row[11],
-        "telefono": row[12], "hospital": row[13], "doctor_id": row[14]
+        "telefono": row[12], "hospital": row[13], "doctor_id": row[14],
+        "photo_url": row[15], "subscription_active": bool(row[16]),
+        "subscription_id": row[17], "subscription_plan": row[18],
+        "subscription_expires_at": _fmt_date(row[19])
     }
 
 
@@ -174,7 +182,8 @@ def verify_user(username: str, password: str, ip_address: str = None) -> dict | 
     return {
         "id": user["id"], "username": user["username"],
         "role": user["role"], "full_name": user.get("full_name"),
-        "matricula": user.get("matricula"), "doctor_id": user.get("doctor_id")
+        "matricula": user.get("matricula"), "doctor_id": user.get("doctor_id"),
+        "photo_url": user.get("photo_url"), "subscription_active": user.get("subscription_active")
     }
 
 
@@ -264,13 +273,53 @@ def update_user(user_id: int, username: str = None, password: str = None,
     return get_user_by_id(user_id)
 
 
+def update_user_subscription(user_id: int, active: bool, sub_id: str = None, plan: str = None, expires_at = None) -> bool:
+    """Actualiza la suscripción de un doctor en la base de datos."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """UPDATE dbo.users
+               SET subscription_active = ?,
+                   subscription_id = ?,
+                   subscription_plan = ?,
+                   subscription_expires_at = ?
+               WHERE id = ?""",
+            1 if active else 0, sub_id, plan, expires_at, user_id
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def update_user_photo(user_id: int, photo_url: str) -> bool:
+    """Actualiza la foto de perfil de un usuario."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE dbo.users SET photo_url = ? WHERE id = ?",
+            photo_url, user_id
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def list_users() -> list:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
         """SELECT id, username, role, full_name, email, is_active,
                   failed_logins, locked_until, last_login, created_at,
-                  matricula, especialidad, telefono, hospital, doctor_id
+                  matricula, especialidad, telefono, hospital, doctor_id,
+                  photo_url, subscription_active, subscription_id, subscription_plan, subscription_expires_at
            FROM dbo.vw_users
            ORDER BY role DESC, username ASC"""
     )
@@ -282,7 +331,10 @@ def list_users() -> list:
         r["locked_until"] = _fmt_date(r.get("locked_until"))
         r["last_login"]   = _fmt_date(r.get("last_login"))
         r["created_at"]   = _fmt_date(r.get("created_at"))
+        r["subscription_active"] = bool(r.get("subscription_active", 0))
+        r["subscription_expires_at"] = _fmt_date(r.get("subscription_expires_at"))
     return rows
+
 
 
 # PACIENTES

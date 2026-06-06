@@ -35,7 +35,9 @@ def api_login():
         "username": user["username"],
         "role": user["role"],
         "full_name": user.get("full_name"),
-        "doctor_id": user.get("doctor_id")
+        "doctor_id": user.get("doctor_id"),
+        "photo_url": user.get("photo_url"),
+        "subscription_active": user.get("subscription_active", False)
     }
     session.permanent = True
 

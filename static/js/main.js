@@ -192,7 +192,14 @@ async function loadClinicName() {
 function setupUI() {
   const u = STATE.user;
   const first = (u.full_name || u.username || '?')[0].toUpperCase();
-  document.getElementById('profile-avatar').textContent = first;
+  const avatarEl = document.getElementById('profile-avatar');
+  if (avatarEl) {
+    if (u.photo_url) {
+      avatarEl.innerHTML = `<img src="${u.photo_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" />`;
+    } else {
+      avatarEl.innerHTML = first;
+    }
+  }
   document.getElementById('profile-name').textContent   = u.full_name || u.username;
   const roleEl = document.getElementById('profile-role');
   const roleLabels = { admin: '⚙️ Administrador', doctor: '🩺 Doctor', secretaria: '📋 Secretaría' };
@@ -733,8 +740,40 @@ function getCheckedFrom(containerId) {
   return result;
 }
 
-function loadDiagnoseTab() {
+async function loadDiagnoseTab() {
   updateVitalBadge(null);
+  
+  // Si no hay usuario en sesión, salir
+  if (!STATE.user) return;
+  
+  // Ocultar elementos de IA y manual al cargar
+  document.getElementById('no-sub-banner').style.display = 'none';
+  document.getElementById('manual-diagnosis-inputs').style.display = 'none';
+  document.getElementById('btn-diag-phase1').style.display = '';
+
+  // Si no es doctor, no es necesario validar suscripción
+  if (STATE.user.role !== 'doctor') return;
+
+  // Cargar datos del perfil para obtener el estado de suscripción más reciente
+  const res = await api('GET', '/api/profile');
+  if (res.success && res.user) {
+    STATE.user = res.user; // Actualizar estado local
+    
+    const isSubscribed = STATE.user.subscription_active;
+    const banner = document.getElementById('no-sub-banner');
+    const btnIA = document.getElementById('btn-diag-phase1');
+    const manualInputs = document.getElementById('manual-diagnosis-inputs');
+
+    if (!isSubscribed) {
+      if (banner) banner.style.display = 'block';
+      if (btnIA) btnIA.style.display = 'none';
+      if (manualInputs) manualInputs.style.display = 'block';
+    } else {
+      if (banner) banner.style.display = 'none';
+      if (btnIA) btnIA.style.display = '';
+      if (manualInputs) manualInputs.style.display = 'none';
+    }
+  }
 }
 
 async function openPatientSelectModal() {
@@ -2824,6 +2863,319 @@ async function autoFillCedula(cedula) {
   } catch (err) {
     console.error(err);
     toast('error', 'Error al consultar cédula.');
+  }
+}
+
+
+// ── SISTEMA DE PERFILES Y SUSCRIPCIONES (NUEVOS EN GENERAL) ──────────────────
+async function openMyAccountModal() {
+  const data = await api('GET', '/api/profile');
+  if (!data.success) {
+    toast('error', 'No se pudo cargar la información del perfil.');
+    return;
+  }
+  
+  const user = data.user;
+  STATE.user = user; // Actualizar estado local
+
+  // Cargar campos básicos
+  document.getElementById('my-username').value = user.username || '';
+  document.getElementById('my-role').value = user.role || '';
+  document.getElementById('my-fullname').value = user.full_name || '';
+  document.getElementById('my-email').value = user.email || '';
+  document.getElementById('my-password').value = '';
+
+  // Foto de perfil preview
+  const preview = document.getElementById('my-profile-preview');
+  const placeholder = document.getElementById('my-profile-placeholder');
+  if (user.photo_url) {
+    preview.src = user.photo_url;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    preview.style.display = 'none';
+    placeholder.style.display = 'block';
+    placeholder.textContent = (user.full_name || user.username || '?')[0].toUpperCase();
+  }
+
+  // Si es doctor, mostrar campos adicionales y sección de suscripción
+  const isDoctor = user.role === 'doctor';
+  document.getElementById('my-doctor-fields').style.display = isDoctor ? 'block' : 'none';
+  document.getElementById('my-subscription-section').style.display = isDoctor ? 'block' : 'none';
+
+  if (isDoctor) {
+    document.getElementById('my-matricula').value = user.matricula || '';
+    document.getElementById('my-especialidad').value = user.especialidad || '';
+    document.getElementById('my-telefono').value = user.telefono || '';
+    document.getElementById('my-hospital').value = user.hospital || '';
+
+    // Estado suscripción
+    const badge = document.getElementById('sub-status-badge');
+    const details = document.getElementById('sub-details');
+    const actions = document.getElementById('sub-actions');
+
+    if (user.subscription_active) {
+      badge.className = 'badge badge-verde';
+      badge.textContent = 'VIP ACTIVO';
+      details.style.display = 'block';
+      document.getElementById('sub-renewal-date').textContent = user.subscription_expires_at ? user.subscription_expires_at.substring(0, 10) : '—';
+      document.getElementById('sub-id-display').textContent = user.subscription_id || '—';
+
+      actions.innerHTML = `
+        <button class="btn-outline" style="border-color: #ef4444; color: #ef4444; width: 100%;" onclick="cancelSubscription()">
+          Cancelar Suscripción VIP
+        </button>
+      `;
+    } else {
+      badge.className = 'badge badge-rojo';
+      badge.textContent = 'INACTIVO';
+      details.style.display = 'none';
+
+      actions.innerHTML = `
+        <div id="paypal-button-container" style="width: 100%;"></div>
+        <button class="btn-primary" style="background-color: var(--brand-light); border-color: var(--brand-light); width: 100%; font-size: 13px;" onclick="simulatePayPalPayment()">
+          ⚡ Simular Pago Directo (Pruebas)
+        </button>
+      `;
+
+      // Renderizar el botón de PayPal de manera diferida
+      setTimeout(() => {
+        renderPayPalButton();
+      }, 100);
+    }
+  }
+
+  openModal('modal-profile');
+}
+
+function renderPayPalButton() {
+  const container = document.getElementById('paypal-button-container');
+  if (!container) return;
+  container.innerHTML = ''; // Limpiar
+
+  if (typeof paypal === 'undefined') {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;">SDK de PayPal no disponible</div>';
+    return;
+  }
+
+  paypal.Buttons({
+    style: {
+      shape: 'rect',
+      color: 'gold',
+      layout: 'vertical',
+      label: 'subscribe'
+    },
+    createSubscription: function(data, actions) {
+      return actions.subscription.create({
+        'plan_id': 'P-58473859YY4859604M3NNZMY' // Plan Sandbox de prueba
+      });
+    },
+    onApprove: async function(data, actions) {
+      toast('info', 'Procesando aprobación de PayPal...');
+      const res = await api('POST', '/api/subscription/paypal-approved', {
+        subscription_id: data.subscriptionID,
+        plan_id: 'VIP'
+      });
+      if (res.success) {
+        toast('success', '¡Suscripción VIP de PayPal activada!');
+        STATE.user = res.user;
+        setupUI();
+        closeModal('modal-profile');
+      } else {
+        toast('error', res.error || 'Error al guardar suscripción.');
+      }
+    },
+    onError: function(err) {
+      console.error(err);
+      toast('error', 'Ocurrió un error con la pasarela de PayPal.');
+    }
+  }).render('#paypal-button-container');
+}
+
+async function simulatePayPalPayment() {
+  if (!confirm('¿Desea simular una suscripción VIP exitosa de $20 USD para desarrollo?')) return;
+  const mockSubId = 'SIM-SUB-' + Math.floor(Math.random() * 10000000);
+  
+  toast('info', 'Procesando pago simulado...');
+  const res = await api('POST', '/api/subscription/paypal-approved', {
+    subscription_id: mockSubId,
+    plan_id: 'VIP (Simulado)'
+  });
+  
+  if (res.success) {
+    toast('success', '¡Suscripción VIP Simulada activada correctamente!');
+    STATE.user = res.user;
+    setupUI();
+    closeModal('modal-profile');
+  } else {
+    toast('error', res.error || 'Error al activar suscripción simulada.');
+  }
+}
+
+async function cancelSubscription() {
+  if (!confirm('¿Está seguro de que desea cancelar su suscripción VIP? Perderá acceso inmediato a las funciones de IA.')) return;
+  
+  toast('info', 'Procesando cancelación...');
+  const res = await api('POST', '/api/subscription/cancel');
+  if (res.success) {
+    toast('success', 'Suscripción VIP cancelada correctamente.');
+    STATE.user = res.user;
+    setupUI();
+    closeModal('modal-profile');
+  } else {
+    toast('error', res.error || 'Error al cancelar la suscripción.');
+  }
+}
+
+async function uploadProfilePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  toast('info', 'Subiendo foto de perfil...');
+  try {
+    const res = await fetch('/api/profile/upload-photo', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success && data.photo_url) {
+      toast('success', 'Foto de perfil actualizada.');
+      document.getElementById('my-profile-preview').src = data.photo_url;
+      document.getElementById('my-profile-preview').style.display = 'block';
+      document.getElementById('my-profile-placeholder').style.display = 'none';
+      
+      STATE.user.photo_url = data.photo_url;
+      setupUI();
+    } else {
+      toast('error', data.error || 'Error al subir la foto.');
+    }
+  } catch(e) {
+    toast('error', 'Error de red al subir foto.');
+  }
+}
+
+async function saveMyProfile() {
+  const fullname = document.getElementById('my-fullname').value.trim();
+  const email = document.getElementById('my-email').value.trim();
+  const password = document.getElementById('my-password').value;
+
+  const payload = {
+    full_name: fullname || null,
+    email: email || null,
+    password: password || null
+  };
+
+  if (STATE.user.role === 'doctor') {
+    payload.matricula = document.getElementById('my-matricula').value.trim() || null;
+    payload.especialidad = document.getElementById('my-especialidad').value.trim() || null;
+    payload.telefono = document.getElementById('my-telefono').value.trim() || null;
+    payload.hospital = document.getElementById('my-hospital').value.trim() || null;
+  }
+
+  toast('info', 'Guardando cambios del perfil...');
+  const res = await api('PUT', '/api/profile', payload);
+  if (res.success) {
+    toast('success', '¡Perfil actualizado con éxito!');
+    STATE.user = res.user;
+    setupUI();
+    closeModal('modal-profile');
+  } else {
+    toast('error', res.error || 'Error al guardar perfil.');
+  }
+}
+
+async function sendTestEmail() {
+  toast('info', 'Enviando correo de prueba...');
+  const res = await api('POST', '/api/subscription/send-test-email');
+  if (res.success) {
+    toast('success', res.message || 'Correo de prueba enviado.');
+  } else {
+    toast('error', res.error || 'Error al enviar correo.');
+  }
+}
+
+async function saveManualDiagnosis(createPrescription) {
+  const patientId = document.getElementById('diag-patient-id')?.value;
+  if (!patientId || !STATE.currentPatient) {
+    toast('error', 'Debes buscar y seleccionar un paciente primero.');
+    return;
+  }
+
+  const motivoConsulta = document.getElementById('diag-motivo')?.value.trim();
+  if (!motivoConsulta) {
+    toast('error', 'El motivo de consulta es obligatorio.');
+    return;
+  }
+
+  const diagnosis = document.getElementById('manual-diag-primary').value.trim();
+  if (!diagnosis) {
+    toast('error', 'El diagnóstico clínico manual es obligatorio.');
+    return;
+  }
+
+  const alertLevel = document.getElementById('manual-diag-alert').value;
+  const specialist = document.getElementById('manual-diag-specialist').value.trim();
+  const report = document.getElementById('manual-diag-report').value.trim();
+
+  // Crear la visita si no se ha creado aún
+  if (!STATE.currentVisitId) {
+    const constantes = getConstantes();
+    const sintomas = getCheckedFrom('symptoms-checkboxes');
+    
+    toast('info', 'Registrando visita médica...');
+    const visitRes = await api('POST', '/api/visits', {
+      patient_id: patientId,
+      visit_type: 'consulta',
+      motivo_consulta: motivoConsulta,
+      doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
+      constantes: constantes,
+      sintomas: sintomas
+    });
+    if (!visitRes.success) {
+      toast('error', visitRes.error || 'Error al crear la visita.');
+      return;
+    }
+    STATE.currentVisitId = visitRes.visit_id;
+  }
+
+  // Guardar diagnóstico manual
+  toast('info', 'Guardando diagnóstico...');
+  const res = await api('POST', '/api/diagnose/final', {
+    patient_id: STATE.currentPatient.id,
+    patient_name: STATE.currentPatient.name,
+    motivo_consulta: motivoConsulta,
+    visit_id: STATE.currentVisitId,
+    preliminar_probs: {},
+    tests_resultados: [],
+    sintomas: getCheckedFrom('symptoms-checkboxes'),
+    antecedentes: getCheckedFrom('antecedentes-checkboxes'),
+    constantes: getConstantes(),
+    is_manual: true,
+    save_diagnosis: true,
+    diagnosis_primary: diagnosis,
+    alert_level: alertLevel,
+    specialist: specialist || 'Medicina General',
+    explanation: report || 'Diagnóstico y evolución ingresados manualmente.'
+  });
+
+  if (res.success) {
+    toast('success', 'Consulta y diagnóstico registrados con éxito.');
+    
+    const appId = document.getElementById('diag-appointment-id')?.value;
+    if (appId) {
+      api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+    }
+
+    if (createPrescription) {
+      openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+    } else {
+      resetDiagnose();
+    }
+  } else {
+    toast('error', res.error || 'Error al guardar el diagnóstico.');
   }
 }
 

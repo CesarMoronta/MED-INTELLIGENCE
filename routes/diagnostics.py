@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from extensions import engine, gemini_layer
-from database import save_diagnosis, save_visit_tests, get_medical_tests
+from database import save_diagnosis, save_visit_tests, get_medical_tests, get_user_by_id
 from diagnostic_engine import OfflineAIEngine, CLINICAL_METADATA
 from utils import requires_login, get_current_user
 
@@ -16,12 +16,30 @@ def _block_secretaria():
     return None
 
 
+def _check_subscription():
+    """Retorna 403 si el doctor no tiene una suscripción activa."""
+    u = get_current_user()
+    if u.get("role") == "doctor":
+        user_db = get_user_by_id(u["id"])
+        if not user_db or not user_db.get("subscription_active"):
+            return jsonify({
+                "success": False,
+                "error": "subscription_required",
+                "message": "Se requiere una suscripción VIP activa de PayPal para usar el diagnóstico asistido por IA."
+            }), 403
+    return None
+
+
 @diagnostics_bp.route("/api/diagnose/preliminar", methods=["POST"])
 @requires_login
 def api_diagnose_preliminar():
     blocked = _block_secretaria()
     if blocked:
         return blocked
+
+    sub_blocked = _check_subscription()
+    if sub_blocked:
+        return sub_blocked
 
     data         = request.json or {}
     antecedentes = data.get("antecedentes", {})
@@ -86,6 +104,10 @@ def api_diagnose_gemini_analisis():
     if blocked:
         return blocked
 
+    sub_blocked = _check_subscription()
+    if sub_blocked:
+        return sub_blocked
+
     data         = request.json or {}
     probs_bayes  = data.get("probabilities", {})
     sintomas     = data.get("sintomas", {})
@@ -128,6 +150,60 @@ def api_diagnose_final():
     constantes        = data.get("constantes", {})
 
     try:
+        # Verificar si tiene suscripción activa o si requiere modo manual
+        u = get_current_user()
+        user_db = get_user_by_id(u["id"]) if u.get("id") else None
+        is_subscribed = user_db.get("subscription_active", False) if user_db else False
+
+        is_manual = data.get("is_manual", False) or not is_subscribed
+
+        if is_manual:
+            diagnostico = data.get("diagnosis_primary") or "Diagnóstico Clínico"
+            probabilidad = float(data.get("probability") or 1.0)
+            alert_level = data.get("alert_level", "Verde")
+            alert_colors = {'Verde': '#10b981', 'Amarillo': '#f59e0b', 'Rojo': '#ef4444'}
+            alert_color = alert_colors.get(alert_level, '#10b981')
+            specialist = data.get("specialist") or "Medicina General"
+            explicacion = data.get("explanation") or data.get("doctor_notes") or "Diagnóstico y anotaciones ingresadas manualmente por el médico."
+            should_save = data.get("save_diagnosis", False)
+
+            if visit_id and should_save:
+                save_diagnosis(
+                    visit_id=int(visit_id),
+                    phase="final",
+                    diagnosis_primary=diagnostico,
+                    probability=probabilidad,
+                    alert_level=alert_level,
+                    alert_color=alert_color,
+                    specialist=specialist,
+                    differentials={diagnostico: probabilidad},
+                    clinical_report=explicacion,
+                    is_refuted=False,
+                    refutation_reason=None,
+                    doctor_override_diagnosis=None
+                )
+                if tests_resultados:
+                    save_visit_tests(int(visit_id), tests_resultados)
+
+            return jsonify({
+                "success": True,
+                "patient_name": patient_name,
+                "motivo_consulta": motivo_consulta,
+                "visit_type": visit_type,
+                "constantes": constantes,
+                "probabilities": {diagnostico: probabilidad},
+                "diagnosis": diagnostico,
+                "probability": probabilidad,
+                "explanation": explicacion,
+                "alert_level": alert_level,
+                "color": alert_color,
+                "specialist": specialist,
+                "pasos_calculo": 0,
+                "tests": tests_resultados,
+                "gemini_used": False,
+                "is_manual": True
+            })
+
         probabilidades, pasos = engine.calcular_diagnostico_final(
             preliminar_probs, tests_resultados
         )
@@ -220,6 +296,10 @@ def api_diagnose_chat_gemini():
     blocked = _block_secretaria()
     if blocked:
         return blocked
+
+    sub_blocked = _check_subscription()
+    if sub_blocked:
+        return sub_blocked
 
     data         = request.json or {}
     diagnostico  = data.get("diagnostico", "")
