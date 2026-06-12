@@ -1101,6 +1101,31 @@ class BayesianDiagnosticSystem:
         self._default_priors = copy.deepcopy(self.P_enfermedad_base)
         self._default_conditionals = copy.deepcopy(self.P_sintoma)
 
+        # Cargar parámetros desde base de datos si existen
+        try:
+            from database import get_parameters
+            db_params = get_parameters()
+            if db_params:
+                if "priors" in db_params and db_params["priors"]:
+                    self.P_enfermedad_base.update(db_params["priors"])
+                if "conditionals" in db_params and db_params["conditionals"]:
+                    self.P_sintoma.update(db_params["conditionals"])
+        except Exception as e:
+            print(f"Error al cargar parámetros desde la base de datos: {e}")
+
+    @property
+    def priors(self):
+        return self.P_enfermedad_base
+
+    def guardar_configuracion(self):
+        from database import save_parameters
+        save_parameters(self.P_enfermedad_base, self.P_sintoma)
+
+    def cargar_configuracion_por_defecto(self):
+        self.restaurar_por_defecto()
+        from database import reset_parameters
+        reset_parameters(self.P_enfermedad_base, self.P_sintoma)
+
     # ── RESTAURAR VALORES POR DEFECTO ────────────────────────────────────────
     def restaurar_por_defecto(self):
         self.P_enfermedad_base = copy.deepcopy(self._default_priors)

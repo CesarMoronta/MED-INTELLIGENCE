@@ -306,7 +306,7 @@ body {
 .vital-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .vital-header label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin: 0; }
 .vital-val-display { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--brand-light); }
-.form-range { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; background: rgba(255,255,255,0.1); border-radius: 4px; outline: none; margin: 8px 0; }
+.form-range { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; background: var(--border); border-radius: 4px; outline: none; margin: 8px 0; }
 .form-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--brand); cursor: pointer; transition: var(--transition); border: 2px solid var(--bg-card); }
 .form-range::-webkit-slider-thumb:hover { transform: scale(1.2); }
 .vital-badge { margin-top: 5px; min-height: 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
@@ -783,7 +783,18 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /* Notification Badge Button */
-.sidebar-profile { flex-wrap: wrap; position: relative; }
+.sidebar-profile { flex-wrap: nowrap; position: relative; }
+.sidebar-profile .profile-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.sidebar-profile .profile-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .notif-badge-btn {
   position: relative; background: transparent; border: none;
   cursor: pointer; color: var(--text-muted); padding: 4px 6px;

@@ -176,6 +176,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildSymptomToggles();
   loadClinicName();
 
+  // Cargar perfil completo en segundo plano para obtener avatar real si es base64
+  api('GET', '/api/profile').then(res => {
+    if (res.success && res.user) {
+      STATE.user = res.user;
+      const avatarEl = document.getElementById('profile-avatar');
+      if (avatarEl && res.user.photo_url) {
+        avatarEl.innerHTML = `<img src="${res.user.photo_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" />`;
+      }
+    }
+  });
+
   if (STATE.user.role === 'doctor') {
     loadDashboard();
   } else if (STATE.user.role === 'secretaria') {
@@ -275,7 +286,8 @@ async function loadAdminDashboard() {
   document.getElementById('adm-stat-doctors').textContent   = s.active_doctors  ?? '—';
   document.getElementById('adm-stat-diagnoses').textContent = s.total_diagnoses ?? '—';
   document.getElementById('adm-stat-red').textContent       = s.red_alerts      ?? '—';
-  document.getElementById('adm-most-common').textContent    = s.most_common     || '—';
+  const admMostCommon = document.getElementById('adm-most-common');
+  if (admMostCommon) admMostCommon.textContent = s.most_common || '—';
 
   // Gráficas con Chart.js
   renderAdminCharts(s);

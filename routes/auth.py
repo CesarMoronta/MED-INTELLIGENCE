@@ -36,7 +36,7 @@ def api_login():
         "role": user["role"],
         "full_name": user.get("full_name"),
         "doctor_id": user.get("doctor_id"),
-        "photo_url": user.get("photo_url"),
+        "photo_url": user.get("photo_url") if user.get("photo_url") and not user.get("photo_url").startswith("data:") else None,
         "subscription_active": user.get("subscription_active", False)
     }
     session.permanent = True

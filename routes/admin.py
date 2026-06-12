@@ -19,12 +19,21 @@ def api_get_parameters():
 @requires_role("admin")
 def api_save_parameters():
     data   = request.json or {}
+    if data.get("reset"):
+        try:
+            engine.cargar_configuracion_por_defecto()
+            return jsonify({"success": True, "priors": engine.priors})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
     priors = data.get("priors")
     if not priors:
         return jsonify({"success": False, "error": "No hay parámetros para guardar."}), 400
 
     try:
-        engine.priors.update(priors)
+        # Convert values to float
+        priors_float = {k: float(v) for k, v in priors.items()}
+        engine.priors.update(priors_float)
         engine.guardar_configuracion()
         return jsonify({"success": True, "message": "Parámetros actualizados"})
     except Exception as e:
