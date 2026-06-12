@@ -564,6 +564,34 @@ CLINICAL_METADATA = {
             "Dificultad respiratoria súbita e intensa.",
             "Pérdida de peso involuntaria muy acelerada y debilidad extrema."
         ]
+    },
+    "Gastroenteritis Aguda": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Gastroenterología / Medicina General",
+        "summary": "Inflamación del tracto gastrointestinal (estómago e intestinos) de etiología viral, bacteriana o parasitaria.",
+        "clinical_tests": [
+            "**Coprocultivo**: Identificación de patógenos bacterianos.",
+            "**Examen Parasitológico de Heces**: Identificación de parásitos.",
+            "**Electrólitos Séricos**: Evaluar estado de deshidratación si vómitos de gran volumen."
+        ],
+        "habits": [
+            "Hidratación oral constante con suero oral (evitar bebidas azucaradas).",
+            "Dieta blanda astringente (arroz, plátano, manzana, pollo hervido).",
+            "Lavado de manos estricto antes de comer y después de ir al baño.",
+            "Reposo relativo según tolerancia física."
+        ],
+        "medications": [
+            "Probióticos para restauración de la flora intestinal.",
+            "Paracetamol 500mg para la fiebre o dolor abdominal (máx 3g/día).",
+            "Suero de rehidratación oral (SRO).",
+            "**ADVERTENCIA**: Evitar el uso de Loperamida (antidiarreico) si hay sospecha de diarrea bacteriana/invasiva."
+        ],
+        "red_flags": [
+            "Signos de deshidratación severa (boca seca, llanto sin lágrimas, ausencia de orina).",
+            "Presencia de sangre, moco o pus en las heces (disentería).",
+            "Vómitos incoercibles que impiden la tolerancia oral."
+        ]
     }
 }
 
@@ -592,7 +620,7 @@ class BayesianDiagnosticSystem:
         # Ajustadas para contexto latinoamericano / Caribe
         # Suma = 1.0
         self.P_enfermedad_base = {
-            "Gripe Común / Influenza":                 0.14,
+            "Gripe Común / Influenza":                 0.11,
             "Neumonía":                                0.07,
             "Bronquitis Aguda":                        0.07,
             "Crisis Asmática Aguda":                   0.05,
@@ -610,8 +638,9 @@ class BayesianDiagnosticSystem:
             "COVID-19 Grave":                          0.02,
             "Faringoamigdalitis Aguda":                0.06,
             "Tromboembolismo Pulmonar":                0.02,
-            "Diabetes Mellitus Tipo 2":                0.07,
+            "Diabetes Mellitus Tipo 2":                0.06,
             "Cáncer de Pulmón":                        0.03,
+            "Gastroenteritis Aguda":                   0.08,
         }
 
         # ── PROBABILIDADES CONDICIONALES: P(Síntoma | Enfermedad) ─────────────
@@ -1098,6 +1127,28 @@ class BayesianDiagnosticSystem:
             },
         }
 
+        # Definir probabilidades condicionales para Gastroenteritis Aguda
+        gi_symptoms = {
+            "Diarrea": 0.95,
+            "Dolor Abdominal Agudo": 0.85,
+            "Náuseas / Vómitos": 0.70,
+            "Fiebre": 0.40,
+            "Febrícula": 0.30,
+            "Dolor de Cuerpo Generalizado": 0.30,
+            "Fatiga / Cansancio Extremo": 0.50,
+            "Hipotensión": 0.15,
+            "Taquicardia": 0.20
+        }
+        for sintoma in self.P_sintoma.keys():
+            self.P_sintoma[sintoma]["Gastroenteritis Aguda"] = gi_symptoms.get(sintoma, 0.01)
+
+        # Agregar a P_test_result para Hemograma Completo
+        if "Hemograma Completo" in self.P_test_result:
+            if "Leucocitosis" in self.P_test_result["Hemograma Completo"]:
+                self.P_test_result["Hemograma Completo"]["Leucocitosis"]["Gastroenteritis Aguda"] = 0.45
+            if "Normal" in self.P_test_result["Hemograma Completo"]:
+                self.P_test_result["Hemograma Completo"]["Normal"]["Gastroenteritis Aguda"] = 0.55
+
         self._default_priors = copy.deepcopy(self.P_enfermedad_base)
         self._default_conditionals = copy.deepcopy(self.P_sintoma)
 
@@ -1282,6 +1333,9 @@ class BayesianDiagnosticSystem:
         todos_sintomas  = {**sintomas, **signos_mapeados}
 
         pasos = 0
+        # Factor de amortiguación (damping factor) para mitigar la sobreconfianza de Naive Bayes
+        # causada por la correlación entre síntomas.
+        BETA = 0.5
         for sintoma, presente in todos_sintomas.items():
             if sintoma not in conditionals:
                 continue
@@ -1289,10 +1343,8 @@ class BayesianDiagnosticSystem:
                 p_s = conditionals[sintoma].get(enf, self.LAPLACE_ALPHA)
                 # Aplicar Laplace smoothing
                 p_s = max(min(p_s, 1.0 - self.LAPLACE_ALPHA), self.LAPLACE_ALPHA)
-                if presente:
-                    log_prob[enf] = log_prob.get(enf, 0) + math.log(p_s)
-                else:
-                    log_prob[enf] = log_prob.get(enf, 0) + math.log(1.0 - p_s)
+                contrib = math.log(p_s) if presente else math.log(1.0 - p_s)
+                log_prob[enf] = log_prob.get(enf, 0) + (contrib * BETA)
             pasos += 1
 
         # Interacción cardiovascular especial
