@@ -75,15 +75,32 @@ def apply_updates():
                     @is_refuted, @refutation_reason, @doctor_override_diagnosis
                 );
 
+                -- Cerrar la visita si es diagnóstico final
+                IF @phase = 'final'
+                    UPDATE dbo.emergency_visits SET status = 'cerrada' WHERE id = @visit_id;
+
                 -- Retornar el ID insertado
                 SELECT SCOPE_IDENTITY() AS new_diag_id;
             END;
         """)
         print("✅ Procedimiento sp_save_diagnosis actualizado exitosamente.")
 
-        print("4. Actualizando vw_appointments...")
+        print("3.5. Cerrando visitas abiertas con diagnóstico final ya existente...")
         cursor.execute("""
-            ALTER VIEW dbo.vw_appointments AS
+            UPDATE dbo.emergency_visits 
+            SET status = 'cerrada' 
+            WHERE status = 'abierta' 
+              AND id IN (SELECT visit_id FROM dbo.diagnoses WHERE phase = 'final');
+        """)
+        print(f"✅ Visitas completadas cerradas: {cursor.rowcount}")
+
+        print("4. Actualizando vw_appointments...")
+        try:
+            cursor.execute("DROP VIEW IF EXISTS dbo.vw_appointments")
+        except Exception:
+            pass
+        cursor.execute("""
+            CREATE VIEW dbo.vw_appointments AS
             SELECT 
                 a.id, a.patient_id, a.doctor_id, a.scheduled_date, a.scheduled_time,
                 a.status, a.notes, a.confirmed, a.parent_appointment_id,

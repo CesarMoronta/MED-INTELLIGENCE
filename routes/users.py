@@ -30,6 +30,8 @@ def api_create_user():
     especialidad = (data.get("especialidad") or "").strip() or None
     telefono   = (data.get("telefono") or "").strip() or None
     hospital   = (data.get("hospital") or "").strip() or None
+    cedula     = (data.get("cedula") or "").strip() or None
+    photo_url  = (data.get("photo_url") or "").strip() or None
 
     if not username or not password:
         return jsonify({"success": False, "error": "Usuario y contraseña son obligatorios."}), 400
@@ -44,7 +46,8 @@ def api_create_user():
         matricula=matricula if role == "doctor" else None,
         especialidad=especialidad if role == "doctor" else None,
         telefono=telefono if role == "doctor" else None,
-        hospital=hospital if role == "doctor" else None
+        hospital=hospital if role == "doctor" else None,
+        cedula=cedula, photo_url=photo_url
     )
     if user is None:
         return jsonify({"success": False, "error": "El usuario ya existe."}), 409
@@ -82,6 +85,8 @@ def api_update_user(user_id):
     especialidad = (data.get("especialidad") or "").strip() or None
     telefono     = (data.get("telefono") or "").strip() or None
     hospital     = (data.get("hospital") or "").strip() or None
+    cedula       = (data.get("cedula") or "").strip() or None
+    photo_url    = (data.get("photo_url") or "").strip() or None
 
     if role and role not in ["admin", "doctor", "secretaria"]:
         return jsonify({"success": False, "error": "Rol inválido."}), 400
@@ -92,7 +97,8 @@ def api_update_user(user_id):
         user_id, username=username, password=password, role=role,
         full_name=full_name, email=email,
         is_active=is_active, matricula=matricula,
-        especialidad=especialidad, telefono=telefono, hospital=hospital
+        especialidad=especialidad, telefono=telefono, hospital=hospital,
+        cedula=cedula, photo_url=photo_url
     )
     if user is None:
         return jsonify({"success": False, "error": "No se pudo actualizar el usuario."}), 404
@@ -131,6 +137,8 @@ def api_update_profile():
     especialidad = (data.get("especialidad") or "").strip() or None
     telefono = (data.get("telefono") or "").strip() or None
     hospital = (data.get("hospital") or "").strip() or None
+    cedula = (data.get("cedula") or "").strip() or None
+    photo_url = (data.get("photo_url") or "").strip() or None
 
     if password and len(password) < 6:
         return jsonify({"success": False, "error": "La contraseña debe tener al menos 6 caracteres."}), 400
@@ -139,7 +147,8 @@ def api_update_profile():
         u["id"], username=username, password=password,
         full_name=full_name, email=email,
         matricula=matricula, especialidad=especialidad,
-        telefono=telefono, hospital=hospital
+        telefono=telefono, hospital=hospital,
+        cedula=cedula, photo_url=photo_url
     )
     if user is None:
         return jsonify({"success": False, "error": "No se pudo actualizar el perfil."}), 400
@@ -226,6 +235,10 @@ def api_paypal_approved():
     if not success:
         return jsonify({"success": False, "error": "Error al registrar la suscripción."}), 500
 
+    # Generar factura de consumo electrónica
+    from routes.billing import generate_subscription_invoice
+    generate_subscription_invoice(u["id"])
+
     # Actualizar la sesión del usuario
     session["user"]["subscription_active"] = True
     session.modified = True
@@ -269,15 +282,27 @@ def api_paypal_approved():
 @requires_login
 def api_cancel_subscription():
     u = get_current_user()
-    success = update_user_subscription(u["id"], False, None, None, None)
+    user_curr = get_user_by_id(u["id"])
+    if not user_curr:
+        return jsonify({"success": False, "error": "Usuario no encontrado."}), 404
+        
+    expires_at = user_curr.get("subscription_expires_at")
+    sub_id = user_curr.get("subscription_id")
+
+    success = update_user_subscription(u["id"], False, sub_id, "VIP (Cancelada)", expires_at)
     if not success:
         return jsonify({"success": False, "error": "Error al cancelar la suscripción."}), 500
 
+    # Obtener el usuario actualizado para verificar si sigue activo por fecha
+    user = get_user_by_id(u["id"])
+
     # Actualizar la sesión
-    session["user"]["subscription_active"] = False
+    session["user"]["subscription_active"] = user.get("subscription_active", False)
     session.modified = True
 
     user = get_user_by_id(u["id"])
+
+    expires_date_str = expires_at.split('T')[0] if expires_at else '—'
 
     # Enviar correo de cancelación
     if user.get("email"):
@@ -288,7 +313,7 @@ def api_cancel_subscription():
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                 <h2 style="color: #ef4444;">Cancelación de Suscripción VIP</h2>
                 <p>Estimado(a) Dr(a). {user.get('full_name') or user.get('username')},</p>
-                <p>Te confirmamos que tu suscripción VIP ha sido cancelada. A partir de ahora, tu acceso al diagnóstico clínico con IA ha sido deshabilitado, y pasarás al modo de diagnóstico manual.</p>
+                <p>Te confirmamos que tu suscripción VIP ha sido cancelada. Tu acceso al diagnóstico clínico con IA seguirá activo hasta el <strong>{expires_date_str}</strong>, fecha en que vencerá tu período actual y pasarás al modo de diagnóstico manual.</p>
                 <p>Puedes volver a suscribirte en cualquier momento desde el panel de tu cuenta.</p>
                 <br/>
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;"/>
@@ -299,7 +324,7 @@ def api_cancel_subscription():
         """
         send_email(user["email"], subject, body)
 
-    return jsonify({"success": True, "message": "Suscripción cancelada con éxito.", "user": _sanitize_user(user)})
+    return jsonify({"success": True, "message": f"Suscripción cancelada con éxito. Tu acceso VIP seguirá activo hasta el {expires_date_str}.", "user": _sanitize_user(user)})
 
 
 @users_bp.route("/api/subscription/send-test-email", methods=["POST"])

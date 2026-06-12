@@ -23,6 +23,7 @@ def api_create_visit():
     doctor_notes       = (data.get("doctor_notes") or "").strip() or None
     constantes         = data.get("constantes") or {}
     sintomas           = data.get("sintomas") or {}
+    appointment_id     = data.get("appointment_id")
 
     if not patient_id:
         return jsonify({"success": False, "error": "El ID del paciente es obligatorio."}), 400
@@ -42,7 +43,8 @@ def api_create_visit():
         motivo_emergencia=motivo_emergencia,
         doctor_notes=doctor_notes,
         constantes=constantes,
-        sintomas=sintomas
+        sintomas=sintomas,
+        appointment_id=appointment_id
     )
 
     if not visit_id:

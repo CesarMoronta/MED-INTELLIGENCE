@@ -83,7 +83,8 @@ def get_user_by_username(username: str) -> dict | None:
         """SELECT u.id, u.username, u.password_hash, u.role, u.full_name,
                   u.email, u.is_active, u.failed_logins, u.locked_until, u.last_login,
                   d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id,
-                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at
+                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at,
+                  u.cedula
            FROM dbo.users u
            LEFT JOIN dbo.doctors d ON d.user_id = u.id
            WHERE u.username = ?""",
@@ -94,6 +95,16 @@ def get_user_by_username(username: str) -> dict | None:
     conn.close()
     if not row:
         return None
+
+    sub_active = bool(row[16])
+    expires_at = row[19] # datetime object
+    if not sub_active and expires_at:
+        try:
+            if expires_at.date() >= datetime.utcnow().date():
+                sub_active = True
+        except Exception:
+            pass
+
     return {
         "id": row[0], "username": row[1], "password_hash": row[2],
         "role": row[3], "full_name": row[4], "email": row[5],
@@ -101,9 +112,10 @@ def get_user_by_username(username: str) -> dict | None:
         "locked_until": row[8], "last_login": row[9],
         "matricula": row[10], "especialidad": row[11],
         "telefono": row[12], "hospital": row[13], "doctor_id": row[14],
-        "photo_url": row[15], "subscription_active": bool(row[16]),
+        "photo_url": row[15], "subscription_active": sub_active,
         "subscription_id": row[17], "subscription_plan": row[18],
-        "subscription_expires_at": _fmt_date(row[19])
+        "subscription_expires_at": _fmt_date(row[19]),
+        "cedula": row[20]
     }
 
 
@@ -114,7 +126,8 @@ def get_user_by_id(user_id: int) -> dict | None:
         """SELECT u.id, u.username, u.password_hash, u.role, u.full_name,
                   u.email, u.is_active, u.failed_logins, u.locked_until, u.last_login,
                   d.matricula, d.especialidad, d.telefono, d.hospital, d.id AS doctor_id,
-                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at
+                  u.photo_url, u.subscription_active, u.subscription_id, u.subscription_plan, u.subscription_expires_at,
+                  u.cedula
            FROM dbo.users u
            LEFT JOIN dbo.doctors d ON d.user_id = u.id
            WHERE u.id = ?""",
@@ -125,6 +138,16 @@ def get_user_by_id(user_id: int) -> dict | None:
     conn.close()
     if not row:
         return None
+
+    sub_active = bool(row[16])
+    expires_at = row[19] # datetime object
+    if not sub_active and expires_at:
+        try:
+            if expires_at.date() >= datetime.utcnow().date():
+                sub_active = True
+        except Exception:
+            pass
+
     return {
         "id": row[0], "username": row[1], "password_hash": row[2],
         "role": row[3], "full_name": row[4], "email": row[5],
@@ -132,9 +155,10 @@ def get_user_by_id(user_id: int) -> dict | None:
         "locked_until": _fmt_date(row[8]), "last_login": _fmt_date(row[9]),
         "matricula": row[10], "especialidad": row[11],
         "telefono": row[12], "hospital": row[13], "doctor_id": row[14],
-        "photo_url": row[15], "subscription_active": bool(row[16]),
+        "photo_url": row[15], "subscription_active": sub_active,
         "subscription_id": row[17], "subscription_plan": row[18],
-        "subscription_expires_at": _fmt_date(row[19])
+        "subscription_expires_at": _fmt_date(row[19]),
+        "cedula": row[20]
     }
 
 
@@ -183,7 +207,8 @@ def verify_user(username: str, password: str, ip_address: str = None) -> dict | 
         "id": user["id"], "username": user["username"],
         "role": user["role"], "full_name": user.get("full_name"),
         "matricula": user.get("matricula"), "doctor_id": user.get("doctor_id"),
-        "photo_url": user.get("photo_url"), "subscription_active": user.get("subscription_active")
+        "photo_url": user.get("photo_url"), "subscription_active": user.get("subscription_active"),
+        "cedula": user.get("cedula")
     }
 
 
@@ -227,16 +252,18 @@ def _register_attempt(username: str, ip_address: str, success: bool):
 def create_user(username: str, password: str, role: str,
                 full_name: str = None, email: str = None,
                 matricula: str = None, especialidad: str = None,
-                telefono: str = None, hospital: str = None) -> dict | None:
+                telefono: str = None, hospital: str = None,
+                cedula: str = None, photo_url: str = None) -> dict | None:
     if get_user_by_username(username):
         return None
     pw_hash = generate_password_hash(password)
     conn    = get_connection()
     cursor  = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_create_user ?, ?, ?, ?, ?, ?, ?, ?, ?",
+        "EXEC dbo.sp_create_user ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
         username, pw_hash, role, full_name, email,
-        matricula, especialidad, telefono, hospital
+        matricula, especialidad, telefono, hospital,
+        cedula, photo_url
     )
     cursor.fetchone()
     cursor.close()
@@ -248,7 +275,7 @@ def update_user(user_id: int, username: str = None, password: str = None,
                 role: str = None, full_name: str = None, email: str = None,
                 is_active: bool = None, matricula: str = None,
                 especialidad: str = None, telefono: str = None,
-                hospital: str = None) -> dict | None:
+                hospital: str = None, cedula: str = None, photo_url: str = None) -> dict | None:
     user = get_user_by_id(user_id)
     if not user:
         return None
@@ -260,9 +287,10 @@ def update_user(user_id: int, username: str = None, password: str = None,
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "EXEC dbo.sp_update_user ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
+            "EXEC dbo.sp_update_user ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
             user_id, username, pw_hash, role, full_name, email,
-            is_active_val, matricula, especialidad, telefono, hospital
+            is_active_val, matricula, especialidad, telefono, hospital,
+            cedula, photo_url
         )
         cursor.fetchone()
     except pyodbc.Error:
@@ -319,7 +347,8 @@ def list_users() -> list:
         """SELECT id, username, role, full_name, email, is_active,
                   failed_logins, locked_until, last_login, created_at,
                   matricula, especialidad, telefono, hospital, doctor_id,
-                  photo_url, subscription_active, subscription_id, subscription_plan, subscription_expires_at
+                  photo_url, subscription_active, subscription_id, subscription_plan, subscription_expires_at,
+                  cedula
            FROM dbo.vw_users
            ORDER BY role DESC, username ASC"""
     )
@@ -331,7 +360,16 @@ def list_users() -> list:
         r["locked_until"] = _fmt_date(r.get("locked_until"))
         r["last_login"]   = _fmt_date(r.get("last_login"))
         r["created_at"]   = _fmt_date(r.get("created_at"))
-        r["subscription_active"] = bool(r.get("subscription_active", 0))
+        
+        sub_active = bool(r.get("subscription_active", 0))
+        expires_at = r.get("subscription_expires_at") # datetime object or None
+        if not sub_active and expires_at:
+            try:
+                if expires_at.date() >= datetime.utcnow().date():
+                    sub_active = True
+            except Exception:
+                pass
+        r["subscription_active"] = sub_active
         r["subscription_expires_at"] = _fmt_date(r.get("subscription_expires_at"))
     return rows
 
@@ -490,13 +528,14 @@ def delete_patient(patient_id: int) -> bool:
 def create_visit(patient_id: int, doctor_id: int, visit_type: str,
                  motivo_consulta: str = None, motivo_emergencia: str = None,
                  doctor_notes: str = None,
-                 constantes: dict = None, sintomas: dict = None) -> int | None:
+                 constantes: dict = None, sintomas: dict = None,
+                 appointment_id: int = None) -> int | None:
     """Crea una nueva visita médica y guarda constantes y síntomas."""
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_create_visit ?, ?, ?, ?, ?, ?",
-        patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes
+        "EXEC dbo.sp_create_visit ?, ?, ?, ?, ?, ?, ?",
+        patient_id, doctor_id, visit_type, motivo_consulta, motivo_emergencia, doctor_notes, appointment_id
     )
     row = cursor.fetchone()
     visit_id = int(row[0]) if row else None
@@ -581,7 +620,8 @@ def get_visit(visit_id: int) -> dict | None:
                   patient_id, patient_cedula, patient_name, patient_dob, patient_gender,
                   doctor_id, doctor_username, doctor_fullname,
                   diagnosis_id, diagnosis_phase, diagnosis_primary, diagnosis_probability,
-                  alert_level, alert_color, specialist
+                  alert_level, alert_color, specialist,
+                  appointment_id, parent_appointment_id
            FROM dbo.vw_visits WHERE id = ?""",
         visit_id
     )
@@ -600,7 +640,7 @@ def get_visit(visit_id: int) -> dict | None:
         "diagnosis_id": row[15], "diagnosis_phase": row[16],
         "diagnosis_primary": row[17], "diagnosis_probability": row[18],
         "alert_level": row[19], "alert_color": row[20], "specialist": row[21],
-        "parent_appointment_id": row[22]
+        "appointment_id": row[22], "parent_appointment_id": row[23]
     }
 
     # Constantes vitales
@@ -1550,3 +1590,76 @@ def mark_all_notifications_read(user_id: int):
     )
     cursor.close()
     conn.close()
+
+
+def list_pending_bills() -> list:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ev.id AS visit_id, ev.visit_date, p.name AS patient_name, p.cedula AS patient_cedula,
+               u.full_name AS doctor_fullname
+        FROM dbo.emergency_visits ev
+        INNER JOIN dbo.patients p ON ev.patient_id = p.id
+        INNER JOIN dbo.users u ON ev.doctor_id = u.id
+        LEFT JOIN dbo.appointments app ON ev.appointment_id = app.id
+        LEFT JOIN dbo.invoices i ON i.visit_id = ev.id
+        WHERE ev.status = 'cerrada' AND ev.visit_type = 'consulta' AND i.id IS NULL
+          AND (app.parent_appointment_id IS NULL OR ev.appointment_id IS NULL)
+        ORDER BY ev.visit_date DESC
+    """)
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["visit_date"] = _fmt_date(r.get("visit_date"))
+    return rows
+
+
+def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
+                   amount: float, itbis: float, total: float, payment_method: str,
+                   ecf_id: str | None, encf: str | None, estado: str, track_id: str | None,
+                   codigo_seguridad: str | None, dgii_url: str | None, xml_url: str | None) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO dbo.invoices (visit_id, user_id, invoice_type, amount, itbis, total,
+                                      payment_method, ecf_id, encf, estado, track_id,
+                                      codigo_seguridad, dgii_url, xml_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, visit_id, user_id, invoice_type, amount, itbis, total,
+             payment_method, ecf_id, encf, estado, track_id,
+             codigo_seguridad, dgii_url, xml_url)
+        return True
+    except Exception as e:
+        print(f"Error insertando factura: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def list_invoices() -> list:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT i.id, i.visit_id, i.user_id, i.invoice_type, i.amount, i.itbis, i.total,
+               i.payment_method, i.ecf_id, i.encf, i.estado, i.track_id, i.codigo_seguridad,
+               i.dgii_url, i.xml_url, i.created_at,
+               p.name AS patient_name, p.cedula AS patient_cedula,
+               u.full_name AS doctor_fullname
+        FROM dbo.invoices i
+        LEFT JOIN dbo.emergency_visits ev ON i.visit_id = ev.id
+        LEFT JOIN dbo.patients p ON ev.patient_id = p.id
+        LEFT JOIN dbo.users u ON (ev.doctor_id = u.id OR i.user_id = u.id)
+        ORDER BY i.created_at DESC
+    """)
+    rows = rows_to_dicts(cursor)
+    cursor.close()
+    conn.close()
+    for r in rows:
+        r["created_at"] = _fmt_date(r.get("created_at"))
+        r["amount"] = float(r["amount"])
+        r["itbis"] = float(r["itbis"])
+        r["total"] = float(r["total"])
+    return rows

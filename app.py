@@ -34,12 +34,12 @@ from routes.diagnostics import diagnostics_bp
 from routes.history import history_bp
 from routes.admin import admin_bp
 from routes.dashboard import dashboard_bp
-from routes.patient_portal import patient_portal_bp
 from routes.settings import settings_bp
 from routes.appointments import appointments_bp
 from routes.pdf_routes import pdf_bp
 from routes.documents import documents_bp
 from routes.notifications import notifications_bp
+from routes.billing import billing_bp
 
 # Registrar blueprints
 app.register_blueprint(static_bp)
@@ -51,12 +51,12 @@ app.register_blueprint(diagnostics_bp)
 app.register_blueprint(history_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(dashboard_bp)
-app.register_blueprint(patient_portal_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(appointments_bp)
 app.register_blueprint(pdf_bp)
 app.register_blueprint(documents_bp)
 app.register_blueprint(notifications_bp)
+app.register_blueprint(billing_bp)
 
 if __name__ == "__main__":
     print("Iniciando base de datos...")

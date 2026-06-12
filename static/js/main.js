@@ -51,6 +51,10 @@ function resetDiagnose() {
   const infoEl = document.getElementById('diag-patient-info');
   if (infoEl) infoEl.style.display = 'none';
   STATE.currentVisitId = null;
+  const diagAppId = document.getElementById('diag-appointment-id');
+  if (diagAppId) diagAppId.value = '';
+  const diagPtId = document.getElementById('diag-patient-id');
+  if (diagPtId) diagPtId.value = '';
 
   // Clear inputs
   const nameInput = document.getElementById('diag-patient-name');
@@ -157,6 +161,7 @@ function switchTab(tab) {
     'admin-dashboard': loadAdminDashboard,
     'simulator':     initSimulator,
     'appointments':  loadAppointments,
+    'billing':       loadBillingTab,
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -812,6 +817,8 @@ function selectConsultPatient(id) {
   if (!p) return;
   STATE.currentPatient = p;
   STATE.currentVisitId = null; // Visita aún no creada
+  const diagAppId = document.getElementById('diag-appointment-id');
+  if (diagAppId) diagAppId.value = '';
   closeModal('modal-select-patient');
   
   const infoEl = document.getElementById('diag-patient-info');
@@ -1225,6 +1232,8 @@ async function runPhase2() {
   const motivoConsulta = document.getElementById('diag-motivo').value.trim() || 'Sin especificar';
 
   if (!STATE.currentVisitId && patientId) {
+    const appIdRaw = document.getElementById('diag-appointment-id')?.value;
+    const appointmentId = appIdRaw ? parseInt(appIdRaw) : null;
     // Crear visita silenciosamente para poder guardar el diagnóstico
     const visitRes = await api('POST', '/api/visits', {
       patient_id: patientId,
@@ -1232,7 +1241,8 @@ async function runPhase2() {
       motivo_consulta: motivoConsulta,
       doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
       constantes: STATE.diagConstantes,
-      sintomas: STATE.diagSintomas
+      sintomas: STATE.diagSintomas,
+      appointment_id: appointmentId
     });
     if (!visitRes.success) {
       toast('error', visitRes.error || 'Error al crear visita para la consulta.');
@@ -1583,11 +1593,7 @@ async function loadAppointments() {
     const docs = await api('GET', '/api/users');
     if (docs.success) {
       const doctors = docs.users.filter(u => u.role === 'doctor');
-      
-      const docSelect = document.getElementById('app-doctor');
-      if (docSelect.options.length <= 1) {
-          docSelect.innerHTML = doctors.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
-      }
+      STATE.allDoctors = doctors;
       
       const filterSelect = document.getElementById('appointment-doctor-filter');
       if (filterSelect.options.length <= 1) {
@@ -1596,10 +1602,7 @@ async function loadAppointments() {
     }
     const pts = await api('GET', '/api/patients');
     if (pts.success) {
-      const ptSelect = document.getElementById('app-patient');
-      if (ptSelect.options.length <= 1) {
-          ptSelect.innerHTML = pts.patients.map(p => `<option value="${p.id}">${p.name} (${p.cedula})</option>`).join('');
-      }
+      STATE.allPatients = pts.patients;
     }
   } else {
     // Si es doctor, no mostrar el botón de agendar ni el filtro de doctores
@@ -1749,7 +1752,9 @@ function renderAppointmentsTable(apps) {
 function openNewAppointmentModal() {
   document.getElementById('app-id').value = '';
   document.getElementById('app-patient').value = '';
+  document.getElementById('app-patient-name').value = '';
   document.getElementById('app-doctor').value = '';
+  document.getElementById('app-doctor-name').value = '';
   document.getElementById('app-date').value = '';
   document.getElementById('app-time').value = '';
   document.getElementById('app-status').value = 'abierta';
@@ -1776,6 +1781,12 @@ function openEditAppointmentModal(id) {
   document.getElementById('app-status').value = app.status;
   document.getElementById('app-notes').value = app.notes || '';
   
+  // Buscar nombres en estado global
+  const patient = STATE.allPatients ? STATE.allPatients.find(p => p.id == app.patient_id) : null;
+  const doctor = STATE.allDoctors ? STATE.allDoctors.find(d => d.id == app.doctor_id) : null;
+  document.getElementById('app-patient-name').value = patient ? patient.name : (app.patient_name || 'Paciente ID: ' + app.patient_id);
+  document.getElementById('app-doctor-name').value = doctor ? (doctor.full_name || doctor.username) : (app.doctor_fullname || 'Doctor ID: ' + app.doctor_id);
+
   document.getElementById('app-status-group').style.display = 'block';
   document.getElementById('app-parent-group').style.display = 'none'; // No se edita el seguimiento
   document.getElementById('modal-appointment-title').textContent = 'Editar Cita';
@@ -2164,13 +2175,15 @@ async function saveUser() {
   const especialidad = document.getElementById('usr-especialidad').value.trim() || null;
   const telefono    = document.getElementById('usr-telefono').value.trim() || null;
   const hospital    = document.getElementById('usr-hospital').value.trim() || null;
+  const cedula      = document.getElementById('usr-cedula').value.trim() || null;
+  const photoUrl    = document.getElementById('usr-photourl').value.trim() || null;
 
   if (!username) { toast('warning', 'El nombre de usuario es obligatorio.'); return; }
   if (!id && !password) { toast('warning', 'La contraseña es obligatoria al crear un usuario.'); return; }
   if (password && password.length < 6) { toast('warning', 'La contraseña debe tener al menos 6 caracteres.'); return; }
 
   const payload = { username, role, full_name: fullName, email,
-    matricula, especialidad, telefono, hospital };
+    matricula, especialidad, telefono, hospital, cedula, photo_url: photoUrl };
   if (password) payload.password = password;
 
   let res;
@@ -2206,6 +2219,8 @@ async function editUser(id) {
   document.getElementById('usr-especialidad').value           = u.especialidad || '';
   document.getElementById('usr-telefono').value               = u.telefono || '';
   document.getElementById('usr-hospital').value               = u.hospital || '';
+  document.getElementById('usr-cedula').value                 = u.cedula || '';
+  document.getElementById('usr-photourl').value               = u.photo_url || '';
   onRoleChange();
   openModal('modal-new-user');
 }
@@ -2214,7 +2229,7 @@ function clearUserForm() {
   document.getElementById('modal-user-title').textContent = 'Crear Nuevo Usuario';
   document.getElementById('edit-user-id').value = '';
   ['usr-username','usr-password','usr-fullname','usr-email',
-   'usr-matricula','usr-especialidad','usr-telefono','usr-hospital']
+   'usr-matricula','usr-especialidad','usr-telefono','usr-hospital','usr-cedula','usr-photourl']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const roleEl = document.getElementById('usr-role');
   if (roleEl) roleEl.value = 'doctor';
@@ -2908,6 +2923,8 @@ async function openMyAccountModal() {
     document.getElementById('my-especialidad').value = user.especialidad || '';
     document.getElementById('my-telefono').value = user.telefono || '';
     document.getElementById('my-hospital').value = user.hospital || '';
+    document.getElementById('my-cedula').value = user.cedula || '';
+    document.getElementById('my-photourl').value = user.photo_url || '';
 
     // Estado suscripción
     const badge = document.getElementById('sub-status-badge');
@@ -2915,17 +2932,27 @@ async function openMyAccountModal() {
     const actions = document.getElementById('sub-actions');
 
     if (user.subscription_active) {
-      badge.className = 'badge badge-verde';
-      badge.textContent = 'VIP ACTIVO';
+      const isCancelled = user.subscription_plan === 'VIP (Cancelada)';
+      badge.className = isCancelled ? 'badge badge-amarillo' : 'badge badge-verde';
+      badge.textContent = isCancelled ? 'VIP (CANCELADO)' : 'VIP ACTIVO';
       details.style.display = 'block';
+      document.getElementById('sub-plan-name').textContent = user.subscription_plan || 'VIP';
       document.getElementById('sub-renewal-date').textContent = user.subscription_expires_at ? user.subscription_expires_at.substring(0, 10) : '—';
       document.getElementById('sub-id-display').textContent = user.subscription_id || '—';
 
-      actions.innerHTML = `
-        <button class="btn-outline" style="border-color: #ef4444; color: #ef4444; width: 100%;" onclick="cancelSubscription()">
-          Cancelar Suscripción VIP
-        </button>
-      `;
+      if (isCancelled) {
+        actions.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 10px; border: 1px dashed var(--border); border-radius: 6px; width: 100%;">
+            Suscripción cancelada. Activa hasta el ${user.subscription_expires_at ? user.subscription_expires_at.substring(0, 10) : '—'}.
+          </div>
+        `;
+      } else {
+        actions.innerHTML = `
+          <button class="btn-outline" style="border-color: #ef4444; color: #ef4444; width: 100%;" onclick="cancelSubscription()">
+            Cancelar Suscripción VIP
+          </button>
+        `;
+      }
     } else {
       badge.className = 'badge badge-rojo';
       badge.textContent = 'INACTIVO';
@@ -2948,48 +2975,89 @@ async function openMyAccountModal() {
   openModal('modal-profile');
 }
 
-function renderPayPalButton() {
+let paypalSdkLoaded = false;
+
+async function loadPayPalSdk(clientId) {
+  if (paypalSdkLoaded || window.paypal) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&vault=true&intent=subscription`;
+    script.type = 'text/javascript';
+    script.async = true;
+    script.onload = () => {
+      paypalSdkLoaded = true;
+      resolve();
+    };
+    script.onerror = (err) => {
+      reject(new Error('No se pudo cargar el SDK de PayPal.'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function renderPayPalButton() {
   const container = document.getElementById('paypal-button-container');
   if (!container) return;
-  container.innerHTML = ''; // Limpiar
+  container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;">Cargando pasarela de PayPal...</div>';
 
-  if (typeof paypal === 'undefined') {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;">SDK de PayPal no disponible</div>';
-    return;
-  }
-
-  paypal.Buttons({
-    style: {
-      shape: 'rect',
-      color: 'gold',
-      layout: 'vertical',
-      label: 'subscribe'
-    },
-    createSubscription: function(data, actions) {
-      return actions.subscription.create({
-        'plan_id': 'P-58473859YY4859604M3NNZMY' // Plan Sandbox de prueba
-      });
-    },
-    onApprove: async function(data, actions) {
-      toast('info', 'Procesando aprobación de PayPal...');
-      const res = await api('POST', '/api/subscription/paypal-approved', {
-        subscription_id: data.subscriptionID,
-        plan_id: 'VIP'
-      });
-      if (res.success) {
-        toast('success', '¡Suscripción VIP de PayPal activada!');
-        STATE.user = res.user;
-        setupUI();
-        closeModal('modal-profile');
-      } else {
-        toast('error', res.error || 'Error al guardar suscripción.');
-      }
-    },
-    onError: function(err) {
-      console.error(err);
-      toast('error', 'Ocurrió un error con la pasarela de PayPal.');
+  try {
+    const configRes = await fetch('/api/config/paypal');
+    const config = await configRes.json();
+    if (!config.success) {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;">Error al cargar config de PayPal</div>';
+      return;
     }
-  }).render('#paypal-button-container');
+
+    const { client_id, plan_id } = config;
+
+    await loadPayPalSdk(client_id);
+
+    container.innerHTML = ''; // Limpiar mensaje de carga
+
+    if (typeof paypal === 'undefined') {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;">SDK de PayPal no disponible</div>';
+      return;
+    }
+
+    paypal.Buttons({
+      style: {
+        shape: 'rect',
+        color: 'gold',
+        layout: 'vertical',
+        label: 'subscribe'
+      },
+      createSubscription: function(data, actions) {
+        return actions.subscription.create({
+          'plan_id': plan_id
+        });
+      },
+      onApprove: async function(data, actions) {
+        toast('info', 'Procesando aprobación de PayPal...');
+        const res = await api('POST', '/api/subscription/paypal-approved', {
+          subscription_id: data.subscriptionID,
+          plan_id: 'VIP'
+        });
+        if (res.success) {
+          toast('success', '¡Suscripción VIP de PayPal activada!');
+          STATE.user = res.user;
+          setupUI();
+          closeModal('modal-profile');
+        } else {
+          toast('error', res.error || 'Error al guardar suscripción.');
+        }
+      },
+      onError: function(err) {
+        console.error(err);
+        toast('error', 'Ocurrió un error con la pasarela de PayPal.');
+      }
+    }).render('#paypal-button-container');
+
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;text-align:center;">${err.message || 'Error al conectar con PayPal'}</div>`;
+  }
 }
 
 async function simulatePayPalPayment() {
@@ -3013,12 +3081,12 @@ async function simulatePayPalPayment() {
 }
 
 async function cancelSubscription() {
-  if (!confirm('¿Está seguro de que desea cancelar su suscripción VIP? Perderá acceso inmediato a las funciones de IA.')) return;
+  if (!confirm('¿Está seguro de que desea cancelar su suscripción VIP? Mantendrá su acceso VIP hasta la fecha de vencimiento de su periodo facturado actual.')) return;
   
   toast('info', 'Procesando cancelación...');
   const res = await api('POST', '/api/subscription/cancel');
   if (res.success) {
-    toast('success', 'Suscripción VIP cancelada correctamente.');
+    toast('success', res.message || 'Suscripción VIP cancelada correctamente.');
     STATE.user = res.user;
     setupUI();
     closeModal('modal-profile');
@@ -3073,6 +3141,8 @@ async function saveMyProfile() {
     payload.especialidad = document.getElementById('my-especialidad').value.trim() || null;
     payload.telefono = document.getElementById('my-telefono').value.trim() || null;
     payload.hospital = document.getElementById('my-hospital').value.trim() || null;
+    payload.cedula = document.getElementById('my-cedula').value.trim() || null;
+    payload.photo_url = document.getElementById('my-photourl').value.trim() || null;
   }
 
   toast('info', 'Guardando cambios del perfil...');
@@ -3124,6 +3194,8 @@ async function saveManualDiagnosis(createPrescription) {
   if (!STATE.currentVisitId) {
     const constantes = getConstantes();
     const sintomas = getCheckedFrom('symptoms-checkboxes');
+    const appIdRaw = document.getElementById('diag-appointment-id')?.value;
+    const appointmentId = appIdRaw ? parseInt(appIdRaw) : null;
     
     toast('info', 'Registrando visita médica...');
     const visitRes = await api('POST', '/api/visits', {
@@ -3132,7 +3204,8 @@ async function saveManualDiagnosis(createPrescription) {
       motivo_consulta: motivoConsulta,
       doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
       constantes: constantes,
-      sintomas: sintomas
+      sintomas: sintomas,
+      appointment_id: appointmentId
     });
     if (!visitRes.success) {
       toast('error', visitRes.error || 'Error al crear la visita.');
@@ -3178,4 +3251,250 @@ async function saveManualDiagnosis(createPrescription) {
     toast('error', res.error || 'Error al guardar el diagnóstico.');
   }
 }
+
+
+// ── COBROS Y FACTURACIÓN ELECTRÓNICA (e-CF) ──────────────────────────────────
+async function loadBillingTab() {
+  await loadBillingPending();
+  await loadBillingHistory();
+}
+
+async function loadBillingPending() {
+  const el = document.getElementById('billing-pending-list');
+  if (!el) return;
+  el.innerHTML = '<tr><td colspan="6" style="text-align:center;"><div class="spinner-ring" style="margin:10px auto;"></div></td></tr>';
+
+  const res = await api('GET', '/api/billing/pending');
+  if (!res.success || !res.pending?.length) {
+    el.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay consultas pendientes de cobro.</td></tr>';
+    return;
+  }
+
+  el.innerHTML = res.pending.map(p => {
+    // Formatear fecha corta
+    const date = p.visit_date ? p.visit_date.substring(0, 16).replace('T', ' ') : '—';
+    return `
+      <tr>
+        <td>${date}</td>
+        <td style="font-weight:600; color:var(--text-primary);">${escHtml(p.patient_name)}</td>
+        <td>${escHtml(p.patient_cedula || '—')}</td>
+        <td>Dr. ${escHtml(p.doctor_fullname)}</td>
+        <td style="color:var(--brand-light); font-weight:600;">RD$ 3,000.00</td>
+        <td>
+          <button class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="openChargeModal(${p.visit_id}, '${escHtml(p.patient_name)}')">
+            💳 Cobrar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadBillingHistory() {
+  const el = document.getElementById('billing-history-list');
+  if (!el) return;
+  el.innerHTML = '<tr><td colspan="8" style="text-align:center;"><div class="spinner-ring" style="margin:10px auto;"></div></td></tr>';
+
+  const res = await api('GET', '/api/billing/invoices');
+  if (!res.success || !res.invoices?.length) {
+    el.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay facturas registradas.</td></tr>';
+    return;
+  }
+
+  el.innerHTML = res.invoices.map(i => {
+    const date = i.created_at ? i.created_at.substring(0, 16).replace('T', ' ') : '—';
+    const client = i.patient_name || 'Médico (Suscripción)';
+    const paymentMethodText = i.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo';
+    
+    // Links de acciones
+    const dgiiLink = i.dgii_url 
+      ? `<a href="${i.dgii_url}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
+      : '—';
+
+    return `
+      <tr>
+        <td>${date}</td>
+        <td><span class="badge ${i.invoice_type === 'suscripcion' ? 'badge-verde' : 'badge-azul'}" style="font-size:10px;">${i.invoice_type.toUpperCase()}</span></td>
+        <td style="font-weight:500;">${escHtml(client)}</td>
+        <td>${paymentMethodText}</td>
+        <td style="font-family:var(--mono); font-size:12px; color:var(--text-primary); font-weight:600;">${escHtml(i.encf || '—')}</td>
+        <td><span class="badge badge-verde" style="font-size:10px;">${escHtml(i.estado)}</span></td>
+        <td style="font-weight:600; color:var(--text-primary);">RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+        <td>
+          <div style="display:flex; gap:8px; align-items:center;">
+            ${dgiiLink}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openChargeModal(visitId, patientName) {
+  document.getElementById('charge-visit-id').value = visitId;
+  document.getElementById('charge-patient-name').textContent = patientName;
+  document.getElementById('charge-payment-method').value = 'efectivo';
+  openModal('modal-charge-visit');
+}
+
+async function submitChargeVisit() {
+  const visitId = document.getElementById('charge-visit-id').value;
+  const paymentMethod = document.getElementById('charge-payment-method').value;
+
+  if (!visitId) return;
+
+  toast('info', 'Procesando pago y firmando e-CF con DGII...');
+  const res = await api('POST', '/api/billing/charge', {
+    visit_id: parseInt(visitId, 10),
+    payment_method: paymentMethod
+  });
+
+  if (res.success) {
+    toast('success', '¡Pago procesado y e-CF aceptado!');
+    closeModal('modal-charge-visit');
+
+    // Llenar datos de éxito
+    document.getElementById('res-invoice-encf').textContent = res.invoice.encf || '—';
+    document.getElementById('res-invoice-code').textContent = res.invoice.codigo_seguridad || '—';
+    document.getElementById('res-invoice-status').textContent = res.invoice.estado || 'Aceptado';
+    
+    const linkEl = document.getElementById('res-invoice-dgii-link');
+    if (res.invoice.dgii_url) {
+      linkEl.href = res.invoice.dgii_url;
+      linkEl.style.display = 'block';
+    } else {
+      linkEl.style.display = 'none';
+    }
+
+    openModal('modal-invoice-result');
+    loadBillingTab();
+  } else {
+    toast('error', res.error || 'Error al procesar la factura electrónica.');
+  }
+}
+
+async function lookupDoctorCedula(prefix) {
+  const inputEl = document.getElementById(`${prefix}-cedula`);
+  const cedula = inputEl ? inputEl.value.trim() : '';
+  if (!cedula) {
+    toast('warning', 'Ingresa una cédula para consultar.');
+    return;
+  }
+  toast('info', 'Consultando cédula en JCE...');
+  try {
+    const data = await api('GET', `/api/patients/consulta-cedula/${cedula}`);
+    if (data.success && data.data.found) {
+      toast('success', 'Persona encontrada en la JCE.');
+      const info = data.data;
+      const nameEl = document.getElementById(`${prefix}-fullname`);
+      if (nameEl) nameEl.value = info.nombre;
+      
+      const photoEl = document.getElementById(`${prefix}-photourl`);
+      if (photoEl) photoEl.value = info.foto || '';
+      
+      // Update preview if it's the current user profile modal
+      if (prefix === 'my' && info.foto) {
+        const preview = document.getElementById('my-profile-preview');
+        const placeholder = document.getElementById('my-profile-placeholder');
+        if (preview && placeholder) {
+          preview.src = info.foto;
+          preview.style.display = 'block';
+          placeholder.style.display = 'none';
+        }
+      }
+    } else {
+      toast('error', data.error || 'Cédula no encontrada en la JCE.');
+    }
+  } catch(e) {
+    console.error(e);
+    toast('error', 'Error al realizar la consulta.');
+  }
+}
+
+function openSearchPatientAppointmentModal() {
+  document.getElementById('search-patient-app-input').value = '';
+  filterPatientAppList();
+  openModal('modal-search-patient-app');
+}
+
+function openSearchDoctorAppointmentModal() {
+  document.getElementById('search-doctor-app-input').value = '';
+  filterDoctorAppList();
+  openModal('modal-search-doctor-app');
+}
+
+function filterPatientAppList() {
+  const query = document.getElementById('search-patient-app-input').value.toLowerCase();
+  const listEl = document.getElementById('patient-app-list');
+  if (!listEl) return;
+  if (!STATE.allPatients || STATE.allPatients.length === 0) {
+    listEl.innerHTML = '<p style="text-align:center; padding:10px; color:var(--text-muted);">No hay pacientes cargados. Cargando...</p>';
+    api('GET', '/api/patients').then(pts => {
+      if (pts.success) {
+        STATE.allPatients = pts.patients;
+        filterPatientAppList();
+      }
+    });
+    return;
+  }
+
+  const filtered = STATE.allPatients.filter(p => 
+    p.name.toLowerCase().includes(query) || (p.cedula && p.cedula.includes(query))
+  );
+
+  listEl.innerHTML = filtered.map(p => `
+    <div class="patient-picker-item" onclick="selectPatientForAppointment(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
+      <div>
+        <div class="picker-name">${p.name}</div>
+        <div class="picker-cedula">Cédula: ${p.cedula || '—'}</div>
+      </div>
+      <div class="picker-btn">Seleccionar</div>
+    </div>
+  `).join('');
+}
+
+function filterDoctorAppList() {
+  const query = document.getElementById('search-doctor-app-input').value.toLowerCase();
+  const listEl = document.getElementById('doctor-app-list');
+  if (!listEl) return;
+  if (!STATE.allDoctors || STATE.allDoctors.length === 0) {
+    listEl.innerHTML = '<p style="text-align:center; padding:10px; color:var(--text-muted);">No hay doctores cargados. Cargando...</p>';
+    api('GET', '/api/users').then(data => {
+      if (data.success) {
+        STATE.allDoctors = data.users.filter(u => u.role === 'doctor');
+        filterDoctorAppList();
+      }
+    });
+    return;
+  }
+
+  const filtered = STATE.allDoctors.filter(d => 
+    (d.full_name || d.username).toLowerCase().includes(query) || (d.especialidad && d.especialidad.toLowerCase().includes(query))
+  );
+
+  listEl.innerHTML = filtered.map(d => `
+    <div class="patient-picker-item" onclick="selectDoctorForAppointment(${d.id}, '${(d.full_name || d.username).replace(/'/g, "\\'")}')">
+      <div>
+        <div class="picker-name">${d.full_name || d.username}</div>
+        <div class="picker-cedula">${d.especialidad || 'Sin especialidad'} - Matrícula: ${d.matricula || '—'}</div>
+      </div>
+      <div class="picker-btn">Seleccionar</div>
+    </div>
+  `).join('');
+}
+
+function selectPatientForAppointment(id, name) {
+  document.getElementById('app-patient').value = id;
+  document.getElementById('app-patient-name').value = name;
+  closeModal('modal-search-patient-app');
+  // Trigger followup check
+  loadPatientFollowupAppointments();
+}
+
+function selectDoctorForAppointment(id, name) {
+  document.getElementById('app-doctor').value = id;
+  document.getElementById('app-doctor-name').value = name;
+  closeModal('modal-search-doctor-app');
+}
+
 

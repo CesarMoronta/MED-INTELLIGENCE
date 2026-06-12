@@ -10,8 +10,6 @@
   <link rel="stylesheet" href="/css/style.css"/>
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- PayPal SDK for Subscriptions -->
-  <script src="https://www.paypal.com/sdk/js?client-id=sb&vault=true&intent=subscription"></script>
 </head>
 <body>
 
@@ -90,6 +88,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Pacientes
     </button>
+    <button class="nav-item" data-tab="billing" onclick="switchTab('billing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="18"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+      Cobros y Facturación
+    </button>
   </nav>
 
   <!-- Navegación ADMIN -->
@@ -110,6 +112,10 @@
     <button class="nav-item" data-tab="admin-history" onclick="switchTab('admin-history')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
       Historial Clínico
+    </button>
+    <button class="nav-item" data-tab="billing" onclick="switchTab('billing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="18"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+      Cobros y Facturación
     </button>
     <div class="nav-section-label" style="margin-top:16px;">Configuración</div>
     <button class="nav-item" data-tab="admin-bayes" onclick="switchTab('admin-bayes')">
@@ -541,6 +547,72 @@
 
       <!-- Resultado Final -->
       <div id="final-result-panel" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Cobros y Facturación e-CF -->
+  <div class="tab-panel" id="tab-billing">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Cobros y Facturación e-CF</h1>
+        <p class="page-subtitle">Gestión de facturación electrónica (DGII República Dominicana)</p>
+      </div>
+    </div>
+
+    <!-- Grid de dos columnas o secciones -->
+    <div class="section-card">
+      <div class="section-header"><h2>💰 Consultas Pendientes de Cobro</h2></div>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Selecciona una consulta finalizada para procesar el cobro y generar su comprobante de consumo (e-CF 32).
+      </p>
+      <div class="table-wrap">
+        <table class="vitals-history-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align: left;">
+              <th>Fecha Visita</th>
+              <th>Paciente</th>
+              <th>Cédula</th>
+              <th>Doctor</th>
+              <th>Monto</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="billing-pending-list">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                No hay consultas pendientes de cobro.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-card" style="margin-top: 24px;">
+      <div class="section-header"><h2>📄 Historial de Facturas Emitidas (e-CF)</h2></div>
+      <div class="table-wrap">
+        <table class="vitals-history-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align: left;">
+              <th>Fecha Emisión</th>
+              <th>Tipo</th>
+              <th>Cliente / Comprador</th>
+              <th>Método Pago</th>
+              <th>eNCF</th>
+              <th>Estado DGII</th>
+              <th>Total</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="billing-history-list">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                Cargando historial de facturas...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1062,6 +1134,19 @@
             <input type="text" id="usr-hospital" class="form-input" placeholder="Hospital General..."/>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cédula</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="usr-cedula" class="form-input" placeholder="001-0000000-0"/>
+              <button type="button" class="btn-primary" style="padding: 8px 12px; font-size:12px;" onclick="lookupDoctorCedula('usr')">Buscar JCE</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Foto URL</label>
+            <input type="text" id="usr-photourl" class="form-input" placeholder="https://..."/>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1155,7 +1240,7 @@
                 <input type="text" id="my-especialidad" class="form-input" placeholder="Medicina Interna" />
               </div>
             </div>
-            <div class="form-row">
+             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Teléfono</label>
                 <input type="text" id="my-telefono" class="form-input" placeholder="809-555-0000" />
@@ -1163,6 +1248,19 @@
               <div class="form-group">
                 <label class="form-label">Hospital Afiliado</label>
                 <input type="text" id="my-hospital" class="form-input" placeholder="Hospital General" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Cédula</label>
+                <div style="display:flex; gap:8px;">
+                  <input type="text" id="my-cedula" class="form-input" placeholder="001-0000000-0"/>
+                  <button type="button" class="btn-primary" style="padding: 8px 12px; font-size:12px;" onclick="lookupDoctorCedula('my')">Buscar JCE</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Foto URL</label>
+                <input type="text" id="my-photourl" class="form-input" placeholder="https://..." disabled/>
               </div>
             </div>
           </div>
@@ -1227,11 +1325,19 @@
       </div>
       <div class="form-group">
         <label class="form-label">Paciente <span class="badge-required">*</span></label>
-        <select id="app-patient" class="form-input" onchange="loadPatientFollowupAppointments()"></select>
+        <div style="display:flex; gap:8px;">
+          <input type="hidden" id="app-patient" value="" onchange="loadPatientFollowupAppointments()"/>
+          <input type="text" id="app-patient-name" class="form-input" placeholder="Ningún paciente seleccionado" disabled style="background:#eef2f6;"/>
+          <button type="button" class="btn-primary" style="padding: 10px 14px;" onclick="openSearchPatientAppointmentModal()">Buscar</button>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Doctor <span class="badge-required">*</span></label>
-        <select id="app-doctor" class="form-input"></select>
+        <div style="display:flex; gap:8px;">
+          <input type="hidden" id="app-doctor" value=""/>
+          <input type="text" id="app-doctor-name" class="form-input" placeholder="Ningún doctor seleccionado" disabled style="background:#eef2f6;"/>
+          <button type="button" class="btn-primary" style="padding: 10px 14px;" onclick="openSearchDoctorAppointmentModal()">Buscar</button>
+        </div>
       </div>
       <div class="form-group" id="app-parent-group" style="display: none;">
         <label class="form-label">Consulta de Seguimiento a (Opcional)</label>
@@ -1314,6 +1420,66 @@
   </div>
 </div>
 
+<!-- MODAL DE COBRO DE CONSULTA -->
+<div class="modal-overlay" id="modal-charge-visit" onclick="closeModalOnBg(event, 'modal-charge-visit')">
+  <div class="modal-box" style="max-width: 450px;">
+    <div class="modal-header">
+      <h2>Procesar Cobro de Consulta</h2>
+      <button class="modal-close" onclick="closeModal('modal-charge-visit')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="charge-visit-id" value="" />
+      <div style="background: var(--bg-hover); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Paciente:</strong> <span id="charge-patient-name">—</span></p>
+        <p style="margin: 0; font-size: 14px;"><strong>Monto a Cobrar:</strong> <span style="color: var(--brand-light); font-weight: 700; font-size: 18px;">RD$ 3,000.00</span></p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="charge-payment-method">Método de Pago</label>
+        <select class="form-input" id="charge-payment-method" style="width: 100%;">
+          <option value="efectivo">💵 Efectivo</option>
+          <option value="tarjeta">💳 Tarjeta de Crédito/Débito</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 24px;" class="form-actions">
+        <button class="btn-outline" onclick="closeModal('modal-charge-visit')">Cancelar</button>
+        <button class="btn-primary" onclick="submitChargeVisit()">Confirmar Pago y Emitir e-CF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RESULTADO FACTURA -->
+<div class="modal-overlay" id="modal-invoice-result" onclick="closeModalOnBg(event, 'modal-invoice-result')">
+  <div class="modal-box" style="max-width: 450px;">
+    <div class="modal-header">
+      <h2>Comprobante e-CF Emitido</h2>
+      <button class="modal-close" onclick="closeModal('modal-invoice-result')">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding: 20px;">
+      <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); color: var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="32" height="32"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <h3 style="color: var(--green); margin-bottom: 8px;">Factura Aceptada por DGII</h3>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">La factura de consumo ha sido validada y registrada correctamente.</p>
+      
+      <div style="text-align: left; background: var(--bg-hover); padding: 16px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--border);">
+        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>eNCF:</strong> <span id="res-invoice-encf" style="font-family: var(--mono); color: var(--text-primary);">—</span></p>
+        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Cód. Seguridad:</strong> <span id="res-invoice-code" style="font-family: var(--mono); color: var(--text-primary);">—</span></p>
+        <p style="margin: 0; font-size: 14px;"><strong>Estado:</strong> <span class="badge badge-verde" id="res-invoice-status">Aceptado</span></p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <a id="res-invoice-dgii-link" href="#" target="_blank" class="btn-primary" style="display: block; text-decoration: none; text-align: center;">
+          🔍 Consultar en DGII (Timbre)
+        </a>
+        <button class="btn-outline" onclick="closeModal('modal-invoice-result')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Panel de Notificaciones (Chat Interno) -->
 <div class="notif-panel-overlay" id="notif-panel-overlay" onclick="closeNotificationsPanel()" style="display:none;"></div>
 <div class="notif-panel" id="notif-panel" style="display:none;">
@@ -1333,6 +1499,50 @@
   <div class="notif-compose">
     <textarea id="notif-message-input" class="form-input" rows="2" placeholder="Escribe un mensaje..." style="resize:none; font-size:13px;"></textarea>
     <button class="btn-primary" style="margin-top:8px;width:100%;" onclick="sendNotification()">Enviar Mensaje</button>
+  </div>
+</div>
+
+<!-- Modal Buscar Paciente para Cita -->
+<div class="modal-overlay" id="modal-search-patient-app" onclick="closeModalOnBg(event,'modal-search-patient-app')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Seleccionar Paciente</h3>
+      <button class="modal-close" onclick="closeModal('modal-search-patient-app')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-wrap" style="position: relative; margin-bottom: 16px;">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-patient-app-input" placeholder="Buscar por nombre o cédula..." class="search-input" onkeyup="filterPatientAppList()" style="width: 100%; padding-left: 44px;"/>
+      </div>
+      <div id="patient-app-list" class="patient-picker-list" style="max-height: 300px; overflow-y: auto;">
+        <!-- Cargar dinámicamente con JS -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-search-patient-app')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Buscar Doctor para Cita -->
+<div class="modal-overlay" id="modal-search-doctor-app" onclick="closeModalOnBg(event,'modal-search-doctor-app')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Seleccionar Doctor</h3>
+      <button class="modal-close" onclick="closeModal('modal-search-doctor-app')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-wrap" style="position: relative; margin-bottom: 16px;">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-doctor-app-input" placeholder="Buscar por nombre o especialidad..." class="search-input" onkeyup="filterDoctorAppList()" style="width: 100%; padding-left: 44px;"/>
+      </div>
+      <div id="doctor-app-list" class="patient-picker-list" style="max-height: 300px; overflow-y: auto;">
+        <!-- Cargar dinámicamente con JS -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-search-doctor-app')">Cancelar</button>
+    </div>
   </div>
 </div>
 

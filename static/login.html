@@ -90,13 +90,7 @@
 
       </form>
 
-      <div class="patient-portal-divider">
-        <span>O eres paciente?</span>
-      </div>
-      
-      <button class="btn-patient-portal" id="btn-open-portal">
-        <span class="btn-text">💬 Portal de Consulta Remota</span>
-      </button>
+
 
       <div class="login-footer">
         <div>UTESA © 2026 — Informática Médica · Proyecto Integrador</div>
@@ -127,67 +121,7 @@
     </div>
   </div>
 
-  <!-- Modal del Portal de Pacientes -->
-  <div class="modal-overlay" id="portal-modal">
-    <div class="portal-card">
-      <button class="portal-close" id="btn-close-portal">×</button>
-      
-      <!-- Vista 1: Autenticación / Registro -->
-      <div class="portal-view active" id="portal-view-auth">
-        <h2 class="portal-title">Portal de Pacientes</h2>
-        <p class="portal-subtitle">Accede para consultar tus síntomas con nuestro asistente virtual.</p>
-        
-        <div class="portal-tabs">
-          <button class="portal-tab active" data-target="portal-login-form">Ya soy paciente</button>
-          <button class="portal-tab" data-target="portal-register-form">Soy nuevo</button>
-        </div>
-        
-        <!-- Tab Login -->
-        <form id="portal-login-form" class="portal-tab-content active">
-          <div class="form-group">
-            <label class="form-label" for="portal-cedula">Cédula</label>
-            <input type="text" id="portal-cedula" class="form-input" placeholder="Ej: 402-1234567-8" required />
-          </div>
-          <button type="submit" class="btn-login" style="margin-top: 10px;">Ingresar</button>
-        </form>
-        
-        <!-- Tab Register -->
-        <form id="portal-register-form" class="portal-tab-content">
-          <div class="form-group">
-            <label class="form-label" for="portal-reg-name">Nombre Completo</label>
-            <input type="text" id="portal-reg-name" class="form-input" placeholder="Ej: Juan Pérez" required />
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="portal-reg-cedula">Cédula</label>
-            <input type="text" id="portal-reg-cedula" class="form-input" placeholder="Ej: 402-1234567-8" required />
-          </div>
-          <button type="submit" class="btn-login" style="margin-top: 10px;">Registrarse e Ingresar</button>
-        </form>
-      </div>
-      
-      <!-- Vista 2: Chat -->
-      <div class="portal-view" id="portal-view-chat" style="display:none;">
-        <div class="chat-header">
-          <h2 class="portal-title" style="margin-bottom:0; font-size: 1.1rem;">Asistente Médico</h2>
-          <div style="font-size: 0.8rem; opacity: 0.8;" id="chat-patient-name">Cargando...</div>
-        </div>
-        
-        <div class="chat-messages" id="chat-messages">
-          <div class="chat-bubble bot">
-            ¡Hola! Soy MED-INTELLIGENCE, tu asistente virtual. ¿En qué te puedo ayudar hoy? Por favor, cuéntame tus síntomas.
-          </div>
-        </div>
-        
-        <form id="chat-form" class="chat-input-area">
-          <input type="text" id="chat-input" placeholder="Escribe tus síntomas aquí..." autocomplete="off" required />
-          <button type="submit" class="chat-send-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-          </button>
-        </form>
-      </div>
-      
-    </div>
-  </div>
+
 
   <script src="/js/login.js"></script>
 </body>

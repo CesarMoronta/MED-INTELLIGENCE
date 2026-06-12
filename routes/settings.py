@@ -1,9 +1,21 @@
+import os
 from flask import Blueprint, request, jsonify
 from database import (get_clinic_name, set_clinic_name,
                       get_all_clinic_settings, set_clinic_settings)
 from utils import requires_login, requires_role
 
 settings_bp = Blueprint("settings_bp", __name__)
+
+
+@settings_bp.route("/api/config/paypal", methods=["GET"])
+@requires_login
+def api_get_paypal_config():
+    return jsonify({
+        "success": True,
+        "client_id": os.environ.get("PAYPAL_CLIENT_ID", "sb"),
+        "plan_id": os.environ.get("PAYPAL_PLAN_ID", "P-58473859YY4859604M3NNZMY")
+    })
+
 
 
 @settings_bp.route("/api/settings/clinic_name", methods=["GET"])
