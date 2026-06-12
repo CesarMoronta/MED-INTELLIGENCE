@@ -25,7 +25,7 @@ app.config["UPLOAD_FOLDER"] = upload_folder
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", 10)) * 1024 * 1024
 
 # Importar blueprints
-from routes.static_routes import static_bp
+from routes.static_routes import static_bp  
 from routes.auth import auth_bp
 from routes.users import users_bp
 from routes.patients import patients_bp
