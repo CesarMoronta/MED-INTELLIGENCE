@@ -259,6 +259,14 @@ async function loadDashboard() {
     document.getElementById('stat-citas-pendientes-val').textContent = s.citas_pendientes ?? '0';
     document.getElementById('stat-citas-hechas-val').textContent = s.citas_hechas ?? '0';
     document.getElementById('stat-citas-manana-val').textContent = s.citas_manana ?? '0';
+
+    // Cargar citas para renderizar el calendario de la agenda del doctor en su dashboard
+    api('GET', '/api/appointments').then(appData => {
+      if (appData.success) {
+        STATE.allAppointments = appData.appointments;
+        renderDashboardCalendar(appData.appointments);
+      }
+    });
   } else {
     document.getElementById('stat-citas-hoy-val').textContent    = s.total_patients     ?? '—';
     document.getElementById('stat-citas-pendientes-val').textContent      = s.total_visits        ?? '—';
@@ -1582,6 +1590,82 @@ function printReport() {
 
 // AGENDA / CITAS
 let calendarInstance = null;
+let dashboardCalendarInstance = null;
+
+function renderDashboardCalendar(apps) {
+  const calendarEl = document.getElementById('doctor-dashboard-calendar');
+  if (!calendarEl) return;
+
+  if (!dashboardCalendarInstance) {
+    dashboardCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'timeGridWeek',
+      locale: 'es',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      },
+      slotMinTime: '06:00:00',
+      slotMaxTime: '22:00:00',
+      contentHeight: 'auto',
+      expandRows: true,
+      allDaySlot: false,
+      editable: false,
+      eventClick: function(info) {
+        const patientName = info.event.title.split(' (')[0];
+        if (confirm(`¿Desea iniciar la consulta/atender a ${patientName}?`)) {
+          selectConsultAppointment(info.event.id, info.event.extendedProps.patient_id);
+          switchTab('diagnose');
+        }
+      }
+    });
+    dashboardCalendarInstance.render();
+  } else {
+    // Asegurar que recalcula dimensiones si estaba oculto al crearse
+    setTimeout(() => {
+      dashboardCalendarInstance.updateSize();
+    }, 100);
+  }
+
+  dashboardCalendarInstance.removeAllEvents();
+
+  const activeApps = apps.filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
+  const events = activeApps.map(a => {
+    let color = '#4f46e5'; // brand color
+    if (a.status === 'completada') color = '#10b981';
+    else if (a.status === 'cancelada') color = '#ef4444';
+    else if (a.status === 'en_curso') color = '#f59e0b';
+
+    let endStr = undefined;
+    let startStr = a.scheduled_date;
+
+    if (a.scheduled_time) {
+      const timePart = a.scheduled_time.substring(0, 8);
+      startStr = `${a.scheduled_date}T${timePart}`;
+      const d = new Date(startStr);
+      if (!isNaN(d.getTime())) {
+        d.setHours(d.getHours() + 1);
+        const pad = n => n.toString().padStart(2, '0');
+        endStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+      }
+    }
+
+    return {
+      id: a.id,
+      title: `${a.patient_name} (${a.notes || 'Consulta'})`,
+      start: startStr,
+      end: endStr,
+      color: color,
+      allDay: !a.scheduled_time,
+      extendedProps: {
+        patient_id: a.patient_id
+      }
+    };
+  });
+
+  dashboardCalendarInstance.addEventSource(events);
+}
+
 
 async function loadAppointments() {
   const filterDoc = document.getElementById('appointment-doctor-filter')?.value;
