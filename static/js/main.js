@@ -129,6 +129,23 @@ function toast(type, msg, duration = 4000) {
   }, duration);
 }
 
+// Button loading helper
+function setButtonLoading(btn, isLoading, loadingText = 'Procesando...') {
+  if (!btn) return;
+  if (isLoading) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.dataset.oldHtml = btn.innerHTML;
+    btn.innerHTML = `<span>${loadingText}</span> <span class="spinner-ring" style="width:14px; height:14px; border-width:1.5px; display:inline-block; vertical-align:middle; margin-left:6px; border-top-color: currentColor;"></span>`;
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.oldHtml) {
+      btn.innerHTML = btn.dataset.oldHtml;
+      delete btn.dataset.oldHtml;
+    }
+  }
+}
+
 // Modal helpers
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
@@ -565,33 +582,40 @@ async function savePatient() {
 
   if (!cedula || !name) { toast('warning', 'Cédula y nombre son obligatorios.'); return; }
 
-  const ants = {};
-  document.querySelectorAll('#modal-antecedentes-grid .symptom-toggle').forEach(lbl => {
-    const cb = lbl.querySelector('input[type=checkbox]');
-    const n  = lbl.textContent.trim();
-    ants[n]  = cb.checked;
-  });
+  const btn = document.querySelector('#modal-new-patient .modal-footer .btn-primary');
+  setButtonLoading(btn, true);
 
-  const payload = { cedula, name, dob, gender, phone: phone || null,
-                    blood_type: blood || null, antecedentes: ants, photo_url: photo_url };
+  try {
+    const ants = {};
+    document.querySelectorAll('#modal-antecedentes-grid .symptom-toggle').forEach(lbl => {
+      const cb = lbl.querySelector('input[type=checkbox]');
+      const n  = lbl.textContent.trim();
+      ants[n]  = cb.checked;
+    });
 
-  let res;
-  if (STATE.editingPatientId) {
-    res = await api('PUT', `/api/patients/${STATE.editingPatientId}`, payload);
-  } else {
-    res = await api('POST', '/api/patients', payload);
-  }
+    const payload = { cedula, name, dob, gender, phone: phone || null,
+                      blood_type: blood || null, antecedentes: ants, photo_url: photo_url };
 
-  if (res.success) {
-    toast('success', STATE.editingPatientId ? 'Paciente actualizado correctamente.' : 'Paciente registrado correctamente.');
-    closeModal('modal-new-patient');
-    STATE.editingPatientId = null;
-    loadPatients();
-    if (STATE.user.role === 'admin') loadAdminPatients();
-    document.getElementById('modal-patient-title').textContent = 'Registrar Nuevo Paciente';
-    clearPatientForm();
-  } else {
-    toast('error', res.error || 'Error al guardar el paciente.');
+    let res;
+    if (STATE.editingPatientId) {
+      res = await api('PUT', `/api/patients/${STATE.editingPatientId}`, payload);
+    } else {
+      res = await api('POST', '/api/patients', payload);
+    }
+
+    if (res.success) {
+      toast('success', STATE.editingPatientId ? 'Paciente actualizado correctamente.' : 'Paciente registrado correctamente.');
+      closeModal('modal-new-patient');
+      STATE.editingPatientId = null;
+      loadPatients();
+      if (STATE.user.role === 'admin') loadAdminPatients();
+      document.getElementById('modal-patient-title').textContent = 'Registrar Nuevo Paciente';
+      clearPatientForm();
+    } else {
+      toast('error', res.error || 'Error al guardar el paciente.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -681,21 +705,28 @@ async function createVisit() {
     toast('warning', 'El motivo de emergencia es obligatorio.'); return;
   }
 
-  const res = await api('POST', '/api/visits', {
-    patient_id: STATE.visitPatient.id,
-    visit_type: visitType,
-    motivo_consulta: motivoConsulta,
-    motivo_emergencia: motivoEmergencia,
-  });
+  const btn = document.querySelector('button[onclick="createVisit()"]');
+  setButtonLoading(btn, true);
 
-  if (res.success) {
-    STATE.currentVisitId = res.visit_id;
-    document.getElementById('visit-created-msg').textContent =
-      `Visita #${res.visit_id} creada para ${STATE.visitPatient.name} — ${visitType.toUpperCase()}`;
-    goToVisitStep(3);
-    toast('success', '¡Visita creada correctamente!');
-  } else {
-    toast('error', res.error || 'Error al crear la visita.');
+  try {
+    const res = await api('POST', '/api/visits', {
+      patient_id: STATE.visitPatient.id,
+      visit_type: visitType,
+      motivo_consulta: motivoConsulta,
+      motivo_emergencia: motivoEmergencia,
+    });
+
+    if (res.success) {
+      STATE.currentVisitId = res.visit_id;
+      document.getElementById('visit-created-msg').textContent =
+        `Visita #${res.visit_id} creada para ${STATE.visitPatient.name} — ${visitType.toUpperCase()}`;
+      goToVisitStep(3);
+      toast('success', '¡Visita creada correctamente!');
+    } else {
+      toast('error', res.error || 'Error al crear la visita.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -1058,35 +1089,36 @@ async function runPhase1() {
     return;
   }
 
-  const btn    = document.getElementById('btn-diag-phase1');
-  const orig   = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div> Calculando...';
+  const btn = document.getElementById('btn-diag-phase1');
+  setButtonLoading(btn, true, 'Calculando...');
 
-  STATE.diagConstantes   = getConstantes();
-  STATE.diagAntecedentes = getCheckedFrom('antecedentes-checkboxes');
+  try {
+    STATE.diagConstantes   = getConstantes();
+    STATE.diagAntecedentes = getCheckedFrom('antecedentes-checkboxes');
 
-  const res = await api('POST', '/api/diagnose/preliminar', {
-    constantes:   STATE.diagConstantes,
-    sintomas:     STATE.diagSintomas,
-    antecedentes: STATE.diagAntecedentes,
-  });
+    const res = await api('POST', '/api/diagnose/preliminar', {
+      constantes:   STATE.diagConstantes,
+      sintomas:     STATE.diagSintomas,
+      antecedentes: STATE.diagAntecedentes,
+    });
 
-  btn.disabled = false; btn.innerHTML = orig;
+    if (!res.success) { toast('error', res.error || 'Error en el diagnóstico.'); return; }
 
-  if (!res.success) { toast('error', res.error || 'Error en el diagnóstico.'); return; }
+    STATE.phase1Probs = res.probabilities;
+    STATE.tests       = res.tests_sugeridos || [];
+    STATE.geminiChatHistory = []; // Reset chat on new diagnosis
 
-  STATE.phase1Probs = res.probabilities;
-  STATE.tests       = res.tests_sugeridos || [];
-  STATE.geminiChatHistory = []; // Reset chat on new diagnosis
+    // Mostrar resultado y ocultar inputs
+    document.getElementById('phase-1-inputs').style.display = 'none';
+    renderPhase1Result(res);
+    document.getElementById('phase1-result').style.display = '';
+    document.getElementById('phase1-result').scrollIntoView({ behavior: 'smooth' });
 
-  // Mostrar resultado y ocultar inputs
-  document.getElementById('phase-1-inputs').style.display = 'none';
-  renderPhase1Result(res);
-  document.getElementById('phase1-result').style.display = '';
-  document.getElementById('phase1-result').scrollIntoView({ behavior: 'smooth' });
-
-  // Lanzar análisis Gemini en paralelo (no bloquea la UI)
-  runGeminiAnalysis(res.probabilities);
+    // Lanzar análisis Gemini en paralelo (no bloquea la UI)
+    runGeminiAnalysis(res.probabilities);
+  } finally {
+    setButtonLoading(btn, false);
+  }
 }
 
 async function runGeminiAnalysis(probs) {
@@ -1278,31 +1310,32 @@ async function runPhase2() {
   });
 
   const btn = document.getElementById('btn-diag-phase2');
-  const orig = btn.innerHTML;
-  btn.disabled = true; btn.innerHTML = '<div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div> Finalizando...';
+  setButtonLoading(btn, true, 'Finalizando...');
 
-  const res = await api('POST', '/api/diagnose/final', {
-    patient_id:      patientId,
-    patient_name:    patientName,
-    motivo_consulta: motivoConsulta,
-    visit_id:        STATE.currentVisitId,
-    preliminar_probs: STATE.phase1Probs,
-    tests_resultados: testsResultados,
-    sintomas:        STATE.diagSintomas,
-    antecedentes:    STATE.diagAntecedentes,
-    constantes:      STATE.diagConstantes,
-  });
-  
-  btn.disabled = false; btn.innerHTML = orig;
+  try {
+    const res = await api('POST', '/api/diagnose/final', {
+      patient_id:      patientId,
+      patient_name:    patientName,
+      motivo_consulta: motivoConsulta,
+      visit_id:        STATE.currentVisitId,
+      preliminar_probs: STATE.phase1Probs,
+      tests_resultados: testsResultados,
+      sintomas:        STATE.diagSintomas,
+      antecedentes:    STATE.diagAntecedentes,
+      constantes:      STATE.diagConstantes,
+    });
 
-  if (!res.success) { toast('error', res.error || 'Error en diagnóstico final.'); return; }
+    if (!res.success) { toast('error', res.error || 'Error en diagnóstico final.'); return; }
 
-  // Guardar datos temporalmente para la decisión final
-  STATE.finalDiagnosisRes = res;
-  STATE.finalTestsResultados = testsResultados;
+    // Guardar datos temporalmente para la decisión final
+    STATE.finalDiagnosisRes = res;
+    STATE.finalTestsResultados = testsResultados;
 
-  renderFinalResult(res);
-  toast('success', '✅ Diagnóstico final calculado. Verifique y finalice la consulta.');
+    renderFinalResult(res);
+    toast('success', '✅ Diagnóstico final calculado. Verifique y finalice la consulta.');
+  } finally {
+    setButtonLoading(btn, false);
+  }
 }
 
 function toggleRefutationFields(chk) {
@@ -1313,8 +1346,8 @@ function toggleRefutationFields(chk) {
 async function saveFinalDecision(createPrescription) {
   const btn1 = document.getElementById('btn-finish-prescribe');
   const btn2 = document.getElementById('btn-finish-only');
-  if (btn1) btn1.disabled = true;
-  if (btn2) btn2.disabled = true;
+  const activeBtn = createPrescription ? btn1 : btn2;
+  const secondaryBtn = createPrescription ? btn2 : btn1;
 
   const isRefuted = document.getElementById('chk-refute-ai')?.checked || false;
   const doctorOverride = document.getElementById('doctor-override-diagnosis')?.value.trim();
@@ -1322,52 +1355,56 @@ async function saveFinalDecision(createPrescription) {
 
   if (isRefuted && !doctorOverride) {
     toast('warning', 'Si refutas el diagnóstico, debes escribir el diagnóstico médico real.');
-    if (btn1) btn1.disabled = false;
-    if (btn2) btn2.disabled = false;
     return;
   }
 
-  // Guardar usando /api/diagnose/final pero con save_diagnosis: true
-  const patientName = document.getElementById('diag-patient-name').value.trim() || 'Paciente Anónimo';
-  const motivoConsulta = document.getElementById('diag-motivo').value.trim() || 'Sin especificar';
+  if (activeBtn) setButtonLoading(activeBtn, true);
+  if (secondaryBtn) secondaryBtn.disabled = true;
 
-  const res = await api('POST', '/api/diagnose/final', {
-    patient_id: STATE.currentPatient?.id,
-    patient_name: patientName,
-    motivo_consulta: motivoConsulta,
-    visit_id: STATE.currentVisitId,
-    preliminar_probs: STATE.phase1Probs,
-    tests_resultados: STATE.finalTestsResultados,
-    sintomas: STATE.diagSintomas,
-    antecedentes: STATE.diagAntecedentes,
-    constantes: STATE.diagConstantes,
-    save_diagnosis: true,
-    is_refuted: isRefuted,
-    refutation_reason: refutationReason,
-    doctor_override_diagnosis: doctorOverride
-  });
+  try {
+    // Guardar usando /api/diagnose/final pero con save_diagnosis: true
+    const patientName = document.getElementById('diag-patient-name').value.trim() || 'Paciente Anónimo';
+    const motivoConsulta = document.getElementById('diag-motivo').value.trim() || 'Sin especificar';
 
-  if (!res.success) {
-    toast('error', res.error || 'Error al guardar el diagnóstico final.');
-    if (btn1) btn1.disabled = false;
-    if (btn2) btn2.disabled = false;
-    return;
-  }
+    const res = await api('POST', '/api/diagnose/final', {
+      patient_id: STATE.currentPatient?.id,
+      patient_name: patientName,
+      motivo_consulta: motivoConsulta,
+      visit_id: STATE.currentVisitId,
+      preliminar_probs: STATE.phase1Probs,
+      tests_resultados: STATE.finalTestsResultados,
+      sintomas: STATE.diagSintomas,
+      antecedentes: STATE.diagAntecedentes,
+      constantes: STATE.diagConstantes,
+      save_diagnosis: true,
+      is_refuted: isRefuted,
+      refutation_reason: refutationReason,
+      doctor_override_diagnosis: doctorOverride
+    });
 
-  // Marcar la cita como completada
-  const appId = document.getElementById('diag-appointment-id')?.value;
-  if (appId) {
-    api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
-  }
+    if (!res.success) {
+      toast('error', res.error || 'Error al guardar el diagnóstico final.');
+      return;
+    }
 
-  toast('success', 'Consulta finalizada con éxito.');
+    // Marcar la cita como completada
+    const appId = document.getElementById('diag-appointment-id')?.value;
+    if (appId) {
+      api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+    }
 
-  if (createPrescription && STATE.currentPatient && STATE.currentVisitId) {
-    // Abrir modal de receta
-    openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
-  } else {
-    // Limpiar para nueva consulta
-    resetDiagnose();
+    toast('success', 'Consulta finalizada con éxito.');
+
+    if (createPrescription && STATE.currentPatient && STATE.currentVisitId) {
+      // Abrir modal de receta
+      openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+    } else {
+      // Limpiar para nueva consulta
+      resetDiagnose();
+    }
+  } finally {
+    if (activeBtn) setButtonLoading(activeBtn, false);
+    if (secondaryBtn) secondaryBtn.disabled = false;
   }
 }
 
@@ -1921,17 +1958,24 @@ async function saveAppointment() {
     toast('warning', 'Faltan campos obligatorios'); return;
   }
   
-  const isEdit = !!appId;
-  const url = isEdit ? `/api/appointments/${appId}` : '/api/appointments';
-  const method = isEdit ? 'PUT' : 'POST';
+  const btn = document.getElementById('btn-save-appointment');
+  setButtonLoading(btn, true);
 
-  const res = await api(method, url, payload);
-  if (res.success) {
-    toast('success', isEdit ? 'Cita actualizada correctamente' : 'Cita agendada correctamente');
-    closeModal('modal-new-appointment');
-    loadAppointments();
-  } else {
-    toast('error', res.error || 'Error al guardar cita');
+  try {
+    const isEdit = !!appId;
+    const url = isEdit ? `/api/appointments/${appId}` : '/api/appointments';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await api(method, url, payload);
+    if (res.success) {
+      toast('success', isEdit ? 'Cita actualizada correctamente' : 'Cita agendada correctamente');
+      closeModal('modal-new-appointment');
+      loadAppointments();
+    } else {
+      toast('error', res.error || 'Error al guardar cita');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -2019,32 +2063,31 @@ async function savePrescription() {
     return;
   }
   
-  const btn = event.target;
-  const orig = btn.textContent;
-  btn.textContent = 'Guardando...';
-  btn.disabled = true;
+  const btn = document.querySelector('button[onclick="savePrescription()"]');
+  setButtonLoading(btn, true);
   
-  let successCount = 0;
-  for (const rx of STATE.rxList) {
-    const res = await api('POST', `/api/visits/${STATE.currentVisitId}/prescription`, {
-      medication: rx.med,
-      dosage: rx.dos,
-      frequency: rx.freq,
-      duration_days: rx.days,
-      quantity: rx.qty,
-      notes: rx.notes
-    });
-    if (res.success) successCount++;
-  }
-  
-  btn.textContent = orig;
-  btn.disabled = false;
-  
-  if (successCount === STATE.rxList.length) {
-    toast('success', 'Receta guardada correctamente en el historial.');
-    closeModal('modal-prescription');
-  } else {
-    toast('error', 'Ocurrió un error al guardar algunos medicamentos.');
+  try {
+    let successCount = 0;
+    for (const rx of STATE.rxList) {
+      const res = await api('POST', `/api/visits/${STATE.currentVisitId}/prescription`, {
+        medication: rx.med,
+        dosage: rx.dos,
+        frequency: rx.freq,
+        duration_days: rx.days,
+        quantity: rx.qty,
+        notes: rx.notes
+      });
+      if (res.success) successCount++;
+    }
+    
+    if (successCount === STATE.rxList.length) {
+      toast('success', 'Receta guardada correctamente en el historial.');
+      closeModal('modal-prescription');
+    } else {
+      toast('error', 'Ocurrió un error al guardar algunos medicamentos.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -2278,25 +2321,32 @@ async function saveUser() {
   if (!id && !password) { toast('warning', 'La contraseña es obligatoria al crear un usuario.'); return; }
   if (password && password.length < 6) { toast('warning', 'La contraseña debe tener al menos 6 caracteres.'); return; }
 
-  const payload = { username, role, full_name: fullName, email,
-    matricula, especialidad, telefono, hospital, cedula, photo_url: photoUrl };
-  if (password) payload.password = password;
+  const btn = document.querySelector('#modal-new-user .modal-footer .btn-primary');
+  setButtonLoading(btn, true);
 
-  let res;
-  if (id) {
-    res = await api('PUT', `/api/users/${id}`, payload);
-  } else {
-    res = await api('POST', '/api/users', payload);
-  }
+  try {
+    const payload = { username, role, full_name: fullName, email,
+      matricula, especialidad, telefono, hospital, cedula, photo_url: photoUrl };
+    if (password) payload.password = password;
 
-  if (res.success) {
-    toast('success', id ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
-    closeModal('modal-new-user');
-    clearUserForm();
-    loadUsersTab();
-    loadDoctorsTab();
-  } else {
-    toast('error', res.error || 'Error al guardar el usuario.');
+    let res;
+    if (id) {
+      res = await api('PUT', `/api/users/${id}`, payload);
+    } else {
+      res = await api('POST', '/api/users', payload);
+    }
+
+    if (res.success) {
+      toast('success', id ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
+      closeModal('modal-new-user');
+      clearUserForm();
+      loadUsersTab();
+      loadDoctorsTab();
+    } else {
+      toast('error', res.error || 'Error al guardar el usuario.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -3241,15 +3291,22 @@ async function saveMyProfile() {
     payload.photo_url = document.getElementById('my-photourl').value.trim() || null;
   }
 
-  toast('info', 'Guardando cambios del perfil...');
-  const res = await api('PUT', '/api/profile', payload);
-  if (res.success) {
-    toast('success', '¡Perfil actualizado con éxito!');
-    STATE.user = res.user;
-    setupUI();
-    closeModal('modal-profile');
-  } else {
-    toast('error', res.error || 'Error al guardar perfil.');
+  const btn = document.querySelector('#modal-profile .modal-footer .btn-primary');
+  setButtonLoading(btn, true);
+
+  try {
+    toast('info', 'Guardando cambios del perfil...');
+    const res = await api('PUT', '/api/profile', payload);
+    if (res.success) {
+      toast('success', '¡Perfil actualizado con éxito!');
+      STATE.user = res.user;
+      setupUI();
+      closeModal('modal-profile');
+    } else {
+      toast('error', res.error || 'Error al guardar perfil.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -3282,69 +3339,76 @@ async function saveManualDiagnosis(createPrescription) {
     return;
   }
 
-  const alertLevel = document.getElementById('manual-diag-alert').value;
-  const specialist = document.getElementById('manual-diag-specialist').value.trim();
-  const report = document.getElementById('manual-diag-report').value.trim();
+  const btn = document.querySelector('button[onclick="saveManualDiagnosis(' + createPrescription + ')"]');
+  setButtonLoading(btn, true);
 
-  // Crear la visita si no se ha creado aún
-  if (!STATE.currentVisitId) {
-    const constantes = getConstantes();
-    const sintomas = getCheckedFrom('symptoms-checkboxes');
-    const appIdRaw = document.getElementById('diag-appointment-id')?.value;
-    const appointmentId = appIdRaw ? parseInt(appIdRaw) : null;
-    
-    toast('info', 'Registrando visita médica...');
-    const visitRes = await api('POST', '/api/visits', {
-      patient_id: patientId,
-      visit_type: 'consulta',
+  try {
+    const alertLevel = document.getElementById('manual-diag-alert').value;
+    const specialist = document.getElementById('manual-diag-specialist').value.trim();
+    const report = document.getElementById('manual-diag-report').value.trim();
+
+    // Crear la visita si no se ha creado aún
+    if (!STATE.currentVisitId) {
+      const constantes = getConstantes();
+      const sintomas = getCheckedFrom('symptoms-checkboxes');
+      const appIdRaw = document.getElementById('diag-appointment-id')?.value;
+      const appointmentId = appIdRaw ? parseInt(appIdRaw) : null;
+      
+      toast('info', 'Registrando visita médica...');
+      const visitRes = await api('POST', '/api/visits', {
+        patient_id: patientId,
+        visit_type: 'consulta',
+        motivo_consulta: motivoConsulta,
+        doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
+        constantes: constantes,
+        sintomas: sintomas,
+        appointment_id: appointmentId
+      });
+      if (!visitRes.success) {
+        toast('error', visitRes.error || 'Error al crear la visita.');
+        return;
+      }
+      STATE.currentVisitId = visitRes.visit_id;
+    }
+
+    // Guardar diagnóstico manual
+    toast('info', 'Guardando diagnóstico...');
+    const res = await api('POST', '/api/diagnose/final', {
+      patient_id: STATE.currentPatient.id,
+      patient_name: STATE.currentPatient.name,
       motivo_consulta: motivoConsulta,
-      doctor_notes: document.getElementById('diag-doctor-notes')?.value.trim() || null,
-      constantes: constantes,
-      sintomas: sintomas,
-      appointment_id: appointmentId
+      visit_id: STATE.currentVisitId,
+      preliminar_probs: {},
+      tests_resultados: [],
+      sintomas: getCheckedFrom('symptoms-checkboxes'),
+      antecedentes: getCheckedFrom('antecedentes-checkboxes'),
+      constantes: getConstantes(),
+      is_manual: true,
+      save_diagnosis: true,
+      diagnosis_primary: diagnosis,
+      alert_level: alertLevel,
+      specialist: specialist || 'Medicina General',
+      explanation: report || 'Diagnóstico y evolución ingresados manualmente.'
     });
-    if (!visitRes.success) {
-      toast('error', visitRes.error || 'Error al crear la visita.');
-      return;
-    }
-    STATE.currentVisitId = visitRes.visit_id;
-  }
 
-  // Guardar diagnóstico manual
-  toast('info', 'Guardando diagnóstico...');
-  const res = await api('POST', '/api/diagnose/final', {
-    patient_id: STATE.currentPatient.id,
-    patient_name: STATE.currentPatient.name,
-    motivo_consulta: motivoConsulta,
-    visit_id: STATE.currentVisitId,
-    preliminar_probs: {},
-    tests_resultados: [],
-    sintomas: getCheckedFrom('symptoms-checkboxes'),
-    antecedentes: getCheckedFrom('antecedentes-checkboxes'),
-    constantes: getConstantes(),
-    is_manual: true,
-    save_diagnosis: true,
-    diagnosis_primary: diagnosis,
-    alert_level: alertLevel,
-    specialist: specialist || 'Medicina General',
-    explanation: report || 'Diagnóstico y evolución ingresados manualmente.'
-  });
+    if (res.success) {
+      toast('success', 'Consulta y diagnóstico registrados con éxito.');
+      
+      const appId = document.getElementById('diag-appointment-id')?.value;
+      if (appId) {
+        api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+      }
 
-  if (res.success) {
-    toast('success', 'Consulta y diagnóstico registrados con éxito.');
-    
-    const appId = document.getElementById('diag-appointment-id')?.value;
-    if (appId) {
-      api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
-    }
-
-    if (createPrescription) {
-      openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+      if (createPrescription) {
+        openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+      } else {
+        resetDiagnose();
+      }
     } else {
-      resetDiagnose();
+      toast('error', res.error || 'Error al guardar el diagnóstico.');
     }
-  } else {
-    toast('error', res.error || 'Error al guardar el diagnóstico.');
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -3545,21 +3609,28 @@ async function submitCreditNote() {
     return;
   }
 
-  toast('info', 'Emitiendo Nota de Crédito y firmando e-CF con la DGII...');
-  
-  const res = await api('POST', '/api/billing/credit-note', {
-    invoice_id: parseInt(invoiceId, 10),
-    codigo_modificacion: codigoModificacion,
-    monto_credito: montoCredito,
-    concepto: concepto
-  });
+  const btn = document.querySelector('#modal-credit-note .modal-footer .btn-primary');
+  setButtonLoading(btn, true);
 
-  if (res.success) {
-    toast('success', '¡Nota de Crédito emitida y aceptada con éxito!');
-    closeModal('modal-credit-note');
-    loadBillingTab();
-  } else {
-    toast('error', res.error || 'Error al emitir la Nota de Crédito.');
+  try {
+    toast('info', 'Emitiendo Nota de Crédito y firmando e-CF con la DGII...');
+    
+    const res = await api('POST', '/api/billing/credit-note', {
+      invoice_id: parseInt(invoiceId, 10),
+      codigo_modificacion: codigoModificacion,
+      monto_credito: montoCredito,
+      concepto: concepto
+    });
+
+    if (res.success) {
+      toast('success', '¡Nota de Crédito emitida y aceptada con éxito!');
+      closeModal('modal-credit-note');
+      loadBillingTab();
+    } else {
+      toast('error', res.error || 'Error al emitir la Nota de Crédito.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -3682,30 +3753,37 @@ async function submitChargeVisit() {
     payload.correo_comprador = correo;
   }
 
-  toast('info', 'Procesando pago y firmando e-CF con DGII...');
-  const res = await api('POST', '/api/billing/charge', payload);
+  const btn = document.querySelector('#modal-charge-visit .modal-footer .btn-primary');
+  setButtonLoading(btn, true);
 
-  if (res.success) {
-    toast('success', '¡Pago procesado y e-CF aceptado!');
-    closeModal('modal-charge-visit');
+  try {
+    toast('info', 'Procesando pago y firmando e-CF con DGII...');
+    const res = await api('POST', '/api/billing/charge', payload);
 
-    // Llenar datos de éxito
-    document.getElementById('res-invoice-encf').textContent = res.invoice.encf || '—';
-    document.getElementById('res-invoice-code').textContent = res.invoice.codigo_seguridad || '—';
-    document.getElementById('res-invoice-status').textContent = res.invoice.estado || 'Aceptado';
-    
-    const linkEl = document.getElementById('res-invoice-dgii-link');
-    if (res.invoice.dgii_url) {
-      linkEl.href = res.invoice.dgii_url;
-      linkEl.style.display = 'block';
+    if (res.success) {
+      toast('success', '¡Pago procesado y e-CF aceptado!');
+      closeModal('modal-charge-visit');
+
+      // Llenar datos de éxito
+      document.getElementById('res-invoice-encf').textContent = res.invoice.encf || '—';
+      document.getElementById('res-invoice-code').textContent = res.invoice.codigo_seguridad || '—';
+      document.getElementById('res-invoice-status').textContent = res.invoice.estado || 'Aceptado';
+      
+      const linkEl = document.getElementById('res-invoice-dgii-link');
+      if (res.invoice.dgii_url) {
+        linkEl.href = res.invoice.dgii_url;
+        linkEl.style.display = 'block';
+      } else {
+        linkEl.style.display = 'none';
+      }
+
+      openModal('modal-invoice-result');
+      loadBillingTab();
     } else {
-      linkEl.style.display = 'none';
+      toast('error', res.error || 'Error al procesar la factura electrónica.');
     }
-
-    openModal('modal-invoice-result');
-    loadBillingTab();
-  } else {
-    toast('error', res.error || 'Error al procesar la factura electrónica.');
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
