@@ -78,7 +78,7 @@ def api_charge_visit():
                     }
                 },
                 "Comprador": {
-                    "RNCComprador": visit.get("patient_cedula", ""),
+                    "RNCComprador": str(visit.get("patient_cedula") or "").replace("-", "").strip(),
                     "RazonSocialComprador": visit.get("patient_name", "Consumidor Final")
                 },
                 "Totales": {
@@ -180,7 +180,7 @@ def generate_subscription_invoice(user_id: int):
                     }
                 },
                 "Comprador": {
-                    "RNCComprador": user.get("matricula", "") or "00000000000",
+                    "RNCComprador": str(user.get("matricula") or "").replace("-", "").strip() or "00000000000",
                     "RazonSocialComprador": user.get("full_name") or user.get("username")
                 },
                 "Totales": {
