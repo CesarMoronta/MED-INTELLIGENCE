@@ -40,101 +40,13 @@
   </div>
 
   <!-- Navegación DOCTOR -->
-  <nav class="sidebar-nav" id="nav-doctor" style="display:none;">
-    <div class="nav-section-label">Módulo Médico</div>
-    <button class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      Dashboard
-    </button>
-    <button class="nav-item" data-tab="appointments" onclick="switchTab('appointments')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Agenda / Citas
-    </button>
-    <button class="nav-item" data-tab="waiting-room" onclick="switchTab('waiting-room')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Sala de Espera
-    </button>
-    <button class="nav-item" data-tab="patients" onclick="switchTab('patients')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Pacientes
-    </button>
-    <button class="nav-item" data-tab="diagnose" onclick="switchTab('diagnose')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M22 20l-6-6"/><path d="M19.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M10 20v-4"/><circle cx="10" cy="20" r="2"/><path d="M7.5 7.5h6"/></svg>
-      Consulta Clínica
-    </button>
-    <button class="nav-item" data-tab="history" onclick="switchTab('history')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
-      Historial Clínico
-    </button>
-    <div class="nav-section-label" style="margin-top:16px;">Herramientas</div>
-    <button class="nav-item" data-tab="simulator" onclick="switchTab('simulator')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Simulador Bayes
-    </button>
-  </nav>
+  <nav class="sidebar-nav" id="nav-doctor" style="display:none;"></nav>
 
   <!-- Navegación SECRETARIA -->
-  <nav class="sidebar-nav" id="nav-secretaria" style="display:none;">
-    <div class="nav-section-label">Recepción</div>
-    <button class="nav-item active" data-tab="waiting-room" onclick="switchTab('waiting-room')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Sala de Espera
-    </button>
-    <button class="nav-item" data-tab="appointments" onclick="switchTab('appointments')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Agenda / Citas
-    </button>
-    <button class="nav-item" data-tab="patients" onclick="switchTab('patients')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Pacientes
-    </button>
-    <button class="nav-item" data-tab="billing" onclick="switchTab('billing')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="18"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
-      Cobros y Facturación
-    </button>
-  </nav>
+  <nav class="sidebar-nav" id="nav-secretaria" style="display:none;"></nav>
 
   <!-- Navegación ADMIN -->
-  <nav class="sidebar-nav" id="nav-admin" style="display:none;">
-    <div class="nav-section-label">Administración</div>
-    <button class="nav-item active" data-tab="admin-dashboard" onclick="switchTab('admin-dashboard')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      Dashboard Global
-    </button>
-    <button class="nav-item" data-tab="admin-doctors" onclick="switchTab('admin-doctors')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Gestión de Doctores
-    </button>
-    <button class="nav-item" data-tab="admin-patients" onclick="switchTab('admin-patients')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Gestión de Pacientes
-    </button>
-    <button class="nav-item" data-tab="admin-history" onclick="switchTab('admin-history')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
-      Historial Clínico
-    </button>
-    <button class="nav-item" data-tab="billing" onclick="switchTab('billing')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="18"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
-      Cobros y Facturación
-    </button>
-    <div class="nav-section-label" style="margin-top:16px;">Configuración</div>
-    <button class="nav-item" data-tab="admin-bayes" onclick="switchTab('admin-bayes')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Config. Bayesiana
-    </button>
-    <button class="nav-item" data-tab="admin-users" onclick="switchTab('admin-users')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M16 16v2M8 16v2M4 20a8 8 0 0 1 16 0"/></svg>
-      Usuarios y Admins
-    </button>
-    <button class="nav-item" data-tab="admin-settings" onclick="switchTab('admin-settings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Ajustes Consultorio
-    </button>
-    <button class="nav-item" data-tab="admin-audit" onclick="switchTab('admin-audit')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Logs de Auditoría
-    </button>
-  </nav>
+  <nav class="sidebar-nav" id="nav-admin" style="display:none;"></nav>
 
   <div class="sidebar-footer">
     <button class="btn-logout" onclick="handleLogout()">
@@ -401,52 +313,52 @@
               <div class="section-header"><h2>🩺 Constantes Vitales</h2></div>
               <div class="vitals-grid">
                 <div class="vital-group">
-                  <div class="vital-header"><label>Edad (años)</label><span id="val-edad" class="vital-val-display">30</span></div>
+                  <div class="vital-header"><label>Edad (años)</label><input type="number" id="val-edad" class="vital-val-input" value="30" disabled/></div>
                   <input type="range" id="v-edad" class="form-range" value="30" min="0" max="120" oninput="updateVitalBadge(this)" disabled/>
                   <div class="vital-badge" id="badge-edad"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>Temperatura (°C)</label><span id="val-temperatura" class="vital-val-display">37.0</span></div>
+                  <div class="vital-header"><label>Temperatura (°C)</label><input type="number" id="val-temperatura" class="vital-val-input" step="0.1" value="37.0"/></div>
                   <input type="range" id="v-temperatura" class="form-range" step="0.1" value="37.0" min="34" max="42" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-temperatura"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>SpO2 (%)</label><span id="val-spo2" class="vital-val-display">98</span></div>
+                  <div class="vital-header"><label>SpO2 (%)</label><input type="number" id="val-spo2" class="vital-val-input" value="98"/></div>
                   <input type="range" id="v-spo2" class="form-range" value="98" min="50" max="100" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-spo2"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>PAS (mmHg)</label><span id="val-pas" class="vital-val-display">120</span></div>
+                  <div class="vital-header"><label>PAS (mmHg)</label><input type="number" id="val-pas" class="vital-val-input" value="120"/></div>
                   <input type="range" id="v-pas" class="form-range" value="120" min="60" max="250" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-pas"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>PAD (mmHg)</label><span id="val-pad" class="vital-val-display">80</span></div>
+                  <div class="vital-header"><label>PAD (mmHg)</label><input type="number" id="val-pad" class="vital-val-input" value="80"/></div>
                   <input type="range" id="v-pad" class="form-range" value="80" min="40" max="150" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-pad"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>FC (bpm)</label><span id="val-fc" class="vital-val-display">80</span></div>
+                  <div class="vital-header"><label>FC (bpm)</label><input type="number" id="val-fc" class="vital-val-input" value="80"/></div>
                   <input type="range" id="v-fc" class="form-range" value="80" min="30" max="250" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-fc"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>FR (rpm)</label><span id="val-fr" class="vital-val-display">16</span></div>
+                  <div class="vital-header"><label>FR (rpm)</label><input type="number" id="val-fr" class="vital-val-input" value="16"/></div>
                   <input type="range" id="v-fr" class="form-range" value="16" min="6" max="50" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-fr"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>Peso (kg)</label><span id="val-peso" class="vital-val-display">70</span></div>
+                  <div class="vital-header"><label>Peso (kg)</label><input type="number" id="val-peso" class="vital-val-input" value="70"/></div>
                   <input type="range" id="v-peso" class="form-range" value="70" min="2" max="250" oninput="updateVitalBadge(this); calculateIMC();"/>
                   <div class="vital-badge" id="badge-peso"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>Altura (cm)</label><span id="val-altura" class="vital-val-display">170</span></div>
+                  <div class="vital-header"><label>Altura (cm)</label><input type="number" id="val-altura" class="vital-val-input" value="170"/></div>
                   <input type="range" id="v-altura" class="form-range" value="170" min="40" max="250" oninput="updateVitalBadge(this); calculateIMC();"/>
                   <div class="vital-badge" id="badge-altura"></div>
                 </div>
                 <div class="vital-group">
-                  <div class="vital-header"><label>Grasa Corp. (%)</label><span id="val-grasa_corporal" class="vital-val-display">20</span></div>
+                  <div class="vital-header"><label>Grasa Corp. (%)</label><input type="number" id="val-grasa_corporal" class="vital-val-input" value="20"/></div>
                   <input type="range" id="v-grasa_corporal" class="form-range" value="20" min="1" max="60" oninput="updateVitalBadge(this)"/>
                   <div class="vital-badge" id="badge-grasa_corporal"></div>
                 </div>
@@ -900,6 +812,76 @@
         </div>
       </div>
     </div>
+    
+    <div class="two-col-grid" style="margin-top: 20px;">
+      <!-- Card: Personalización Visual -->
+      <div class="section-card">
+        <div class="section-header"><h2>🎨 Apariencia de la Interfaz</h2></div>
+        <div class="form-group">
+          <label class="form-label">Color Principal de la Interfaz</label>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <input type="color" id="cfg-ui-primary-color" class="form-input" style="width: 60px; height: 42px; padding: 4px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border);" value="#4f46e5"/>
+            <span style="font-size:13px; color:var(--text-muted);">Elige el color para botones primarios, enlaces, y acentos visuales.</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Card: Permisos y Seguridad -->
+      <div class="section-card">
+        <div class="section-header"><h2>🔑 Permisos y Seguridad</h2></div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex; align-items:center; gap:8px; cursor: pointer; font-weight: 600;">
+            <input type="checkbox" id="cfg-allow-doctor-billing" style="width:16px; height:16px; cursor:pointer;"/>
+            Habilitar módulo de "Cobros y Facturación" para Doctores
+          </label>
+          <span style="font-size:12px; color:var(--text-muted); display:block; margin-left:24px; margin-bottom: 12px;">Permite que el rol Doctor acceda a la pestaña de Cobros y emita facturas e-CF.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Intentos de Login</label>
+            <input type="number" id="cfg-max-login-attempts" class="form-input" min="3" max="20" placeholder="5"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bloqueo (Minutos)</label>
+            <input type="number" id="cfg-lockout-minutes" class="form-input" min="1" max="120" placeholder="15"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sesión (Horas)</label>
+            <input type="number" id="cfg-session-timeout-hours" class="form-input" min="1" max="72" placeholder="8"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ancho Completo: Reordenador de Sidebar -->
+    <div class="section-card" style="margin-top: 20px;">
+      <div class="section-header"><h2>🗂️ Configuración de Menús Laterales (Sidebars)</h2></div>
+      <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Usa los botones de subir (▲) y bajar (▼) en las tarjetas de cada rol para definir el orden visual de las pestañas en el menú lateral.</p>
+      
+      <!-- Hidden fields to maintain text orders for backend serialization -->
+      <input type="hidden" id="cfg-sidebar-order-admin" />
+      <input type="hidden" id="cfg-sidebar-order-doctor" />
+      <input type="hidden" id="cfg-sidebar-order-secretaria" />
+
+      <div class="order-editor-grid">
+        <!-- Admin Col -->
+        <div class="order-editor-col">
+          <h3>⚙️ Administrador</h3>
+          <div class="order-list-container" id="editor-list-admin"></div>
+        </div>
+        <!-- Doctor Col -->
+        <div class="order-editor-col">
+          <h3>🩺 Doctor</h3>
+          <div class="order-list-container" id="editor-list-doctor"></div>
+        </div>
+        <!-- Secretaria Col -->
+        <div class="order-editor-col">
+          <h3>📋 Secretaría</h3>
+          <div class="order-list-container" id="editor-list-secretaria"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-card" style="margin-top:20px;">
       <div class="section-header"><h2>📥 Exportación de Datos</h2></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">

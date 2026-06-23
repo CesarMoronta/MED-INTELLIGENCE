@@ -183,15 +183,170 @@ function switchTab(tab) {
   if (loaders[tab]) loaders[tab]();
 }
 
+const SIDEBAR_ITEMS = {
+  'dashboard': { label: 'Dashboard', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+  'appointments': { label: 'Agenda / Citas', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
+  'waiting-room': { label: 'Sala de Espera', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  'patients': { label: 'Pacientes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  'diagnose': { label: 'Consulta Clínica', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M22 20l-6-6"/><path d="M19.5 10c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3z"/><path d="M10 20v-4"/><circle cx="10" cy="20" r="2"/><path d="M7.5 7.5h6"/></svg>' },
+  'history': { label: 'Historial Clínico', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>' },
+  'simulator': { label: 'Simulador Bayes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' },
+  'billing': { label: 'Cobros y Facturación', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="18"/><line x1="8" y1="14" x2="16" y2="14"/></svg>' },
+  'admin-dashboard': { label: 'Dashboard Global', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+  'admin-doctors': { label: 'Gestión de Doctores', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  'admin-patients': { label: 'Gestión de Pacientes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
+  'admin-history': { label: 'Historial Clínico', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>' },
+  'admin-bayes': { label: 'Config. Bayesiana', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' },
+  'admin-users': { label: 'Usuarios y Admins', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M16 16v2M8 16v2M4 20a8 8 0 0 1 16 0"/></svg>' },
+  'admin-settings': { label: 'Ajustes Consultorio', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' },
+  'admin-audit': { label: 'Logs de Auditoría', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' }
+};
+
+function applyPrimaryColor(hex) {
+  if (!hex || !/^#[0-9A-F]{6}$/i.test(hex)) return;
+  document.documentElement.style.setProperty('--brand', hex);
+  
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+  
+  let rDark = Math.max(0, Math.floor(r * 0.8));
+  let gDark = Math.max(0, Math.floor(g * 0.8));
+  let bDark = Math.max(0, Math.floor(b * 0.8));
+  let hexDark = "#" + ((1 << 24) + (rDark << 16) + (gDark << 8) + bDark).toString(16).slice(1);
+  document.documentElement.style.setProperty('--brand-dark', hexDark);
+
+  let rLight = Math.min(255, Math.floor(r + (255 - r) * 0.2));
+  let gLight = Math.min(255, Math.floor(g + (255 - g) * 0.2));
+  let bLight = Math.min(255, Math.floor(b + (255 - b) * 0.2));
+  let hexLight = "#" + ((1 << 24) + (rLight << 16) + (gLight << 8) + bLight).toString(16).slice(1);
+  document.documentElement.style.setProperty('--brand-light', hexLight);
+
+  let rFocus = Math.min(255, Math.floor(r + (255 - r) * 0.1));
+  let gFocus = Math.min(255, Math.floor(g + (255 - g) * 0.1));
+  let bFocus = Math.min(255, Math.floor(b + (255 - b) * 0.1));
+  let hexFocus = "#" + ((1 << 24) + (rFocus << 16) + (gFocus << 8) + bFocus).toString(16).slice(1);
+  document.documentElement.style.setProperty('--border-focus', hexFocus);
+
+  document.documentElement.style.setProperty('--shadow-glow', `0 0 40px rgba(${r}, ${g}, ${b}, 0.08)`);
+}
+
+function renderSidebars() {
+  const settings = STATE.systemSettings || {};
+  const allowDoctorBilling = settings.allow_doctor_billing === 'true';
+
+  const defaultOrders = {
+    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator'],
+    secretaria: ['waiting-room', 'appointments', 'patients', 'billing']
+  };
+
+  if (allowDoctorBilling && !defaultOrders.doctor.includes('billing')) {
+    defaultOrders.doctor.push('billing');
+  }
+
+  let orderAdmin = settings.sidebar_order_admin ? settings.sidebar_order_admin.split(',').map(s => s.trim()) : defaultOrders.admin;
+  let orderDoctor = settings.sidebar_order_doctor ? settings.sidebar_order_doctor.split(',').map(s => s.trim()) : defaultOrders.doctor;
+  let orderSecretaria = settings.sidebar_order_secretaria ? settings.sidebar_order_secretaria.split(',').map(s => s.trim()) : defaultOrders.secretaria;
+
+  if (allowDoctorBilling && !orderDoctor.includes('billing')) {
+    orderDoctor.push('billing');
+  } else if (!allowDoctorBilling && orderDoctor.includes('billing')) {
+    orderDoctor = orderDoctor.filter(x => x !== 'billing');
+  }
+
+  renderSidebarNav('nav-admin', 'Administración', orderAdmin, 'admin-dashboard');
+  renderSidebarNav('nav-doctor', 'Módulo Médico', orderDoctor, 'dashboard');
+  renderSidebarNav('nav-secretaria', 'Recepción', orderSecretaria, 'waiting-room');
+}
+
+function renderSidebarNav(navId, label, order, defaultActiveTab) {
+  const navContainer = document.getElementById(navId);
+  if (!navContainer) return;
+
+  let html = `<div class="nav-section-label">${label}</div>`;
+
+  order.forEach(tabId => {
+    const item = SIDEBAR_ITEMS[tabId];
+    if (item) {
+      const activeClass = tabId === defaultActiveTab ? 'nav-item active' : 'nav-item';
+      html += `
+        <button class="${activeClass}" data-tab="${tabId}" onclick="switchTab('${tabId}')">
+          ${item.icon}
+          ${item.label}
+        </button>
+      `;
+    }
+  });
+
+  navContainer.innerHTML = html;
+}
+
+async function loadSystemConfig() {
+  const data = await api('GET', '/api/settings/all');
+  if (data.success && data.settings) {
+    const s = data.settings;
+    if (s.clinic_name) {
+      const el = document.getElementById('app-clinic-name');
+      if (el) el.textContent = s.clinic_name;
+    }
+    if (s.ui_primary_color) {
+      applyPrimaryColor(s.ui_primary_color);
+    }
+    STATE.systemSettings = s;
+    renderSidebars();
+  }
+}
+
+function makeVitalManual(valInputId, rangeId) {
+  const input = document.getElementById(valInputId);
+  const range = document.getElementById(rangeId);
+  if (!input || !range) return;
+  
+  if (range.disabled) input.disabled = true;
+  input.min = range.min;
+  input.max = range.max;
+
+  const syncValue = () => {
+    let val = parseFloat(input.value);
+    if (isNaN(val)) return;
+    val = Math.max(parseFloat(range.min), Math.min(parseFloat(range.max), val));
+    if (range.value != val) {
+      range.value = val;
+      updateVitalBadge(range);
+      if (rangeId === 'v-peso' || rangeId === 'v-altura') {
+        calculateIMC();
+      }
+    }
+  };
+
+  input.addEventListener('input', syncValue);
+  input.addEventListener('blur', () => {
+    let val = parseFloat(input.value) || parseFloat(range.min);
+    val = Math.max(parseFloat(range.min), Math.min(parseFloat(range.max), val));
+    input.value = range.step === "0.1" ? val.toFixed(1) : Math.round(val);
+    syncValue();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      input.blur();
+    }
+  });
+}
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', async () => {
   const status = await api('GET', '/api/auth/status');
   if (!status.authenticated) { window.location.href = '/login'; return; }
 
   STATE.user = status.user;
+  await loadSystemConfig();
   setupUI();
   buildSymptomToggles();
-  loadClinicName();
+
+  ['edad', 'temperatura', 'spo2', 'pas', 'pad', 'fc', 'fr', 'peso', 'altura', 'grasa_corporal'].forEach(k => {
+    makeVitalManual(`val-${k}`, `v-${k}`);
+  });
 
   // Cargar perfil completo en segundo plano para obtener avatar real si es base64
   api('GET', '/api/profile').then(res => {
@@ -213,14 +368,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     switchTab('admin-dashboard');
   }
 });
-
-async function loadClinicName() {
-  const data = await api('GET', '/api/settings/clinic_name');
-  if (data.success && data.clinic_name) {
-    const el = document.getElementById('app-clinic-name');
-    if (el) el.textContent = data.clinic_name;
-  }
-}
 
 function setupUI() {
   const u = STATE.user;
@@ -2750,45 +2897,155 @@ async function confirmArrival(appointmentId, doctorId, patientName) {
 }
 
 // ── AJUSTES DEL CONSULTORIO ──────────────────────────────────────────────────
+let CURRENT_SIDEBAR_ORDERS = { admin: [], doctor: [], secretaria: [] };
+
+function renderSidebarOrderEditor(role) {
+  const container = document.getElementById(`editor-list-${role}`);
+  if (!container) return;
+  
+  const order = CURRENT_SIDEBAR_ORDERS[role];
+  let html = '';
+  
+  order.forEach((tabId, index) => {
+    const item = SIDEBAR_ITEMS[tabId];
+    if (!item) return;
+    
+    const isFirst = index === 0;
+    const isLast = index === order.length - 1;
+    
+    html += `
+      <div class="order-card">
+        <div class="order-card-info">
+          ${item.icon}
+          <span>${item.label}</span>
+        </div>
+        <div class="order-card-actions">
+          <button type="button" class="btn-order-action" ${isFirst ? 'disabled' : ''} onclick="moveSidebarTab('${role}', ${index}, -1)">▲</button>
+          <button type="button" class="btn-order-action" ${isLast ? 'disabled' : ''} onclick="moveSidebarTab('${role}', ${index}, 1)">▼</button>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  const input = document.getElementById(`cfg-sidebar-order-${role}`);
+  if (input) {
+    input.value = order.join(',');
+  }
+}
+
+function moveSidebarTab(role, index, direction) {
+  const order = CURRENT_SIDEBAR_ORDERS[role];
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= order.length) return;
+  
+  const temp = order[index];
+  order[index] = order[targetIndex];
+  order[targetIndex] = temp;
+  
+  renderSidebarOrderEditor(role);
+}
+
 async function loadClinicSettings() {
   const data = await api('GET', '/api/settings/all');
   if (!data.success) return;
   const s = data.settings || {};
+  
   const fields = {
-    'cfg-clinic-name':    'clinic_name',
-    'cfg-clinic-address': 'clinic_address',
-    'cfg-clinic-phone':   'clinic_phone',
-    'cfg-clinic-rnc':     'clinic_rnc',
-    'cfg-clinic-email':   'clinic_email',
-    'cfg-clinic-hours':   'clinic_hours',
+    'cfg-clinic-name':            'clinic_name',
+    'cfg-clinic-address':       'clinic_address',
+    'cfg-clinic-phone':         'clinic_phone',
+    'cfg-clinic-rnc':           'clinic_rnc',
+    'cfg-clinic-email':         'clinic_email',
+    'cfg-clinic-hours':         'clinic_hours',
+    'cfg-ui-primary-color':     'ui_primary_color',
+    'cfg-sidebar-order-admin':  'sidebar_order_admin',
+    'cfg-sidebar-order-doctor': 'sidebar_order_doctor',
+    'cfg-sidebar-order-secretaria': 'sidebar_order_secretaria',
+    'cfg-max-login-attempts':    'max_login_attempts',
+    'cfg-lockout-minutes':       'lockout_minutes',
+    'cfg-session-timeout-hours': 'session_timeout_hours',
   };
+  
   Object.entries(fields).forEach(([elId, key]) => {
     const el = document.getElementById(elId);
     if (el) el.value = s[key] || '';
   });
+  
+  const checkbox = document.getElementById('cfg-allow-doctor-billing');
+  if (checkbox) {
+    checkbox.checked = s.allow_doctor_billing === 'true';
+  }
+
+  // Cargar visual editor del sidebar
+  const defaultOrders = {
+    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator'],
+    secretaria: ['waiting-room', 'appointments', 'patients', 'billing']
+  };
+  
+  const allowDoctorBilling = s.allow_doctor_billing === 'true';
+  if (allowDoctorBilling && !defaultOrders.doctor.includes('billing')) {
+    defaultOrders.doctor.push('billing');
+  }
+
+  CURRENT_SIDEBAR_ORDERS.admin = s.sidebar_order_admin ? s.sidebar_order_admin.split(',').map(x => x.trim()) : defaultOrders.admin;
+  CURRENT_SIDEBAR_ORDERS.doctor = s.sidebar_order_doctor ? s.sidebar_order_doctor.split(',').map(x => x.trim()) : defaultOrders.doctor;
+  CURRENT_SIDEBAR_ORDERS.secretaria = s.sidebar_order_secretaria ? s.sidebar_order_secretaria.split(',').map(x => x.trim()) : defaultOrders.secretaria;
+
+  if (allowDoctorBilling && !CURRENT_SIDEBAR_ORDERS.doctor.includes('billing')) {
+    CURRENT_SIDEBAR_ORDERS.doctor.push('billing');
+  } else if (!allowDoctorBilling && CURRENT_SIDEBAR_ORDERS.doctor.includes('billing')) {
+    CURRENT_SIDEBAR_ORDERS.doctor = CURRENT_SIDEBAR_ORDERS.doctor.filter(x => x !== 'billing');
+  }
+
+  renderSidebarOrderEditor('admin');
+  renderSidebarOrderEditor('doctor');
+  renderSidebarOrderEditor('secretaria');
 }
 
 async function saveClinicSettings() {
   const fields = {
-    'cfg-clinic-name':    'clinic_name',
-    'cfg-clinic-address': 'clinic_address',
-    'cfg-clinic-phone':   'clinic_phone',
-    'cfg-clinic-rnc':     'clinic_rnc',
-    'cfg-clinic-email':   'clinic_email',
-    'cfg-clinic-hours':   'clinic_hours',
+    'cfg-clinic-name':          'clinic_name',
+    'cfg-clinic-address':       'clinic_address',
+    'cfg-clinic-phone':         'clinic_phone',
+    'cfg-clinic-rnc':           'clinic_rnc',
+    'cfg-clinic-email':         'clinic_email',
+    'cfg-clinic-hours':         'clinic_hours',
+    'cfg-ui-primary-color':     'ui_primary_color',
+    'cfg-sidebar-order-admin':  'sidebar_order_admin',
+    'cfg-sidebar-order-doctor': 'sidebar_order_doctor',
+    'cfg-sidebar-order-secretaria': 'sidebar_order_secretaria',
+    'cfg-max-login-attempts':    'max_login_attempts',
+    'cfg-lockout-minutes':       'lockout_minutes',
+    'cfg-session-timeout-hours': 'session_timeout_hours',
   };
+  
   const payload = {};
   Object.entries(fields).forEach(([elId, key]) => {
     const el = document.getElementById(elId);
     if (el) payload[key] = el.value.trim();
   });
+  
+  const checkbox = document.getElementById('cfg-allow-doctor-billing');
+  if (checkbox) {
+    payload['allow_doctor_billing'] = checkbox.checked ? 'true' : 'false';
+  }
 
-  const res = await api('POST', '/api/settings/update', payload);
-  if (res.success) {
-    toast('success', 'Ajustes guardados correctamente.');
-    loadClinicName(); // Actualizar nombre en sidebar
-  } else {
-    toast('error', res.error || 'Error al guardar ajustes.');
+  const btn = document.querySelector('button[onclick="saveClinicSettings()"]');
+  setButtonLoading(btn, true);
+
+  try {
+    const res = await api('POST', '/api/settings/update', payload);
+    if (res.success) {
+      toast('success', 'Ajustes guardados correctamente.');
+      await loadSystemConfig();
+    } else {
+      toast('error', res.error || 'Error al guardar ajustes.');
+    }
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 

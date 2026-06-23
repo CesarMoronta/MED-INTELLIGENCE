@@ -1,26 +1,43 @@
 import os
 import requests
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from database import (get_connection, get_visit, create_invoice,
                       list_pending_bills, list_invoices, get_user_by_id,
                       save_patient_billing_info, get_invoice_by_id,
-                      get_patient_billing_info)
+                      get_patient_billing_info, get_all_clinic_settings)
 from utils import requires_login, requires_role, get_current_user
+from functools import wraps
 
 billing_bp = Blueprint("billing_bp", __name__)
 
 DGII_API_URL = os.environ.get("DGII_API_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
 DGII_API_KEY = os.environ.get("DGII_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
 
+def requires_billing_permission(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if "user" not in session:
+            return jsonify({"success": False, "error": "Autenticación requerida."}), 401
+        user = session["user"]
+        role = user.get("role")
+        if role in ("admin", "secretaria"):
+            return f(*args, **kwargs)
+        if role == "doctor":
+            settings = get_all_clinic_settings()
+            if settings.get("allow_doctor_billing") == "true":
+                return f(*args, **kwargs)
+        return jsonify({"success": False, "error": "Permiso denegado."}), 403
+    return wrapped
+
 @billing_bp.route("/api/billing/pending", methods=["GET"])
 @requires_login
-@requires_role("admin", "secretaria")
+@requires_billing_permission
 def api_list_pending_bills():
     return jsonify({"success": True, "pending": list_pending_bills()})
 
 @billing_bp.route("/api/billing/invoices", methods=["GET"])
 @requires_login
-@requires_role("admin", "secretaria")
+@requires_billing_permission
 def api_list_invoices():
     u = get_current_user()
     invoices = list_invoices()
@@ -30,7 +47,7 @@ def api_list_invoices():
 
 @billing_bp.route("/api/billing/charge", methods=["POST"])
 @requires_login
-@requires_role("admin", "secretaria")
+@requires_billing_permission
 def api_charge_visit():
     data = request.json or {}
     visit_id = data.get("visit_id")
@@ -295,7 +312,7 @@ def generate_subscription_invoice(user_id: int):
 
 @billing_bp.route("/api/billing/credit-note", methods=["POST"])
 @requires_login
-@requires_role("admin", "secretaria")
+@requires_billing_permission
 def api_create_credit_note():
     data = request.json or {}
     invoice_id = data.get("invoice_id")

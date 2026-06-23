@@ -1243,6 +1243,9 @@ def get_dashboard_charts(doctor_id: int = None) -> dict:
 SETTINGS_KEYS = [
     "clinic_name", "clinic_address", "clinic_phone",
     "clinic_rnc",  "clinic_hours",   "clinic_email",
+    "ui_primary_color", "sidebar_order_admin", "sidebar_order_secretaria",
+    "sidebar_order_doctor", "allow_doctor_billing",
+    "max_login_attempts", "lockout_minutes", "session_timeout_hours"
 ]
 
 
