@@ -1597,7 +1597,7 @@ def list_pending_bills() -> list:
     cursor = conn.cursor()
     cursor.execute("""
         SELECT ev.id AS visit_id, ev.visit_date, p.name AS patient_name, p.cedula AS patient_cedula,
-               u.full_name AS doctor_fullname
+               u.full_name AS doctor_fullname, p.id AS patient_id
         FROM dbo.emergency_visits ev
         INNER JOIN dbo.patients p ON ev.patient_id = p.id
         INNER JOIN dbo.users u ON ev.doctor_id = u.id
@@ -1615,21 +1615,66 @@ def list_pending_bills() -> list:
     return rows
 
 
+def get_patient_billing_info(patient_id: int) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT patient_id, rnc, razon_social, correo
+        FROM dbo.patient_billing_info
+        WHERE patient_id = ?
+    """, patient_id)
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "patient_id": row[0],
+        "rnc": row[1],
+        "razon_social": row[2],
+        "correo": row[3]
+    }
+
+
+def save_patient_billing_info(patient_id: int, rnc: str, razon_social: str, correo: str | None) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            IF EXISTS (SELECT 1 FROM dbo.patient_billing_info WHERE patient_id = ?)
+                UPDATE dbo.patient_billing_info
+                SET rnc = ?, razon_social = ?, correo = ?, updated_at = SYSUTCDATETIME()
+                WHERE patient_id = ?
+            ELSE
+                INSERT INTO dbo.patient_billing_info (patient_id, rnc, razon_social, correo)
+                VALUES (?, ?, ?, ?)
+        """, patient_id, rnc, razon_social, correo, patient_id,
+             patient_id, rnc, razon_social, correo)
+        return True
+    except Exception as e:
+        print(f"Error guardando informacion de facturacion del paciente: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
                    amount: float, itbis: float, total: float, payment_method: str,
                    ecf_id: str | None, encf: str | None, estado: str, track_id: str | None,
-                   codigo_seguridad: str | None, dgii_url: str | None, xml_url: str | None) -> bool:
+                   codigo_seguridad: str | None, dgii_url: str | None, xml_url: str | None,
+                   tipo_ecf: str | None = None) -> bool:
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
             INSERT INTO dbo.invoices (visit_id, user_id, invoice_type, amount, itbis, total,
                                       payment_method, ecf_id, encf, estado, track_id,
-                                      codigo_seguridad, dgii_url, xml_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                      codigo_seguridad, dgii_url, xml_url, tipo_ecf)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, visit_id, user_id, invoice_type, amount, itbis, total,
              payment_method, ecf_id, encf, estado, track_id,
-             codigo_seguridad, dgii_url, xml_url)
+             codigo_seguridad, dgii_url, xml_url, tipo_ecf)
         return True
     except Exception as e:
         print(f"Error insertando factura: {e}")

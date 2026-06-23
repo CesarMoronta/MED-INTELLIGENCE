@@ -2,7 +2,7 @@ import requests
 from flask import Blueprint, request, jsonify
 from database import (list_patients, add_patient, get_patient, update_patient,
                       delete_patient, log_audit_action, get_patient_vitals_history,
-                      get_active_medications, get_patient_red_alerts)
+                      get_active_medications, get_patient_red_alerts, get_patient_billing_info)
 from utils import requires_login, requires_role, get_current_user, get_client_ip, format_cedula
 
 patients_bp = Blueprint("patients_bp", __name__)
@@ -173,3 +173,41 @@ def api_consultar_cedula(cedula):
         })
     except Exception as e:
         return jsonify({"success": False, "error": f"Error de conexión: {str(e)}"}), 500
+
+
+@patients_bp.route("/api/patients/consulta-rnc/<rnc>", methods=["GET"])
+@requires_login
+def api_consultar_rnc(rnc):
+    rnc_clean = rnc.replace("-", "").strip()
+    if len(rnc_clean) not in [9, 11] or not rnc_clean.isdigit():
+        return jsonify({"success": False, "error": "El RNC/Cédula debe tener 9 u 11 dígitos."}), 400
+
+    BASE_URL = "https://ecf-platform-backend-50801509587.us-central1.run.app"
+    API_KEY  = "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe"
+
+    url = f"{BASE_URL}/api/v1/dgii/rnc?value={rnc_clean}"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": API_KEY
+    }
+
+    try:
+        res = requests.get(url, headers=headers)
+        data = res.json()
+
+        if not res.ok or not data.get("success"):
+            return jsonify({"success": False, "error": data.get("message", "RNC no encontrado en la DGII.")}), 404
+
+        return jsonify({
+            "success": True,
+            "data": data
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error de conexión: {str(e)}"}), 500
+
+
+@patients_bp.route("/api/patients/<int:patient_id>/billing-info", methods=["GET"])
+@requires_login
+def api_get_patient_billing_info(patient_id):
+    info = get_patient_billing_info(patient_id)
+    return jsonify({"success": True, "billing_info": info})

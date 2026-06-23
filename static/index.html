@@ -1430,6 +1430,7 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="charge-visit-id" value="" />
+      <input type="hidden" id="charge-patient-id" value="" />
       <div style="background: var(--bg-hover); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
         <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Paciente:</strong> <span id="charge-patient-name">—</span></p>
         <p style="margin: 0; font-size: 14px;"><strong>Monto a Cobrar:</strong> <span style="color: var(--brand-light); font-weight: 700; font-size: 18px;">RD$ 3,000.00</span></p>
@@ -1443,10 +1444,40 @@
         </select>
       </div>
 
-      <div style="margin-top: 24px;" class="form-actions">
-        <button class="btn-outline" onclick="closeModal('modal-charge-visit')">Cancelar</button>
-        <button class="btn-primary" onclick="submitChargeVisit()">Confirmar Pago y Emitir e-CF</button>
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="form-label" for="charge-ecf-type">Tipo de Comprobante</label>
+        <select class="form-input" id="charge-ecf-type" style="width: 100%;" onchange="toggleChargeEcfFields()">
+          <option value="32">📄 Consumidor Final (E32)</option>
+          <option value="31">🏢 Crédito Fiscal (E31)</option>
+        </select>
       </div>
+
+      <div id="charge-ecf-31-fields" style="display: none; margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 16px;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--brand-light);">Datos de Crédito Fiscal</h4>
+        <div class="form-group">
+          <label class="form-label" for="charge-rnc">RNC / Cédula <span class="badge-required">*</span></label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="charge-rnc" class="form-input" placeholder="40223982170" style="flex: 1;" onblur="lookupChargeRnc(this.value)" />
+            <button type="button" class="btn-primary" style="padding: 8px 12px; font-size: 12px;" onclick="lookupChargeRnc(document.getElementById('charge-rnc').value)">Buscar RNC</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+          <label class="form-label" for="charge-razon-social">Razón Social <span class="badge-required">*</span></label>
+          <input type="text" id="charge-razon-social" class="form-input" placeholder="Alinzon Mendoza" style="width: 100%;" />
+        </div>
+        <div class="form-group" style="margin-top: 12px;">
+          <label class="form-label" for="charge-correo">Correo electrónico (Opcional)</label>
+          <input type="email" id="charge-correo" class="form-input" placeholder="cliente@ejemplo.com" style="width: 100%;" />
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+          <button type="button" class="btn-outline" style="font-size: 11px; padding: 4px 8px;" onclick="clearChargeBillingFields()">Limpiar Datos</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-charge-visit')">Cancelar</button>
+      <button class="btn-primary" onclick="submitChargeVisit()">Confirmar Pago y Emitir e-CF</button>
     </div>
   </div>
 </div>

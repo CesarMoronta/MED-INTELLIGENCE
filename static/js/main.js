@@ -3377,7 +3377,7 @@ async function loadBillingPending() {
         <td>Dr. ${escHtml(p.doctor_fullname)}</td>
         <td style="color:var(--brand-light); font-weight:600;">RD$ 3,000.00</td>
         <td>
-          <button class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="openChargeModal(${p.visit_id}, '${escHtml(p.patient_name)}')">
+          <button class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="openChargeModal(${p.visit_id}, '${escHtml(p.patient_name)}', ${p.patient_id})">
             💳 Cobrar
           </button>
         </td>
@@ -3426,24 +3426,106 @@ async function loadBillingHistory() {
   }).join('');
 }
 
-function openChargeModal(visitId, patientName) {
+function toggleChargeEcfFields() {
+  const type = document.getElementById('charge-ecf-type').value;
+  const fields = document.getElementById('charge-ecf-31-fields');
+  if (type === '31') {
+    fields.style.display = 'block';
+  } else {
+    fields.style.display = 'none';
+  }
+}
+
+function clearChargeBillingFields() {
+  document.getElementById('charge-rnc').value = '';
+  document.getElementById('charge-razon-social').value = '';
+  document.getElementById('charge-correo').value = '';
+}
+
+let isRncLookupInProgress = false;
+async function lookupChargeRnc(rncVal) {
+  const rnc = (rncVal || '').replace(/-/g, '').trim();
+  if (!rnc || (rnc.length !== 9 && rnc.length !== 11)) return;
+  if (isRncLookupInProgress) return;
+
+  isRncLookupInProgress = true;
+  toast('info', 'Buscando RNC/Cédula en la DGII...');
+  try {
+    const res = await api('GET', `/api/patients/consulta-rnc/${rnc}`);
+    if (res.success && res.data) {
+      toast('success', 'Contribuyente encontrado.');
+      if (res.data.nombre) {
+        document.getElementById('charge-razon-social').value = res.data.nombre;
+      }
+    } else {
+      toast('warning', res.error || 'RNC/Cédula no encontrado en la DGII.');
+    }
+  } catch (err) {
+    console.error(err);
+    toast('error', 'Error al consultar RNC/Cédula.');
+  } finally {
+    isRncLookupInProgress = false;
+  }
+}
+
+async function openChargeModal(visitId, patientName, patientId) {
   document.getElementById('charge-visit-id').value = visitId;
+  document.getElementById('charge-patient-id').value = patientId || '';
   document.getElementById('charge-patient-name').textContent = patientName;
   document.getElementById('charge-payment-method').value = 'efectivo';
+  document.getElementById('charge-ecf-type').value = '32';
+  toggleChargeEcfFields();
+  clearChargeBillingFields();
+
+  if (patientId) {
+    try {
+      const data = await api('GET', `/api/patients/${patientId}/billing-info`);
+      if (data.success && data.billing_info) {
+        document.getElementById('charge-rnc').value = data.billing_info.rnc || '';
+        document.getElementById('charge-razon-social').value = data.billing_info.razon_social || '';
+        document.getElementById('charge-correo').value = data.billing_info.correo || '';
+        
+        // Autoseleccionar E31 si el paciente ya tiene datos de facturación registrados
+        document.getElementById('charge-ecf-type').value = '31';
+        toggleChargeEcfFields();
+      }
+    } catch (err) {
+      console.error('Error al obtener info de facturación:', err);
+    }
+  }
+
   openModal('modal-charge-visit');
 }
 
 async function submitChargeVisit() {
   const visitId = document.getElementById('charge-visit-id').value;
   const paymentMethod = document.getElementById('charge-payment-method').value;
+  const tipoEcf = document.getElementById('charge-ecf-type').value;
 
   if (!visitId) return;
 
-  toast('info', 'Procesando pago y firmando e-CF con DGII...');
-  const res = await api('POST', '/api/billing/charge', {
+  const payload = {
     visit_id: parseInt(visitId, 10),
-    payment_method: paymentMethod
-  });
+    payment_method: paymentMethod,
+    tipo_ecf: tipoEcf
+  };
+
+  if (tipoEcf === '31') {
+    const rnc = document.getElementById('charge-rnc').value.trim();
+    const razonSocial = document.getElementById('charge-razon-social').value.trim();
+    const correo = document.getElementById('charge-correo').value.trim();
+
+    if (!rnc || !razonSocial) {
+      toast('error', 'El RNC y la Razón Social son requeridos para Crédito Fiscal (E31).');
+      return;
+    }
+    payload.rnc_comprador = rnc;
+    payload.razon_social_comprador = razonSocial;
+    payload.correo_comprador = correo;
+  }
+
+  toast('info', 'Procesando pago y firmando e-CF con DGII...');
+  const res = await api('POST', '/api/billing/charge', payload);
 
   if (res.success) {
     toast('success', '¡Pago procesado y e-CF aceptado!');

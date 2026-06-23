@@ -2,7 +2,8 @@ import os
 import requests
 from flask import Blueprint, request, jsonify
 from database import (get_connection, get_visit, create_invoice,
-                      list_pending_bills, list_invoices, get_user_by_id)
+                      list_pending_bills, list_invoices, get_user_by_id,
+                      save_patient_billing_info)
 from utils import requires_login, requires_role, get_current_user
 
 billing_bp = Blueprint("billing_bp", __name__)
@@ -33,6 +34,7 @@ def api_charge_visit():
     data = request.json or {}
     visit_id = data.get("visit_id")
     payment_method = data.get("payment_method", "efectivo").lower()
+    tipo_ecf = data.get("tipo_ecf", "32")
 
     if not visit_id:
         return jsonify({"success": False, "error": "ID de visita es requerido."}), 400
@@ -56,48 +58,98 @@ def api_charge_visit():
     # 1: Efectivo, 2: Tarjeta de Crédito/Débito
     forma_pago_code = 2 if payment_method == "tarjeta" else 1
 
-    # Construir el JSON del e-CF 32 (Factura de Consumo) exenta de ITBIS por ser consulta médica
+    # Construir comprador
+    comprador = {}
+    if tipo_ecf == "31":
+        rnc_comprador = data.get("rnc_comprador", "").strip()
+        razon_social_comprador = data.get("razon_social_comprador", "").strip()
+        correo_comprador = data.get("correo_comprador", "").strip() or None
+
+        if not rnc_comprador or not razon_social_comprador:
+            return jsonify({"success": False, "error": "RNC y Razón Social son requeridos para Crédito Fiscal (E31)."}), 400
+
+        # Guardar en base de datos para el paciente de forma persistente
+        save_patient_billing_info(visit.get("patient_id"), rnc_comprador, razon_social_comprador, correo_comprador)
+
+        comprador["RNCComprador"] = rnc_comprador
+        comprador["RazonSocialComprador"] = razon_social_comprador
+    else:
+        # Default E32 Consumidor Final
+        comprador["RNCComprador"] = str(visit.get("patient_cedula") or "").replace("-", "").strip()
+        comprador["RazonSocialComprador"] = visit.get("patient_name", "Consumidor Final")
+
+    # Estructurar totales e ítem según comprobante (Cálculo de base e ITBIS)
+    if tipo_ecf == "31":
+        # Crédito Fiscal con 18% ITBIS incluido en los 3000.00
+        monto_total = "3000.00"
+        total_itbis = "457.63"
+        monto_gravado = "2542.37"
+        monto_exento = "0.00"
+        indicador_facturacion = "1" # Gravado al 18%
+        
+        totales = {
+            "MontoGravadoTotal": monto_gravado,
+            "MontoGravadoI1": monto_gravado,
+            "MontoExento": monto_exento,
+            "ITBIS1": "18",
+            "TotalITBIS": total_itbis,
+            "TotalITBIS1": total_itbis,
+            "MontoTotal": monto_total,
+            "MontoNoFacturable": "0.00"
+        }
+        item_precio_unitario = monto_gravado
+        item_monto = monto_gravado
+    else:
+        # Consumidor Final (E32) Exento
+        monto_total = "3000.00"
+        total_itbis = "0.00"
+        monto_gravado = "0.00"
+        monto_exento = "3000.00"
+        indicador_facturacion = "4" # Exento
+        
+        totales = {
+            "MontoGravadoTotal": monto_gravado,
+            "MontoExento": monto_exento,
+            "TotalITBIS": total_itbis,
+            "MontoTotal": monto_total
+        }
+        item_precio_unitario = "3000.00"
+        item_monto = "3000.00"
+
+    # Construir el JSON del e-CF
     payload = {
         "ECF": {
             "Encabezado": {
                 "Version": "1.0",
                 "IdDoc": {
-                    "TipoeCF": "32",
+                    "TipoeCF": tipo_ecf,
                     "IndicadorEnvioDiferido": "1",
                     "IndicadorMontoGravado": "0",
-                    "IndicadorServicioTodoIncluido": "0",
+                    "IndicadorServicioTodoIncluido": "1" if tipo_ecf == "31" else "0",
                     "TipoIngresos": "01",
                     "TipoPago": "1",
                     "TablaFormasPago": {
                         "FormaDePago": [
                             {
                                 "FormaPago": forma_pago_code,
-                                "MontoPago": "3000.00"
+                                "MontoPago": monto_total
                             }
                         ]
                     }
                 },
-                "Comprador": {
-                    "RNCComprador": str(visit.get("patient_cedula") or "").replace("-", "").strip(),
-                    "RazonSocialComprador": visit.get("patient_name", "Consumidor Final")
-                },
-                "Totales": {
-                    "MontoGravadoTotal": "0.00",
-                    "MontoExento": "3000.00",
-                    "TotalITBIS": "0.00",
-                    "MontoTotal": "3000.00"
-                }
+                "Comprador": comprador,
+                "Totales": totales
             },
             "DetallesItems": {
                 "Item": {
                     "NumeroLinea": "1",
-                    "IndicadorFacturacion": "4", # 4: Exento de ITBIS
+                    "IndicadorFacturacion": indicador_facturacion,
                     "NombreItem": "Consulta Medica General",
                     "IndicadorBienoServicio": "2", # 2: Servicio
                     "CantidadItem": "1",
                     "UnidadMedida": "43",
-                    "PrecioUnitarioItem": "3000.00",
-                    "MontoItem": "3000.00"
+                    "PrecioUnitarioItem": item_precio_unitario,
+                    "MontoItem": item_monto
                 }
             }
         }
@@ -121,8 +173,8 @@ def api_charge_visit():
             visit_id=visit_id,
             user_id=None,
             invoice_type="consulta",
-            amount=3000.00,
-            itbis=0.00,
+            amount=float(monto_gravado) if tipo_ecf == "31" else 3000.00,
+            itbis=float(total_itbis),
             total=3000.00,
             payment_method=payment_method,
             ecf_id=res_data.get("id"),
@@ -131,7 +183,8 @@ def api_charge_visit():
             track_id=res_data.get("trackId"),
             codigo_seguridad=res_data.get("codigoSeguridad"),
             dgii_url=res_data.get("dgiiUrl"),
-            xml_url=res_data.get("xmlUrl")
+            xml_url=res_data.get("xmlUrl"),
+            tipo_ecf=f"E{tipo_ecf}"
         )
 
         if not success:
