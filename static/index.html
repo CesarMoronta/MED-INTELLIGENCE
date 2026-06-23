@@ -594,7 +594,13 @@
     </div>
 
     <div class="section-card" style="margin-top: 24px;">
-      <div class="section-header"><h2>📄 Historial de Facturas Emitidas (e-CF)</h2></div>
+      <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <h2>📄 Historial de Facturas Emitidas (e-CF)</h2>
+        <div class="search-wrap" style="max-width: 300px; width: 100%; position: relative;">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" id="billing-history-search" placeholder="Buscar por eNCF, cliente, fecha..." oninput="filterBillingHistory()" style="padding-left: 36px; height: 36px; font-size: 13px; width: 100%;"/>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="vitals-history-table" style="width: 100%; border-collapse: collapse;">
           <thead>
@@ -1432,8 +1438,21 @@
       <input type="hidden" id="charge-visit-id" value="" />
       <input type="hidden" id="charge-patient-id" value="" />
       <div style="background: var(--bg-hover); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
-        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Paciente:</strong> <span id="charge-patient-name">—</span></p>
-        <p style="margin: 0; font-size: 14px;"><strong>Monto a Cobrar:</strong> <span style="color: var(--brand-light); font-weight: 700; font-size: 18px;">RD$ 3,000.00</span></p>
+        <p style="margin: 0 0 12px 0; font-size: 14px;"><strong>Paciente:</strong> <span id="charge-patient-name">—</span></p>
+        <div id="charge-amount-breakdown" style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; border-top: 1px dashed var(--border); padding-top: 12px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-secondary);" id="charge-breakdown-subtotal-label">Subtotal:</span>
+            <span id="charge-breakdown-subtotal" style="font-weight: 600;">RD$ 3,000.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-secondary);" id="charge-breakdown-itbis-label">ITBIS (18%):</span>
+            <span id="charge-breakdown-itbis" style="font-weight: 600;">RD$ 0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 15px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 2px;">
+            <strong style="color: var(--text-primary);">Total a Cobrar:</strong>
+            <strong id="charge-breakdown-total" style="color: var(--brand-light); font-weight: 700;">RD$ 3,000.00</strong>
+          </div>
+        </div>
       </div>
 
       <div class="form-group">
@@ -1577,6 +1596,50 @@
     </div>
   </div>
 </div>
+
+<!-- MODAL NOTA DE CRÉDITO (E34) -->
+<div class="modal-overlay" id="modal-credit-note" onclick="closeModalOnBg(event, 'modal-credit-note')">
+  <div class="modal-box" style="max-width: 450px;">
+    <div class="modal-header">
+      <h2>Emitir Nota de Crédito (e-CF 34)</h2>
+      <button class="modal-close" onclick="closeModal('modal-credit-note')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cn-invoice-id" value="" />
+      <input type="hidden" id="cn-original-total" value="0" />
+      <input type="hidden" id="cn-original-tipo-ecf" value="" />
+      
+      <div style="background: var(--bg-hover); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Factura Original (eNCF):</strong> <span id="cn-original-encf" style="font-family: var(--mono); color: var(--brand-light); font-weight: bold;">—</span></p>
+        <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>Cliente:</strong> <span id="cn-client-name">—</span></p>
+        <p style="margin: 0; font-size: 14px;"><strong>Total Original:</strong> <span style="font-weight: 700;" id="cn-original-total-text">RD$ 0.00</span></p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cn-modification-code">Motivo de Modificación</label>
+        <select class="form-input" id="cn-modification-code" style="width: 100%;" onchange="onCreditNoteTypeChange()">
+          <option value="1">❌ Anulación Total (1)</option>
+          <option value="3">📉 Ajuste de Monto / Descuento (3)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="form-label" for="cn-credit-amount">Monto a Devolver / Descontar <span class="badge-required">*</span></label>
+        <input type="number" id="cn-credit-amount" class="form-input" placeholder="3000.00" style="width: 100%;" step="0.01" min="0.01" />
+      </div>
+
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="form-label" for="cn-concept">Concepto / Detalle <span class="badge-required">*</span></label>
+        <input type="text" id="cn-concept" class="form-input" placeholder="Anulación total de factura" style="width: 100%;" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal('modal-credit-note')">Cancelar</button>
+      <button class="btn-primary" onclick="submitCreditNote()">Emitir Nota de Crédito</button>
+    </div>
+  </div>
+</div>
+
 
 <script src="/js/main.js"></script>
 </body>

@@ -3393,11 +3393,24 @@ async function loadBillingHistory() {
 
   const res = await api('GET', '/api/billing/invoices');
   if (!res.success || !res.invoices?.length) {
+    STATE.invoices = [];
     el.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay facturas registradas.</td></tr>';
     return;
   }
 
-  el.innerHTML = res.invoices.map(i => {
+  STATE.invoices = res.invoices;
+  renderBillingHistory(res.invoices);
+}
+
+function renderBillingHistory(invoices) {
+  const el = document.getElementById('billing-history-list');
+  if (!el) return;
+  if (!invoices || !invoices.length) {
+    el.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">No se encontraron facturas.</td></tr>';
+    return;
+  }
+
+  el.innerHTML = invoices.map(i => {
     const date = i.created_at ? i.created_at.substring(0, 16).replace('T', ' ') : '—';
     const client = i.patient_name || 'Médico (Suscripción)';
     const paymentMethodText = i.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo';
@@ -3407,18 +3420,37 @@ async function loadBillingHistory() {
       ? `<a href="${i.dgii_url}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
       : '—';
 
+    // Credit Note Button E34
+    // E34 can be applied if tipo_ecf starts with E31 or E32 (or is null/empty for legacy consultations) and it is not already a credit note and has not been cancelled yet
+    const isE31orE32 = (i.tipo_ecf && (i.tipo_ecf.startsWith('E31') || i.tipo_ecf.startsWith('E32'))) || (!i.tipo_ecf && i.invoice_type === 'consulta');
+    const showCreditNoteBtn = isE31orE32 && i.invoice_type !== 'nota_credito' && !i.is_cancelled;
+    const creditNoteBtn = showCreditNoteBtn
+      ? `<button class="btn-icon danger" title="Emitir Nota de Crédito (E34)" onclick="openCreditNoteModal(${i.id}, '${escHtml(i.encf)}', '${escHtml(client)}', ${i.total}, '${escHtml(i.created_at)}', '${escHtml(i.tipo_ecf || 'E32')}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+         </button>`
+      : '';
+
+    // Class and colors for different invoices
+    let badgeClass = 'badge-azul';
+    if (i.invoice_type === 'suscripcion') badgeClass = 'badge-verde';
+    else if (i.invoice_type === 'nota_credito') badgeClass = 'badge-rojo';
+
+    const statusText = i.is_cancelled ? 'Anulada' : escHtml(i.estado);
+    const statusBadgeClass = i.is_cancelled ? 'badge-rojo' : 'badge-verde';
+
     return `
-      <tr>
+      <tr style="${i.is_cancelled ? 'opacity: 0.65; background-color: rgba(0,0,0,0.02);' : ''}">
         <td>${date}</td>
-        <td><span class="badge ${i.invoice_type === 'suscripcion' ? 'badge-verde' : 'badge-azul'}" style="font-size:10px;">${i.invoice_type.toUpperCase()}</span></td>
-        <td style="font-weight:500;">${escHtml(client)}</td>
+        <td><span class="badge ${badgeClass}" style="font-size:10px;">${i.invoice_type.toUpperCase()} ${i.tipo_ecf || ''}</span></td>
+        <td style="font-weight:500; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">${escHtml(client)}</td>
         <td>${paymentMethodText}</td>
-        <td style="font-family:var(--mono); font-size:12px; color:var(--text-primary); font-weight:600;">${escHtml(i.encf || '—')}</td>
-        <td><span class="badge badge-verde" style="font-size:10px;">${escHtml(i.estado)}</span></td>
-        <td style="font-weight:600; color:var(--text-primary);">RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+        <td style="font-family:var(--mono); font-size:12px; color:var(--text-primary); font-weight:600; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">${escHtml(i.encf || '—')}</td>
+        <td><span class="badge ${statusBadgeClass}" style="font-size:10px;">${statusText}</span></td>
+        <td style="font-weight:600; color:${i.total < 0 || i.is_cancelled ? 'var(--red)' : 'var(--text-primary)'}; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
         <td>
           <div style="display:flex; gap:8px; align-items:center;">
             ${dgiiLink}
+            ${creditNoteBtn}
           </div>
         </td>
       </tr>
@@ -3426,13 +3458,139 @@ async function loadBillingHistory() {
   }).join('');
 }
 
+function filterBillingHistory() {
+  const query = document.getElementById('billing-history-search').value.toLowerCase().trim();
+  if (!STATE.invoices) return;
+  if (!query) {
+    renderBillingHistory(STATE.invoices);
+    return;
+  }
+
+  const filtered = STATE.invoices.filter(i => {
+    const encf = (i.encf || '').toLowerCase();
+    const client = (i.patient_name || 'Médico (Suscripción)').toLowerCase();
+    const date = (i.created_at || '').toLowerCase();
+    const payment = (i.payment_method === 'tarjeta' ? 'tarjeta' : 'efectivo').toLowerCase();
+    const tipo = (i.tipo_ecf || '').toLowerCase();
+    const typeStr = (i.invoice_type || '').toLowerCase();
+    return encf.includes(query) || client.includes(query) || date.includes(query) || payment.includes(query) || tipo.includes(query) || typeStr.includes(query);
+  });
+
+  renderBillingHistory(filtered);
+}
+
+function openCreditNoteModal(invoiceId, encf, clientName, totalAmount, dateStr, tipoEcf) {
+  document.getElementById('cn-invoice-id').value = invoiceId;
+  document.getElementById('cn-original-total').value = totalAmount;
+  document.getElementById('cn-original-tipo-ecf').value = tipoEcf;
+  document.getElementById('cn-original-encf').textContent = encf;
+  document.getElementById('cn-client-name').textContent = clientName;
+  document.getElementById('cn-original-total-text').textContent = `RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+
+  // Default behavior: Anulación total
+  const codeSelect = document.getElementById('cn-modification-code');
+  codeSelect.value = '1';
+  
+  const amountInput = document.getElementById('cn-credit-amount');
+  amountInput.value = totalAmount.toFixed(2);
+  amountInput.disabled = true;
+
+  const conceptInput = document.getElementById('cn-concept');
+  conceptInput.value = 'Anulacion total de factura';
+
+  openModal('modal-credit-note');
+}
+
+function onCreditNoteTypeChange() {
+  const code = document.getElementById('cn-modification-code').value;
+  const amountInput = document.getElementById('cn-credit-amount');
+  const conceptInput = document.getElementById('cn-concept');
+  const originalTotal = parseFloat(document.getElementById('cn-original-total').value || '0');
+
+  if (code === '1') {
+    // Anulación
+    amountInput.value = originalTotal.toFixed(2);
+    amountInput.disabled = true;
+    conceptInput.value = 'Anulacion total de factura';
+  } else {
+    // Ajuste / Descuento
+    amountInput.disabled = false;
+    amountInput.value = '';
+    amountInput.focus();
+    conceptInput.value = 'Ajuste de monto / Devolucion de servicios';
+  }
+}
+
+async function submitCreditNote() {
+  const invoiceId = document.getElementById('cn-invoice-id').value;
+  const codigoModificacion = document.getElementById('cn-modification-code').value;
+  const amountVal = document.getElementById('cn-credit-amount').value;
+  const concepto = document.getElementById('cn-concept').value.trim();
+  const originalTotal = parseFloat(document.getElementById('cn-original-total').value || '0');
+
+  if (!invoiceId) return;
+  if (!concepto) {
+    toast('error', 'El concepto es requerido.');
+    return;
+  }
+
+  let montoCredito = parseFloat(amountVal);
+  if (isNaN(montoCredito) || montoCredito <= 0) {
+    toast('error', 'El monto a devolver debe ser un número válido mayor a 0.');
+    return;
+  }
+
+  if (montoCredito > originalTotal) {
+    toast('error', 'El monto de la nota de crédito no puede exceder el total original.');
+    return;
+  }
+
+  toast('info', 'Emitiendo Nota de Crédito y firmando e-CF con la DGII...');
+  
+  const res = await api('POST', '/api/billing/credit-note', {
+    invoice_id: parseInt(invoiceId, 10),
+    codigo_modificacion: codigoModificacion,
+    monto_credito: montoCredito,
+    concepto: concepto
+  });
+
+  if (res.success) {
+    toast('success', '¡Nota de Crédito emitida y aceptada con éxito!');
+    closeModal('modal-credit-note');
+    loadBillingTab();
+  } else {
+    toast('error', res.error || 'Error al emitir la Nota de Crédito.');
+  }
+}
+
 function toggleChargeEcfFields() {
   const type = document.getElementById('charge-ecf-type').value;
   const fields = document.getElementById('charge-ecf-31-fields');
+  
+  const subtotalEl = document.getElementById('charge-breakdown-subtotal');
+  const itbisEl = document.getElementById('charge-breakdown-itbis');
+  const totalEl = document.getElementById('charge-breakdown-total');
+  const subtotalLabel = document.getElementById('charge-breakdown-subtotal-label');
+  const itbisLabel = document.getElementById('charge-breakdown-itbis-label');
+
   if (type === '31') {
     fields.style.display = 'block';
+    
+    // E31 details: Subtotal (Base) = 2,542.37, ITBIS = 457.63, Total = 3,000.00
+    if (subtotalLabel) subtotalLabel.textContent = 'Subtotal (Base Gravable):';
+    if (subtotalEl) subtotalEl.textContent = 'RD$ 2,542.37';
+    if (itbisLabel) itbisLabel.textContent = 'ITBIS (18%):';
+    if (itbisEl) itbisEl.textContent = 'RD$ 457.63';
+    if (totalEl) totalEl.textContent = 'RD$ 3,000.00';
   } else {
     fields.style.display = 'none';
+    
+    // E32 details: Subtotal (Exento) = 3,000.00, ITBIS = 0.00, Total = 3,000.00
+    if (subtotalLabel) subtotalLabel.textContent = 'Subtotal (Monto Exento):';
+    if (subtotalEl) subtotalEl.textContent = 'RD$ 3,000.00';
+    if (itbisLabel) itbisLabel.textContent = 'ITBIS (0%):';
+    if (itbisEl) itbisEl.textContent = 'RD$ 0.00';
+    if (totalEl) totalEl.textContent = 'RD$ 3,000.00';
   }
 }
 

@@ -665,7 +665,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .modal-close:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
 .modal-body { padding: 0 28px; }
 .modal-footer {
-  padding: 20px 28px 24px;
+  padding: 20px 28px 32px;
   display: flex; justify-content: flex-end; gap: 12px;
   border-top: 1px solid var(--border); margin-top: 20px;
 }
@@ -679,12 +679,14 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 }
 .toast {
   display: flex; align-items: center; gap: 12px;
-  padding: 14px 18px; border-radius: var(--radius);
-  font-size: 14px; font-weight: 500;
-  backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-md);
+  padding: 14px 18px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600;
+  background: #1e293b !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.25), 0 4px 6px -4px rgba(0, 0, 0, 0.25);
   animation: toastIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  min-width: 280px; max-width: 420px;
+  min-width: 320px; max-width: 450px;
+  border-left: 6px solid #64748b;
 }
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(60px) scale(0.9); }
@@ -697,10 +699,18 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   to { opacity: 0; transform: translateX(60px); max-height: 0; padding: 0; margin: 0; }
 }
 .toast svg { width: 20px; height: 20px; flex-shrink: 0; }
-.toast-success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #34d399; }
-.toast-error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.4);  color: #f87171; }
-.toast-warning { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #fbbf24; }
-.toast-info    { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.4); color: #93c5fd; }
+.toast-success { border-left-color: #10b981 !important; }
+.toast-success svg { stroke: #10b981 !important; }
+.toast-success span { color: #ffffff !important; }
+.toast-error   { border-left-color: #ef4444 !important; }
+.toast-error svg   { stroke: #ef4444 !important; }
+.toast-error span   { color: #ffffff !important; }
+.toast-warning { border-left-color: #f59e0b !important; }
+.toast-warning svg { stroke: #f59e0b !important; }
+.toast-warning span { color: #ffffff !important; }
+.toast-info    { border-left-color: #3b82f6 !important; }
+.toast-info svg    { stroke: #3b82f6 !important; }
+.toast-info span    { color: #ffffff !important; }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* LOADING / EMPTY STATES                                                       */

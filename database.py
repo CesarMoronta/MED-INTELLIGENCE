@@ -1602,8 +1602,12 @@ def list_pending_bills() -> list:
         INNER JOIN dbo.patients p ON ev.patient_id = p.id
         INNER JOIN dbo.users u ON ev.doctor_id = u.id
         LEFT JOIN dbo.appointments app ON ev.appointment_id = app.id
-        LEFT JOIN dbo.invoices i ON i.visit_id = ev.id
-        WHERE ev.status = 'cerrada' AND ev.visit_type = 'consulta' AND i.id IS NULL
+        WHERE ev.status = 'cerrada' AND ev.visit_type = 'consulta'
+          AND (
+              SELECT COALESCE(SUM(total), 0)
+              FROM dbo.invoices
+              WHERE visit_id = ev.id
+          ) = 0
           AND (app.parent_appointment_id IS NULL OR ev.appointment_id IS NULL)
         ORDER BY ev.visit_date DESC
     """)
@@ -1690,9 +1694,18 @@ def list_invoices() -> list:
     cursor.execute("""
         SELECT i.id, i.visit_id, i.user_id, i.invoice_type, i.amount, i.itbis, i.total,
                i.payment_method, i.ecf_id, i.encf, i.estado, i.track_id, i.codigo_seguridad,
-               i.dgii_url, i.xml_url, i.created_at,
-               p.name AS patient_name, p.cedula AS patient_cedula,
-               u.full_name AS doctor_fullname
+               i.dgii_url, i.xml_url, i.created_at, i.tipo_ecf,
+               p.name AS patient_name, p.cedula AS patient_cedula, p.id AS patient_id,
+               u.full_name AS doctor_fullname,
+               CASE 
+                   WHEN i.invoice_type <> 'nota_credito' AND EXISTS (
+                       SELECT 1 FROM dbo.invoices cn 
+                       WHERE cn.visit_id = i.visit_id 
+                         AND cn.invoice_type = 'nota_credito' 
+                         AND cn.created_at > i.created_at
+                   ) THEN 1 
+                   ELSE 0 
+               END AS is_cancelled
         FROM dbo.invoices i
         LEFT JOIN dbo.emergency_visits ev ON i.visit_id = ev.id
         LEFT JOIN dbo.patients p ON ev.patient_id = p.id
@@ -1707,4 +1720,35 @@ def list_invoices() -> list:
         r["amount"] = float(r["amount"])
         r["itbis"] = float(r["itbis"])
         r["total"] = float(r["total"])
+        r["is_cancelled"] = bool(r.get("is_cancelled", 0))
     return rows
+
+
+def get_invoice_by_id(invoice_id: int) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT i.id, i.visit_id, i.user_id, i.invoice_type, i.amount, i.itbis, i.total,
+               i.payment_method, i.ecf_id, i.encf, i.estado, i.track_id, i.codigo_seguridad,
+               i.dgii_url, i.xml_url, i.created_at, i.tipo_ecf,
+               p.name AS patient_name, p.cedula AS patient_cedula, p.id AS patient_id
+        FROM dbo.invoices i
+        LEFT JOIN dbo.emergency_visits ev ON i.visit_id = ev.id
+        LEFT JOIN dbo.patients p ON ev.patient_id = p.id
+        WHERE i.id = ?
+    """, invoice_id)
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row[0], "visit_id": row[1], "user_id": row[2], "invoice_type": row[3],
+        "amount": float(row[4]) if row[4] is not None else 0.0,
+        "itbis": float(row[5]) if row[5] is not None else 0.0,
+        "total": float(row[6]) if row[6] is not None else 0.0,
+        "payment_method": row[7], "ecf_id": row[8], "encf": row[9], "estado": row[10],
+        "track_id": row[11], "codigo_seguridad": row[12], "dgii_url": row[13],
+        "xml_url": row[14], "created_at": _fmt_date(row[15]), "tipo_ecf": row[16],
+        "patient_name": row[17], "patient_cedula": row[18], "patient_id": row[19]
+    }
