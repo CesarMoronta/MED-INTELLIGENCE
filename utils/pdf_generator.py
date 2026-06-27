@@ -20,6 +20,9 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     HRFlowable, KeepTogether
 )
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
+
 
 # ─── Paleta de colores ─────────────────────────────────────────────────────────
 PRIMARY    = colors.HexColor("#1a6fc4")
@@ -455,3 +458,269 @@ def generate_daily_schedule_pdf(appointments: list, day_str: str,
 
     doc.build(story)
     return buf.getvalue()
+
+
+# ─── Factura Electrónica (e-CF) ────────────────────────────────────────────────
+
+def generate_invoice_pdf(invoice: dict, clinic_info: dict) -> bytes:
+    """Genera la representación impresa en PDF de una factura e-CF."""
+    buf = io.BytesIO()
+    # Margen estrecho para diseño de factura limpia
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        rightMargin=0.5*inch,
+        leftMargin=0.5*inch,
+        topMargin=0.5*inch,
+        bottomMargin=0.5*inch
+    )
+    styles = _base_styles()
+    story = []
+
+    # Estilos de factura personalizados
+    styles.add(ParagraphStyle(
+        name="InvoiceClinicTitle",
+        fontSize=16,
+        fontName="Helvetica-Bold",
+        textColor=BLACK,
+        spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="InvoiceTypeTitle",
+        fontSize=11,
+        fontName="Helvetica-Bold",
+        textColor=BLACK,
+        alignment=TA_RIGHT,
+        spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="InvoiceRightBold",
+        fontSize=12,
+        fontName="Helvetica-Bold",
+        textColor=BLACK,
+        alignment=TA_RIGHT,
+        spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="InvoiceRightText",
+        fontSize=9,
+        fontName="Helvetica",
+        textColor=BLACK,
+        alignment=TA_RIGHT,
+    ))
+    styles.add(ParagraphStyle(
+        name="InvoiceLeftText",
+        fontSize=9,
+        fontName="Helvetica",
+        textColor=BLACK,
+        leading=13,
+    ))
+    styles.add(ParagraphStyle(
+        name="InvoiceTableHeader",
+        fontSize=9,
+        fontName="Helvetica-Bold",
+        textColor=BLACK,
+        alignment=TA_CENTER,
+    ))
+
+    # --- CABECERA DE FACTURA ---
+    # Lado Izquierdo: Datos de la Clínica
+    clinic_name = clinic_info.get("clinic_name", "Consultorio Médico")
+    clinic_addr = clinic_info.get("clinic_address", "")
+    clinic_tel = clinic_info.get("clinic_phone", "")
+    clinic_email = clinic_info.get("clinic_email", "")
+    clinic_rnc = clinic_info.get("clinic_rnc", "")
+    created_at = invoice.get("created_at") or datetime.now().strftime("%d-%m-%Y")
+    
+    left_lines = [
+        f"<b>{clinic_name}</b>",
+        clinic_name,
+    ]
+    if clinic_rnc:
+        left_lines.append(f"<b>RNC:</b> {clinic_rnc}")
+    if clinic_addr:
+        left_lines.append(f"<b>Dirección:</b> {clinic_addr}")
+    if clinic_tel:
+        left_lines.append(f"<b>Teléfono:</b> {clinic_tel}")
+    if clinic_email:
+        left_lines.append(f"<b>Correo:</b> {clinic_email}")
+    left_lines.append(f"<b>Fecha de Emisión:</b> {created_at}")
+    
+    left_p = Paragraph("<br/>".join(left_lines), styles["InvoiceLeftText"])
+
+    # Lado Derecho: Datos del Comprobante
+    tipo_ecf = invoice.get("tipo_ecf") or "E32"
+    if tipo_ecf == "E31":
+        doc_title = "FACTURA DE CRÉDITO FISCAL ELECTRÓNICA"
+    else:
+        doc_title = "FACTURA DE CONSUMO ELECTRÓNICA"
+        
+    encf = invoice.get("encf") or "—"
+    # Fecha de vencimiento a 2 años o fija al 31-12-2028 como en la imagen
+    vencimiento = "31-12-2028"
+
+    right_lines = [
+        f"<b>{doc_title}</b>",
+        f'<font size="13"><b>{encf}</b></font>',
+        f"<b>Vencimiento:</b> {vencimiento}"
+    ]
+    right_p = Paragraph("<br/>".join(right_lines), styles["InvoiceRightText"])
+
+    header_table = Table([[left_p, right_p]], colWidths=["50%", "50%"])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(header_table)
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.black, spaceBefore=4, spaceAfter=8))
+
+    # --- DATOS DEL CLIENTE ---
+    client_name = invoice.get("patient_name") or "Consumidor Final"
+    client_cedula = invoice.get("patient_cedula") or "—"
+    payment_method_str = (invoice.get("payment_method") or "Efectivo").capitalize()
+    
+    client_left = [
+        f"<b>Cliente:</b> {client_name}",
+        f"<b>RNC/Cédula:</b> {client_cedula}"
+    ]
+    client_right = [
+        f"<b>Tipo de Pago:</b> {payment_method_str}"
+    ]
+    
+    c_left_p = Paragraph("<br/>".join(client_left), styles["InvoiceLeftText"])
+    c_right_p = Paragraph("<br/>".join(client_right), styles["InvoiceLeftText"])
+    
+    client_table = Table([[c_left_p, c_right_p]], colWidths=["60%", "40%"])
+    client_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(client_table)
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.black, spaceBefore=4, spaceAfter=8))
+
+    # --- TABLA DE ITEMS ---
+    # Cantidad | Descripción | Precio | ITBIS | Total
+    header = [
+        Paragraph("<b>CANTIDAD</b>", styles["InvoiceTableHeader"]),
+        Paragraph("<b>DESCRIPCIÓN</b>", styles["InvoiceTableHeader"]),
+        Paragraph("<b>PRECIO</b>", styles["InvoiceTableHeader"]),
+        Paragraph("<b>ITBIS</b>", styles["InvoiceTableHeader"]),
+        Paragraph("<b>TOTAL</b>", styles["InvoiceTableHeader"]),
+    ]
+    
+    # Cálculos de precio/itbis/total
+    total = invoice.get("total") or 3000.0
+    itbis = invoice.get("itbis") or 0.0
+    amount = invoice.get("amount") or (total - itbis)
+    
+    # En el detalle, el TOTAL del ítem es el precio base en e-CF, luego se sumará el ITBIS al final.
+    # En el comprobante original E31 el total del ítem es 2,542.37.
+    # En E32 el total del ítem es 3,000.00.
+    item_total = amount
+    
+    row_data = [
+        Paragraph("1", styles["InvoiceTableHeader"]),
+        Paragraph("Consulta Medica General", styles["InvoiceLeftText"]),
+        Paragraph(f"{amount:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT)),
+        Paragraph(f"{itbis:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT)),
+        Paragraph(f"<b>{item_total:,.2f}</b>", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT)),
+    ]
+    
+    items_table = Table([header, row_data], colWidths=["12%", "48%", "13%", "13%", "14%"])
+    items_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items_table)
+    
+    # Cantidad total al pie de la tabla
+    story.append(Spacer(1, 4))
+    story.append(Paragraph("Cantidad Total: 1.00", ParagraphStyle("QtyTotal", fontSize=8, fontName="Helvetica", textColor=colors.HexColor("#64748b"), alignment=TA_RIGHT)))
+    story.append(Spacer(1, 8))
+
+    # --- QR Y TOTALES ---
+    # Generar QR
+    dgii_url = invoice.get("dgii_url") or f"https://ecf.dgii.gov.do/ConsultaTimbre?encf={encf}"
+    
+    # Widget de QR en ReportLab
+    qr_code = qr.QrCodeWidget(dgii_url)
+    bounds = qr_code.getBounds()
+    qr_w = bounds[2] - bounds[0]
+    qr_h = bounds[3] - bounds[1]
+    qr_size = 90
+    qr_drawing = Drawing(qr_size, qr_size, transform=[qr_size/qr_w, 0, 0, qr_size/qr_h, 0, 0])
+    qr_drawing.add(qr_code)
+    
+    # Textos bajo el QR
+    seg_code = invoice.get("codigo_seguridad") or "—"
+    qr_text_lines = [
+        f"<b>Código de Seguridad:</b> {seg_code}",
+        f"<b>Fecha Firma Digital:</b> {created_at}"
+    ]
+    qr_desc_p = Paragraph("<br/>".join(qr_text_lines), styles["InvoiceLeftText"])
+    
+    # Celda izquierda con QR y su detalle
+    qr_cell = [
+        qr_drawing,
+        Spacer(1, 6),
+        qr_desc_p
+    ]
+    
+    # Celda derecha con los Totales
+    subtotal_gravado = amount if itbis > 0 else 0.0
+    monto_exento = amount if itbis == 0 else 0.0
+    
+    totales_rows = [
+        [Paragraph("Subtotal Gravado", styles["InvoiceLeftText"]), Paragraph(f"{subtotal_gravado:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT))],
+        [Paragraph("Monto Exento", styles["InvoiceLeftText"]), Paragraph(f"{monto_exento:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT))],
+        [Paragraph(f"ITBIS (18%)", styles["InvoiceLeftText"]), Paragraph(f"{itbis:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT))],
+        [Paragraph("<b>TOTAL</b>", ParagraphStyle("TotalText", fontSize=12, fontName="Helvetica-Bold")), Paragraph(f"<b>{total:,.2f}</b>", ParagraphStyle("TotalVal", fontSize=12, fontName="Helvetica-Bold", alignment=TA_RIGHT))],
+    ]
+    totales_table = Table(totales_rows, colWidths=["60%", "40%"])
+    totales_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LINEBELOW", (0, 2), (1, 2), 1.5, colors.black), # Línea gruesa antes del total
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    
+    # Tabla contenedora de QR e Totales
+    bottom_split_table = Table([[qr_cell, totales_table]], colWidths=["50%", "50%"])
+    bottom_split_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    story.append(bottom_split_table)
+    
+    # --- SIGNATURES ---
+    story.append(Spacer(1, 40))
+    sig_rows = [
+        [
+            Paragraph("________________________________________", ParagraphStyle("Line", alignment=TA_CENTER)),
+            Paragraph("________________________________________", ParagraphStyle("Line", alignment=TA_CENTER))
+        ],
+        [
+            Paragraph("Autorizado Por", ParagraphStyle("SigText", fontSize=8, fontName="Helvetica", textColor=colors.HexColor("#64748b"), alignment=TA_CENTER)),
+            Paragraph("Recibido Por", ParagraphStyle("SigText", fontSize=8, fontName="Helvetica", textColor=colors.HexColor("#64748b"), alignment=TA_CENTER))
+        ]
+    ]
+    sig_table = Table(sig_rows, colWidths=["50%", "50%"])
+    sig_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    story.append(sig_table)
+
+    doc.build(story)
+    return buf.getvalue()
+

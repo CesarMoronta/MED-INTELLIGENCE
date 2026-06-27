@@ -45,8 +45,50 @@ Reglas:
 5. Añade siempre el disclaimer: "Este análisis es de apoyo clínico, no reemplaza el juicio médico."
 6. NO reinventes el diagnóstico; complementa y clarifica."""
 
+_SYSTEM_RECETAS = """Eres un asistente médico experto en farmacología y prescripción clínica de MED-INTELLIGENCE PRO.
+Tu tarea es confeccionar una receta médica (prescripción) adecuada para el paciente a partir de su diagnóstico, constantes vitales, síntomas, antecedentes y nivel de alerta.
+
+Reglas importantes:
+1. Si el nivel de alerta (triage) es ROJO o indica una emergencia médica/quirúrgica inmediata:
+   - Receta ÚNICAMENTE medicamentos para alivio sintomático inmediato y seguro (ej. analgésicos suaves como paracetamol, etc., evitando AINEs fuertes si hay sospecha de sangrado, etc.).
+   - En el campo 'notes', escribe de forma prominente: '⚠️ ATENCIÓN: Se requiere evaluación médica de emergencia inmediata. Acuda al centro de salud más cercano.'
+2. Para diagnósticos tratables de forma ambulatoria:
+   - Prescribe medicamentos de primera línea validados clínicamente para el diagnóstico.
+   - Especifica dosis estándar, frecuencia razonable (ej. 'Cada 8 horas', 'Una vez al día') y duración en días adecuada.
+   - Calcula la cantidad total (quantity) necesaria para completar el tratamiento.
+3. Evita prescribir dosis peligrosas o combinaciones redundantes.
+4. Responde ÚNICAMENTE con un objeto JSON estructurado que contenga una lista de medicamentos en este formato (sin markdown ni texto extra):
+{
+  "medications": [
+    {
+      "medication": "Nombre del medicamento y presentación (ej. Amoxicilina 500mg)",
+      "dosage": "Dosis por toma (ej. 1 cápsula)",
+      "frequency": "Frecuencia de toma (ej. Cada 8 horas)",
+      "duration_days": 7,
+      "quantity": 21,
+      "notes": "Instrucciones adicionales para el paciente (ej. Tomar después de las comidas)"
+    }
+  ]
+}
+"""
+
+
+def _clean_json_response(raw_text: str) -> str:
+    raw = raw_text.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+    if raw.startswith("json"):
+        raw = raw[4:].strip()
+    return raw
+
 
 class GeminiDiagnosticLayer:
+
     """
     Capa de enriquecimiento clínico con IA Gemini.
     Todos los métodos tienen fallback offline para garantizar disponibilidad.
@@ -54,14 +96,25 @@ class GeminiDiagnosticLayer:
 
     def __init__(self):
         self.client = None
+        self.client_rx = None
         self.available = False
+        self.available_rx = False
+        
         api_key = os.environ.get("GEMINI_API_KEY")
         if api_key:
             try:
                 self.client = genai.Client(api_key=api_key)
                 self.available = True
             except Exception as e:
-                print(f"[GeminiLayer] Error inicializando cliente: {e}")
+                print(f"[GeminiLayer] Error inicializando cliente estándar: {e}")
+                
+        api_key_rx = os.environ.get("GEMINI_API_KEY_RX") or api_key
+        if api_key_rx:
+            try:
+                self.client_rx = genai.Client(api_key=api_key_rx)
+                self.available_rx = True
+            except Exception as e:
+                print(f"[GeminiLayer] Error inicializando cliente de recetas: {e}")
 
     def _generar_config(self, temperature: float = 0.4) -> types.GenerateContentConfig:
         return types.GenerateContentConfig(
@@ -130,13 +183,8 @@ Si no hay alertas, usa lista vacía []. Máximo 4 síntomas sugeridos y 3 alerta
                 contents=prompt,
                 config=self._generar_config(temperature=0.3),
             )
-            raw = response.text.strip()
-            # Limpiar bloques de código si Gemini los incluye
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-            result = json.loads(raw.strip())
+            raw = _clean_json_response(response.text)
+            result = json.loads(raw)
             result["fallback"] = False
             return result
         except Exception as e:
@@ -307,3 +355,65 @@ Summary clínico: {meta.get('summary', '')}
         elif any(w in msg for w in ["peligro", "emergencia", "alarma"]):
             return f"Revise las señales de alarma del informe para **{diagnostico}**. Ante cualquier deterioro súbito, acuda a urgencias inmediatamente. (Asistente IA no disponible temporalmente.)"
         return f"El asistente médico IA no está disponible en este momento. Consulte el informe clínico detallado para información sobre **{diagnostico}**."
+
+    def generar_receta_con_ia(
+        self,
+        diagnostico: str,
+        motivo_consulta: str,
+        doctor_notes: str,
+        constantes: dict,
+        sintomas_activos: list,
+        antecedentes_activos: list,
+        paciente_edad: int,
+        paciente_genero: str,
+        alert_level: str
+    ) -> dict:
+        """
+        Genera una sugerencia de receta médica estructurada con Gemini AI.
+        """
+        if not self.available_rx:
+            return {"medications": [], "fallback": True}
+
+        prompt = f"""Genera una receta para el siguiente caso clínico:
+
+PACIENTE:
+- Edad: {paciente_edad} años
+- Género: {paciente_genero}
+
+CASO CLÍNICO:
+- Diagnóstico: {diagnostico}
+- Nivel de Alerta: {alert_level}
+- Motivo de Consulta: {motivo_consulta or "No especificado"}
+- Notas del Doctor: {doctor_notes or "Ninguna"}
+
+DATOS CLÍNICOS:
+- Síntomas Activos: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno'}
+- Antecedentes: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
+- Constantes Vitales:
+  * Temperatura: {constantes.get('temperatura', '?')} °C
+  * SpO2: {constantes.get('spo2', '?')} %
+  * Presión Arterial: {constantes.get('pas', '?')}/{constantes.get('pad', '?')} mmHg
+  * Frecuencia Cardíaca: {constantes.get('fc', '?')} bpm
+  * Frecuencia Respiratoria: {constantes.get('fr', '?')} rpm
+
+Tu tarea es responder EXACTAMENTE en el formato JSON especificado en las instrucciones del sistema, sin incluir bloques de código markdown ni texto adicional.
+"""
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction=_SYSTEM_RECETAS,
+                temperature=0.3,
+                max_output_tokens=1024,
+            )
+            response = self.client_rx.models.generate_content(
+                model=_MODEL,
+                contents=prompt,
+                config=config,
+            )
+            raw = _clean_json_response(response.text)
+            result = json.loads(raw)
+            result["fallback"] = False
+            return result
+        except Exception as e:
+            print(f"[GeminiLayer] Error generando receta con IA: {e}")
+            return {"medications": [], "fallback": True}
+

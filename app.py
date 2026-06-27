@@ -7,7 +7,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
 from flask import Flask
 from database import initialize_database

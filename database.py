@@ -1182,10 +1182,11 @@ def get_dashboard_charts(doctor_id: int = None) -> dict:
         GROUP BY DATEPART(YEAR, visit_date), DATEPART(WEEK, visit_date)
         ORDER BY yr ASC, wk ASC
     """)
-    visits_by_week = [
-        {"year": r[0], "week": r[1], "total": r[2]}
-        for r in cursor.fetchall()
-    ]
+    rows = cursor.fetchall()
+    visits_by_week = {
+        "labels": [f"Sem {r[1]}" for r in rows],
+        "data": [r[2] for r in rows]
+    }
 
     # 2. Diagnósticos más frecuentes (top 8)
     doc_filter = f"AND ev.doctor_id = {int(doctor_id)}" if doctor_id else ""
@@ -1197,8 +1198,8 @@ def get_dashboard_charts(doctor_id: int = None) -> dict:
         GROUP BY d.diagnosis_primary
         ORDER BY cnt DESC
     """)
-    diag_dist = [
-        {"diagnosis": r[0], "count": r[1]}
+    top_diagnoses = [
+        {"name": r[0] if r[0] else "Sin diagnóstico", "count": r[1]}
         for r in cursor.fetchall()
     ]
 
@@ -1213,10 +1214,12 @@ def get_dashboard_charts(doctor_id: int = None) -> dict:
         GROUP BY YEAR(created_at), MONTH(created_at)
         ORDER BY yr ASC, mo ASC
     """)
-    patients_growth = [
-        {"year": r[0], "month": r[1], "total": r[2]}
-        for r in cursor.fetchall()
-    ]
+    rows = cursor.fetchall()
+    months_map = {1:"Ene", 2:"Feb", 3:"Mar", 4:"Abr", 5:"May", 6:"Jun", 7:"Jul", 8:"Ago", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dic"}
+    patients_by_month = {
+        "labels": [f"{months_map.get(r[1], '')} {r[0]}" for r in rows],
+        "data": [r[2] for r in rows]
+    }
 
     # 4. Emergencias vs Consultas (últimos 6 meses)
     cursor.execute(f"""
@@ -1231,10 +1234,10 @@ def get_dashboard_charts(doctor_id: int = None) -> dict:
     conn.close()
 
     return {
-        "visits_by_week":  visits_by_week,
-        "diag_distribution": diag_dist,
-        "patients_growth": patients_growth,
-        "visit_types":     visit_types,
+        "visits_by_week":     visits_by_week,
+        "top_diagnoses":      top_diagnoses,
+        "patients_by_month":  patients_by_month,
+        "visit_types":        visit_types,
     }
 
 
@@ -1670,7 +1673,7 @@ def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
                    amount: float, itbis: float, total: float, payment_method: str,
                    ecf_id: str | None, encf: str | None, estado: str, track_id: str | None,
                    codigo_seguridad: str | None, dgii_url: str | None, xml_url: str | None,
-                   tipo_ecf: str | None = None) -> bool:
+                   tipo_ecf: str | None = None) -> int | None:
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -1678,14 +1681,17 @@ def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
             INSERT INTO dbo.invoices (visit_id, user_id, invoice_type, amount, itbis, total,
                                       payment_method, ecf_id, encf, estado, track_id,
                                       codigo_seguridad, dgii_url, xml_url, tipo_ecf)
+            OUTPUT INSERTED.id
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, visit_id, user_id, invoice_type, amount, itbis, total,
              payment_method, ecf_id, encf, estado, track_id,
              codigo_seguridad, dgii_url, xml_url, tipo_ecf)
-        return True
+        row = cursor.fetchone()
+        invoice_id = int(row[0]) if row else None
+        return invoice_id
     except Exception as e:
         print(f"Error insertando factura: {e}")
-        return False
+        return None
     finally:
         cursor.close()
         conn.close()
@@ -1734,10 +1740,12 @@ def get_invoice_by_id(invoice_id: int) -> dict | None:
         SELECT i.id, i.visit_id, i.user_id, i.invoice_type, i.amount, i.itbis, i.total,
                i.payment_method, i.ecf_id, i.encf, i.estado, i.track_id, i.codigo_seguridad,
                i.dgii_url, i.xml_url, i.created_at, i.tipo_ecf,
-               p.name AS patient_name, p.cedula AS patient_cedula, p.id AS patient_id
+               p.name AS patient_name, p.cedula AS patient_cedula, p.id AS patient_id,
+               u.full_name AS doctor_fullname
         FROM dbo.invoices i
         LEFT JOIN dbo.emergency_visits ev ON i.visit_id = ev.id
         LEFT JOIN dbo.patients p ON ev.patient_id = p.id
+        LEFT JOIN dbo.users u ON (ev.doctor_id = u.id OR i.user_id = u.id)
         WHERE i.id = ?
     """, invoice_id)
     row = cursor.fetchone()
@@ -1753,5 +1761,6 @@ def get_invoice_by_id(invoice_id: int) -> dict | None:
         "payment_method": row[7], "ecf_id": row[8], "encf": row[9], "estado": row[10],
         "track_id": row[11], "codigo_seguridad": row[12], "dgii_url": row[13],
         "xml_url": row[14], "created_at": _fmt_date(row[15]), "tipo_ecf": row[16],
-        "patient_name": row[17], "patient_cedula": row[18], "patient_id": row[19]
+        "patient_name": row[17], "patient_cedula": row[18], "patient_id": row[19],
+        "doctor_fullname": row[20]
     }

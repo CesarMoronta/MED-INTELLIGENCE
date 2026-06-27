@@ -1543,8 +1543,8 @@ async function saveFinalDecision(createPrescription) {
     toast('success', 'Consulta finalizada con éxito.');
 
     if (createPrescription && STATE.currentPatient && STATE.currentVisitId) {
-      // Abrir modal de receta
-      openPrescriptionModal(STATE.currentPatient.id, STATE.currentVisitId);
+      // Abrir modal de selección de receta
+      openPrescriptionChoice();
     } else {
       // Limpiar para nueva consulta
       resetDiagnose();
@@ -2138,6 +2138,73 @@ async function cancelAppointment(id) {
 }
 
 // RECETAS MÉDICAS
+function openPrescriptionChoice() {
+  STATE.rxList = [];
+  closeModal('modal-diagnosis-result');
+  openModal('modal-prescription-choice');
+}
+
+function generatePrescriptionManual() {
+  closeModal('modal-prescription-choice');
+  openPrescriptionModal();
+}
+
+async function generatePrescriptionAI() {
+  const btn = document.getElementById('btn-prescription-ai');
+  if (!STATE.currentVisitId) {
+    toast('error', 'No hay ninguna visita activa seleccionada.');
+    return;
+  }
+  
+  setButtonLoading(btn, true, 'Generando con IA...');
+  
+  try {
+    const res = await api('POST', `/api/visits/${STATE.currentVisitId}/prescription/generate-ai`);
+    if (!res.success) {
+      if (res.error === 'subscription_required') {
+        toast('error', res.message || 'Se requiere suscripción VIP.');
+      } else {
+        toast('error', res.error || 'Error al generar la receta con IA.');
+      }
+      return;
+    }
+    
+    STATE.rxList = [];
+    if (res.medications && res.medications.length > 0) {
+      res.medications.forEach(m => {
+        STATE.rxList.push({
+          med: m.medication || '',
+          dos: m.dosage || '',
+          freq: m.frequency || '',
+          days: m.duration_days || 1,
+          qty: m.quantity || 1,
+          notes: m.notes || ''
+        });
+      });
+      toast('success', 'Receta sugerida por IA generada. Revísela antes de guardar.');
+    } else {
+      toast('warning', 'La IA no pudo sugerir medicamentos para este caso.');
+    }
+    
+    closeModal('modal-prescription-choice');
+    renderRxList();
+    
+    // Clear inputs in manual section in case
+    document.getElementById('rx-medication').value = '';
+    document.getElementById('rx-dosage').value = '';
+    document.getElementById('rx-frequency').value = '';
+    document.getElementById('rx-days').value = '';
+    document.getElementById('rx-quantity').value = '';
+    document.getElementById('rx-notes').value = '';
+    
+    openModal('modal-prescription');
+  } catch (err) {
+    toast('error', 'Error al invocar la API de generación.');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
 function openPrescriptionModal() {
   STATE.rxList = [];
   renderRxList();
@@ -2230,6 +2297,7 @@ async function savePrescription() {
     if (successCount === STATE.rxList.length) {
       toast('success', 'Receta guardada correctamente en el historial.');
       closeModal('modal-prescription');
+      openModal('modal-prescription-success');
     } else {
       toast('error', 'Ocurrió un error al guardar algunos medicamentos.');
     }
@@ -2237,6 +2305,21 @@ async function savePrescription() {
     setButtonLoading(btn, false);
   }
 }
+
+function printPrescriptionFromSuccess() {
+  const visitId = STATE.currentVisitId;
+  if (visitId) {
+    window.open(`/api/pdf/prescription/${visitId}`, '_blank');
+  } else {
+    toast('error', 'No hay una visita activa.');
+  }
+}
+
+function closeModalPrescriptionSuccess() {
+  closeModal('modal-prescription-success');
+  resetDiagnose();
+}
+
 
 // HISTORIAL
 async function loadHistory() {
@@ -4026,6 +4109,11 @@ async function submitChargeVisit() {
       document.getElementById('res-invoice-code').textContent = res.invoice.codigo_seguridad || '—';
       document.getElementById('res-invoice-status').textContent = res.invoice.estado || 'Aceptado';
       
+      const printBtn = document.getElementById('btn-print-invoice-pdf');
+      if (printBtn && res.invoice_id) {
+        printBtn.setAttribute('data-invoice-id', res.invoice_id);
+      }
+
       const linkEl = document.getElementById('res-invoice-dgii-link');
       if (res.invoice.dgii_url) {
         linkEl.href = res.invoice.dgii_url;
@@ -4042,6 +4130,16 @@ async function submitChargeVisit() {
   } finally {
     setButtonLoading(btn, false);
   }
+}
+
+function printInvoicePDF() {
+  const printBtn = document.getElementById('btn-print-invoice-pdf');
+  const invoiceId = printBtn ? printBtn.getAttribute('data-invoice-id') : null;
+  if (!invoiceId) {
+    toast('error', 'No se encontró el ID de la factura para imprimir.');
+    return;
+  }
+  window.open(`/api/pdf/invoice/${invoiceId}`, '_blank');
 }
 
 async function lookupDoctorCedula(prefix) {

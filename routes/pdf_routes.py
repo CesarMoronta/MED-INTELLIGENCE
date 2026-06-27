@@ -3,13 +3,15 @@ import csv
 from flask import Blueprint, request, jsonify, send_file, make_response
 from database import (get_visit_with_details, get_prescriptions, get_visit_tests,
                       list_appointments, get_all_clinic_settings,
-                      list_patients, list_clinical_history)
+                      list_patients, list_clinical_history, get_invoice_by_id)
 from utils import requires_login, requires_role, get_current_user
 from utils.pdf_generator import (generate_prescription_pdf,
                                   generate_lab_order_pdf,
-                                  generate_daily_schedule_pdf)
+                                  generate_daily_schedule_pdf,
+                                  generate_invoice_pdf)
 
 pdf_bp = Blueprint("pdf_bp", __name__)
+
 
 
 # ─── PDF: Receta Médica ───────────────────────────────────────────────────────
@@ -127,3 +129,24 @@ def api_export_history_csv():
     response.headers["Content-Disposition"] = "attachment; filename=historial_clinico.csv"
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
     return response
+
+
+# ─── PDF: Factura Electrónica (e-CF) ──────────────────────────────────────────
+
+@pdf_bp.route("/api/pdf/invoice/<int:invoice_id>", methods=["GET"])
+@requires_login
+def api_pdf_invoice(invoice_id):
+    invoice = get_invoice_by_id(invoice_id)
+    if not invoice:
+        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+    
+    clinic_info = get_all_clinic_settings()
+    pdf_bytes = generate_invoice_pdf(invoice, clinic_info)
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"factura_{invoice.get('encf') or invoice_id}.pdf"
+    )
+

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from database import list_visits, create_visit, get_visit, save_visit_tests, add_prescription, get_prescriptions_for_visit
+from database import list_visits, create_visit, get_visit, save_visit_tests, add_prescription, get_prescriptions_for_visit, get_patient, get_user_by_id
+from extensions import gemini_layer
 from utils import requires_login, requires_role, get_current_user
 
 visits_bp = Blueprint("visits_bp", __name__)
@@ -91,3 +92,49 @@ def api_add_prescription(visit_id):
         
     pid = add_prescription(visit_id, medication, dosage, frequency, int(duration_days), int(quantity), notes)
     return jsonify({"success": True, "prescription_id": pid, "message": "Receta añadida."})
+
+
+@visits_bp.route("/api/visits/<int:visit_id>/prescription/generate-ai", methods=["POST"])
+@requires_login
+@requires_role("doctor", "admin")
+def api_generate_prescription_ai(visit_id):
+    # Verificar suscripción si es doctor
+    u = get_current_user()
+    if u.get("role") == "doctor":
+        user_db = get_user_by_id(u["id"])
+        if not user_db or not user_db.get("subscription_active"):
+            return jsonify({
+                "success": False,
+                "error": "subscription_required",
+                "message": "Se requiere una suscripción VIP activa de PayPal para usar la generación de recetas con IA."
+            }), 403
+
+    visit = get_visit(visit_id)
+    if not visit:
+        return jsonify({"success": False, "error": "Visita no encontrada."}), 404
+
+    patient = get_patient(visit["patient_id"])
+    if not patient:
+        return jsonify({"success": False, "error": "Paciente no encontrado."}), 404
+
+    # Recopilar contexto
+    sintomas_activos = [s for s, pres in visit.get("sintomas", {}).items() if pres]
+    antecedentes_activos = [a for a, pres in patient.get("antecedentes", {}).items() if pres]
+    
+    res = gemini_layer.generar_receta_con_ia(
+        diagnostico=visit.get("diagnosis_primary") or "No especificado",
+        motivo_consulta=visit.get("motivo_consulta") or "No especificado",
+        doctor_notes=visit.get("doctor_notes") or "Ninguna",
+        constantes=visit.get("constantes", {}),
+        sintomas_activos=sintomas_activos,
+        antecedentes_activos=antecedentes_activos,
+        paciente_edad=patient.get("age", 30),
+        paciente_genero=patient.get("gender", "Otro"),
+        alert_level=visit.get("alert_level") or "Verde"
+    )
+
+    if res.get("fallback"):
+        return jsonify({"success": False, "error": "El motor de IA está offline o no disponible."}), 503
+
+    return jsonify({"success": True, "medications": res.get("medications", [])})
+

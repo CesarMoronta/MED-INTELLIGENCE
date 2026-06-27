@@ -187,7 +187,7 @@ def api_charge_visit():
             return jsonify({"success": False, "error": err_msg}), 502
 
         # Guardar en base de datos
-        success = create_invoice(
+        invoice_id = create_invoice(
             visit_id=visit_id,
             user_id=None,
             invoice_type="consulta",
@@ -205,12 +205,13 @@ def api_charge_visit():
             tipo_ecf=f"E{tipo_ecf}"
         )
 
-        if not success:
+        if not invoice_id:
             return jsonify({"success": False, "error": "Error interno al guardar la factura."}), 500
 
         return jsonify({
             "success": True,
             "message": "Cobro registrado e e-CF generado con éxito.",
+            "invoice_id": invoice_id,
             "invoice": {
                 "encf": res_data.get("encf"),
                 "estado": res_data.get("estado"),
