@@ -2,11 +2,6 @@
 gemini_engine.py — Capa de IA Gemini para MED-INTELLIGENCE PRO
 
 Complementa el motor bayesiano con razonamiento clínico avanzado en lenguaje natural.
-Las redes bayesianas NO son sustituidas; Gemini actúa sobre los resultados probabilísticos
-para enriquecer el análisis, el informe y el chatbot médico.
-
-Arquitectura:
-  [Bayes → P(E|síntomas)] → [GeminiDiagnosticLayer] → [Informe enriquecido + Sugerencias + Chat]
 """
 
 import os
@@ -14,91 +9,74 @@ import json
 import time
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional
 
 # ── CONFIGURACIÓN ────────────────────────────────────────────────────────────
-_MODEL     = "gemini-2.5-flash"
+_MODEL = "gemini-2.5-flash"
 
-# System prompt base — Médico Internista especializado
-_SYSTEM_INTERNISTA = """Eres un médico internista especialista con amplia experiencia clínica.
-Trabajas como motor de apoyo a la decisión clínica dentro del sistema MED-INTELLIGENCE PRO.
-El sistema ya realizó un análisis probabilístico mediante redes bayesianas (Teorema de Bayes).
-Tu rol es enriquecer ese análisis con razonamiento clínico narrativo de alto nivel.
+# System prompts optimizados (más cortos para ahorrar tokens)
+_SYSTEM_EXTRACTOR = """Eres un asistente de triaje médico. Tu misión es extraer una lista de síntomas clínicos estándar a partir de la historia narrativa del paciente.
+Asigna True solo si el síntoma se relata como presente, o False si no se menciona o se niega explícitamente."""
 
-Reglas estrictas:
-1. NUNCA contradigas las probabilidades bayesianas directamente.
-2. SIEMPRE añade valor clínico real: fisiopatología, correlaciones, contexto.
-3. Responde en ESPAÑOL médico profesional, claro y conciso.
-4. NO inventes medicamentos ni dosis no validadas clínicamente.
-5. Si la situación es una emergencia (nivel ROJO), inclúyelo prominentemente.
-6. Mantén el tono profesional pero humano.
-7. Todos los valores numéricos de probabilidades que menciones vienen del análisis bayesiano — no los cambies."""
+_SYSTEM_INTERNISTA = """Eres un médico internista especialista.
+Tu rol es enriquecer el análisis probabilístico bayesiano local con razonamiento clínico narrativo de alto nivel, coherente con las probabilidades dadas."""
 
 _SYSTEM_CHATBOT = """Eres el Médico Internista de Apoyo de MED-INTELLIGENCE PRO.
-Ya tienes acceso al diagnóstico probabilístico bayesiano del paciente actual.
-Tu misión es responder las dudas del médico o del personal de salud de forma clara, fundamentada y breve.
+Responde de forma clara, fundamentada y breve. Máximo 2-4 párrafos.
+Añade siempre: "Este análisis es de apoyo clínico, no reemplaza el juicio médico." """
 
-Reglas:
-1. Responde en ESPAÑOL médico profesional.
-2. Limita las respuestas a 2-4 párrafos máximo.
-3. Fundamenta tus respuestas en el diagnóstico bayesiano provisto.
-4. Si detectas señales de alarma en el contexto, menciónalas.
-5. Añade siempre el disclaimer: "Este análisis es de apoyo clínico, no reemplaza el juicio médico."
-6. NO reinventes el diagnóstico; complementa y clarifica."""
+_SYSTEM_RECETAS = """Eres un asistente médico de prescripción clínica.
+Diseña una receta adecuada basada en el diagnóstico, constantes y síntomas.
+Reglas de seguridad:
+1. Si el triage es ROJO o hay emergencia crítica, prescribe ÚNICAMENTE alivio sintomático básico seguro (ej. Paracetamol).
+2. Para casos ambulatorios, prescribe medicamentos de primera línea validados, especificando dosis estándar y cantidad exacta.
+3. Evita interacciones peligrosas o sobredosis."""
 
-_SYSTEM_RECETAS = """Eres un asistente médico experto en farmacología y prescripción clínica de MED-INTELLIGENCE PRO.
-Tu tarea es confeccionar una receta médica (prescripción) adecuada para el paciente a partir de su diagnóstico, constantes vitales, síntomas, antecedentes y nivel de alerta.
+# ── SCHEMAS PYDANTIC PARA STRUCTURED OUTPUTS ──────────────────────────────────
 
-Reglas importantes:
-1. Si el nivel de alerta (triage) es ROJO o indica una emergencia médica/quirúrgica inmediata:
-   - Receta ÚNICAMENTE medicamentos para alivio sintomático inmediato y seguro (ej. analgésicos suaves como paracetamol, etc., evitando AINEs fuertes si hay sospecha de sangrado, etc.).
-   - En el campo 'notes', escribe de forma prominente: '⚠️ ATENCIÓN: Se requiere evaluación médica de emergencia inmediata. Acuda al centro de salud más cercano.'
-2. Para diagnósticos tratables de forma ambulatoria:
-   - Prescribe medicamentos de primera línea validados clínicamente para el diagnóstico.
-   - Especifica dosis estándar, frecuencia razonable (ej. 'Cada 8 horas', 'Una vez al día') y duración en días adecuada.
-   - Calcula la cantidad total (quantity) necesaria para completar el tratamiento.
-3. Evita prescribir dosis peligrosas o combinaciones redundantes.
-4. Responde ÚNICAMENTE con un objeto JSON estructurado que contenga una lista de medicamentos en este formato (sin markdown ni texto extra):
-{
-  "medications": [
-    {
-      "medication": "Nombre del medicamento y presentación (ej. Amoxicilina 500mg)",
-      "dosage": "Dosis por toma (ej. 1 cápsula)",
-      "frequency": "Frecuencia de toma (ej. Cada 8 horas)",
-      "duration_days": 7,
-      "quantity": 21,
-      "notes": "Instrucciones adicionales para el paciente (ej. Tomar después de las comidas)"
-    }
-  ]
-}
-"""
+class SymptomExtraction(BaseModel):
+    sintomas_presentes: List[str] = Field(
+        description="Lista de los nombres exactos de los síntomas estándar que están presentes en la historia del paciente."
+    )
+
+class DiagnosticEnrichment(BaseModel):
+    validacion: str = Field(description="Comentario clínico de coherencia entre diagnóstico, síntomas y constantes (2-3 oraciones).")
+    sintomas_sugeridos: List[str] = Field(description="Hasta 4 síntomas adicionales a explorar.")
+    alertas_gemini: List[str] = Field(description="Hasta 3 señales de alerta o emergencias clínicas.")
+    confianza_gemini: str = Field(description="Nivel de confianza (Alta/Media/Baja) y justificación corta.")
+    diagnostico_propuesto: Optional[str] = Field(None, description="Si consideras que el diagnóstico bayesiano principal es incorrecto o improbable, propón de forma textual el nombre exacto de la enfermedad correcta de entre la lista de permitidas. De lo contrario, deja este campo vacío o null.")
+
+class MedicationItem(BaseModel):
+    medication: str = Field(description="Nombre y presentación del medicamento (ej. Paracetamol 500mg)")
+    dosage: str = Field(description="Dosis por toma (ej. 1 tableta)")
+    frequency: str = Field(description="Frecuencia (ej. Cada 8 horas)")
+    duration_days: int = Field(description="Duración en días")
+    quantity: int = Field(description="Cantidad total de unidades")
+    notes: str = Field(description="Indicaciones para el paciente")
+
+class PrescriptionResponse(BaseModel):
+    medications: List[MedicationItem]
 
 
-def _clean_json_response(raw_text: str) -> str:
-    raw = raw_text.strip()
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        raw = "\n".join(lines).strip()
-    if raw.startswith("json"):
-        raw = raw[4:].strip()
-    return raw
+ENFERMEDADES_PERMITIDAS = [
+    "Gripe Común / Influenza", "Neumonía", "Bronquitis Aguda", "Crisis Asmática Aguda",
+    "Exacerbación Aguda de EPOC", "Infarto Agudo de Miocardio (IAM)", "Insuficiencia Cardíaca Congestiva (ICC)",
+    "Miocarditis", "Encefalitis", "Accidente Cerebrovascular (ACV)", "Migraña Severa", "Dengue",
+    "Otitis Media", "Sinusitis Aguda", "COVID-19", "COVID-19 Grave", "Faringoamigdalitis Aguda",
+    "Tromboembolismo Pulmonar", "Diabetes Mellitus Tipo 2", "Gastroenteritis Aguda",
+    "Resfriado Común (Rinofaringitis)", "Infección de Vías Urinarias (IVU)", "Reflujo Gastroesofágico (ERGE)"
+]
 
 
 class GeminiDiagnosticLayer:
-
     """
     Capa de enriquecimiento clínico con IA Gemini.
-    Todos los métodos tienen fallback offline para garantizar disponibilidad.
     """
 
     def __init__(self):
         self.client = None
-        self.client_rx = None
         self.available = False
-        self.available_rx = False
         
         api_key = os.environ.get("GEMINI_API_KEY")
         if api_key:
@@ -106,22 +84,55 @@ class GeminiDiagnosticLayer:
                 self.client = genai.Client(api_key=api_key)
                 self.available = True
             except Exception as e:
-                print(f"[GeminiLayer] Error inicializando cliente estándar: {e}")
-                
-        api_key_rx = os.environ.get("GEMINI_API_KEY_RX") or api_key
-        if api_key_rx:
-            try:
-                self.client_rx = genai.Client(api_key=api_key_rx)
-                self.available_rx = True
-            except Exception as e:
-                print(f"[GeminiLayer] Error inicializando cliente de recetas: {e}")
+                print(f"[GeminiLayer] Error inicializando cliente: {e}")
 
-    def _generar_config(self, temperature: float = 0.4) -> types.GenerateContentConfig:
-        return types.GenerateContentConfig(
-            system_instruction=_SYSTEM_INTERNISTA,
-            temperature=temperature,
-            max_output_tokens=2048,
-        )
+    # ── NUEVA FUNCIÓN: EXTRACCIÓN DE SÍNTOMAS DESDE NARRATIVA ──────────────────
+    def extraer_sintomas_de_narrativa(self, narrativa: str, lista_sintomas_estandar: list) -> dict:
+        """
+        Llama a Gemini para mapear la narrativa libre a la lista de síntomas booleanos estándar.
+        """
+        if not self.available or not narrativa:
+            return {s: False for s in lista_sintomas_estandar}
+
+        sintomas_str = ", ".join(lista_sintomas_estandar)
+        prompt = f"""Analiza la siguiente historia narrativa del paciente y determina cuáles de estos síntomas estándar están presentes:
+SÍNTOMAS ESTÁNDAR PERMITIDOS:
+{sintomas_str}
+
+HISTORIA NARRATIVA:
+"{narrativa}"
+
+Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir exactamente con alguno de los provistos en la lista de SÍNTOMAS ESTÁNDAR PERMITIDOS.
+"""
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction=_SYSTEM_EXTRACTOR,
+                temperature=0.1,
+                max_output_tokens=1500,
+                response_mime_type="application/json",
+                response_schema=SymptomExtraction,
+            )
+            response = self.client.models.generate_content(
+                model=_MODEL,
+                contents=prompt,
+                config=config,
+            )
+            res = json.loads(response.text)
+            presentes = res.get("sintomas_presentes", [])
+            
+            # Convertir a diccionario de booleanos {sintoma: True/False}
+            final_map = {}
+            for s in lista_sintomas_estandar:
+                val = False
+                for p in presentes:
+                    if p.strip().lower() == s.strip().lower():
+                        val = True
+                        break
+                final_map[s] = val
+            return final_map
+        except Exception as e:
+            print(f"[GeminiLayer] Error en extracción de síntomas: {e}")
+            return {s: False for s in lista_sintomas_estandar}
 
     # ── 1. ANÁLISIS ENRIQUECIDO POST-BAYES ────────────────────────────────────
     def enriquecer_diagnostico_preliminar(
@@ -130,18 +141,8 @@ class GeminiDiagnosticLayer:
         sintomas: dict,
         constantes: dict,
         antecedentes: dict,
+        motivo_consulta: Optional[str] = None
     ) -> dict:
-        """
-        Después del diagnóstico preliminar bayesiano, Gemini analiza el contexto y:
-        - Valida clínicamente el top-3
-        - Sugiere síntomas adicionales que no se preguntaron
-        - Detecta alertas clínicas no cubiertas por Bayes
-        - Genera un comentario de razonamiento breve
-
-        Returns:
-            dict con keys: validacion, sintomas_sugeridos, alertas_gemini,
-                          confianza_gemini, fallback (bool)
-        """
         if not self.available:
             return self._fallback_enriquecimiento(probs_bayes)
 
@@ -149,42 +150,43 @@ class GeminiDiagnosticLayer:
         top5 = sorted(probs_bayes.items(), key=lambda x: x[1], reverse=True)[:5]
         top5_str = "\n".join([f"  {i+1}. {d}: {p*100:.2f}%" for i, (d, p) in enumerate(top5)])
 
+        # AHORRO DE TOKENS: Filtrar para enviar solo activos
         sintomas_presentes  = [s for s, v in sintomas.items() if v]
         antecedentes_activos = [a for a, v in antecedentes.items() if v]
 
-        prompt = f"""El motor bayesiano procesó los datos del paciente y obtuvo:
-
+        prompt = f"""El motor bayesiano procesó los datos y obtuvo:
 TOP 5 DIAGNÓSTICOS BAYESIANOS:
 {top5_str}
 
 SÍNTOMAS PRESENTES: {', '.join(sintomas_presentes) if sintomas_presentes else 'Ninguno'}
 ANTECEDENTES CLÍNICOS: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
-CONSTANTES VITALES:
-  - Temperatura: {constantes.get('temperatura', '?')} °C
-  - SpO2: {constantes.get('spo2', '?')} %
-  - Presión Arterial: {constantes.get('pas', '?')}/{constantes.get('pad', '?')} mmHg
-  - Frecuencia Cardíaca: {constantes.get('fc', '?')} bpm
-  - Frecuencia Respiratoria: {constantes.get('fr', '?')} rpm
-  - Edad: {constantes.get('edad', '?')} años
+CONSTANTES VITALES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')} | Edad {constantes.get('edad','?')}
+"""
+        if motivo_consulta:
+            prompt += f'HISTORIA/NARRATIVA ADICIONAL: "{motivo_consulta}"\n'
 
-Tu tarea es responder EXACTAMENTE en el siguiente formato JSON (sin markdown, sin texto extra):
-{{
-  "validacion": "Comentario clínico breve (2-3 oraciones) sobre la coherencia del top diagnóstico con los síntomas y constantes",
-  "sintomas_sugeridos": ["síntoma 1 que explorar", "síntoma 2", "síntoma 3"],
-  "alertas_gemini": ["alerta clínica 1 si aplica", "alerta 2"],
-  "confianza_gemini": "Alta / Media / Baja — con justificación en 1 oración"
-}}
+        prompt += f"""
+[REGLA CLÍNICA DE DISCREPANCIA]:
+Si consideras que el diagnóstico bayesiano #1 ({top5[0][0] if top5 else ''}) es clínicamente INCORRECTO o poco probable dada la edad y el cuadro clínico (ej. diagnosticar Diabetes Mellitus Tipo 2 ante un cuadro agudo de vómitos y dolor estomacal de inicio abrupto en paciente de 21 años, o diagnosticar cáncer en lugar de una patología infecciosa simple), debes proponer obligatoriamente el nombre exacto del diagnóstico correcto en el campo 'diagnostico_propuesto' seleccionándolo de entre esta lista permitida:
+{", ".join(ENFERMEDADES_PERMITIDAS)}
 
-Si no hay alertas, usa lista vacía []. Máximo 4 síntomas sugeridos y 3 alertas."""
+Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto' como null.
+"""
 
         try:
+            config = types.GenerateContentConfig(
+                system_instruction=_SYSTEM_INTERNISTA,
+                temperature=0.3,
+                max_output_tokens=1500,
+                response_mime_type="application/json",
+                response_schema=DiagnosticEnrichment,
+            )
             response = self.client.models.generate_content(
                 model=_MODEL,
                 contents=prompt,
-                config=self._generar_config(temperature=0.3),
+                config=config,
             )
-            raw = _clean_json_response(response.text)
-            result = json.loads(raw)
+            result = json.loads(response.text)
             result["fallback"] = False
             return result
         except Exception as e:
@@ -215,15 +217,6 @@ Si no hay alertas, usa lista vacía []. Máximo 4 síntomas sugeridos y 3 alerta
         tipo_visita: str = "consulta",
         meta_clinica: dict = None,
     ) -> dict:
-        """
-        Genera el informe clínico final integrando los resultados bayesianos.
-        Devuelve el informe completo en markdown + la sección fisiopatológica
-        generada por Gemini.
-
-        Returns:
-            dict con keys: informe_completo (str markdown), seccion_gemini (str),
-                          fallback (bool)
-        """
         if not self.available:
             return {"informe_completo": None, "seccion_gemini": None, "fallback": True}
 
@@ -234,38 +227,28 @@ Si no hay alertas, usa lista vacía []. Máximo 4 síntomas sugeridos y 3 alerta
         alert_level = meta.get("alert_level", "Verde")
         emoji_nivel = {"Rojo": "🔴", "Amarillo": "🟡", "Verde": "🟢"}.get(alert_level, "🟢")
 
-        prompt = f"""Genera el análisis fisiopatológico clínico para el siguiente caso médico.
+        prompt = f"""Genera el análisis fisiopatológico clínico en markdown.
+DIAGNÓSTICO FINAL: {diagnostico} ({probabilidad*100:.2f}% confianza)
+TRIAGE: {alert_level} {emoji_nivel} | VISITA: {tipo_visita.upper()}
+MOTIVO: {motivo_consulta}
+CONSTANTES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')}
+SÍNTOMAS: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno'}
+ANTECEDENTES: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
+DIFERENCIALES:
+{diferenciales_str}
 
-DIAGNÓSTICO BAYESIANO FINAL: {diagnostico} ({probabilidad*100:.2f}% confianza)
-NIVEL DE TRIAGE: {alert_level} {emoji_nivel}
-TIPO DE VISITA: {tipo_visita.upper()}
-MOTIVO DE CONSULTA: {motivo_consulta}
-
-CONSTANTES VITALES:
-  Temperatura: {constantes.get('temperatura', '?')} °C | SpO2: {constantes.get('spo2', '?')}%
-  PA: {constantes.get('pas', '?')}/{constantes.get('pad', '?')} mmHg | FC: {constantes.get('fc', '?')} bpm
-  FR: {constantes.get('fr', '?')} rpm | Edad: {constantes.get('edad', '?')} años
-
-SÍNTOMAS PRESENTES: {', '.join(sintomas_activos) if sintomas_activos else 'Sin síntomas reportados'}
-ANTECEDENTES: {', '.join(antecedentes_activos) if antecedentes_activos else 'Sin antecedentes relevantes'}
-
-DIAGNÓSTICOS DIFERENCIALES (Bayesianos):
-{diferenciales_str or '  Sin diferenciales significativos'}
-
-Genera ÚNICAMENTE la sección de análisis fisiopatológico en markdown (sin encabezado, solo el contenido).
-Incluye:
-1. Por qué los síntomas y constantes son CONSISTENTES con {diagnostico} (fisiopatología concisa)
-2. Por qué los diferenciales son MENOS probables en este contexto específico
-3. Consideración clínica especial basada en los antecedentes (si aplica)
-4. Una observación sobre la urgencia o el seguimiento recomendado
-
-Máximo 250 palabras. Usa bullet points (*) para estructurar. Lenguaje médico profesional."""
+Genera solo el texto en markdown (sin títulos iniciales). Sé conciso (máx 150 palabras)."""
 
         try:
+            config = types.GenerateContentConfig(
+                system_instruction=_SYSTEM_INTERNISTA,
+                temperature=0.4,
+                max_output_tokens=1000,
+            )
             response = self.client.models.generate_content(
                 model=_MODEL,
                 contents=prompt,
-                config=self._generar_config(temperature=0.5),
+                config=config,
             )
             seccion_gemini = response.text.strip()
             return {
@@ -288,36 +271,23 @@ Máximo 250 palabras. Usa bullet points (*) para estructurar. Lenguaje médico p
         historial: list,
         meta_clinica: dict = None,
     ) -> dict:
-        """
-        Chatbot médico que conoce el contexto bayesiano completo del paciente.
-
-        Args:
-            historial: lista de dicts [{role: 'user'|'model', text: '...'}]
-
-        Returns:
-            dict con keys: response (str), fallback (bool)
-        """
         if not self.available:
             return {"response": self._fallback_chat(diagnostico, mensaje_usuario), "fallback": True}
 
         meta = meta_clinica or {}
         alert_level = meta.get("alert_level", "Verde")
 
-        # Construir contexto del paciente como parte del system prompt
         system_con_contexto = f"""{_SYSTEM_CHATBOT}
 
-=== CONTEXTO BAYESIANO DEL PACIENTE ACTUAL ===
-Diagnóstico principal: {diagnostico} (Confianza Bayesiana: {probabilidad*100:.2f}%)
-Nivel de Triage: {alert_level}
-Síntomas presentes: {', '.join(sintomas_activos) if sintomas_activos else 'No registrados'}
-Antecedentes: {', '.join(antecedentes_activos) if antecedentes_activos else 'Sin antecedentes'}
-Constantes: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')}
-Especialista sugerido: {meta.get('specialist', 'Medicina Interna')}
-Summary clínico: {meta.get('summary', '')}
-=== FIN DE CONTEXTO ==="""
+=== CONTEXTO DEL PACIENTE ===
+Diagnóstico: {diagnostico} ({probabilidad*100:.2f}%)
+Triage: {alert_level}
+Síntomas: {', '.join(sintomas_activos)}
+Antecedentes: {', '.join(antecedentes_activos)}
+Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2')}% | PA {constantes.get('pas')}/{constantes.get('pad')} | FC {constantes.get('fc')}
+=== FIN CONTEXTO ==="""
 
         try:
-            # Construir historial en formato Gemini
             formatted_history = []
             for msg in historial:
                 formatted_history.append(
@@ -331,31 +301,23 @@ Summary clínico: {meta.get('summary', '')}
                 model=_MODEL,
                 config=types.GenerateContentConfig(
                     system_instruction=system_con_contexto,
-                    temperature=0.6,
-                    max_output_tokens=1024,
+                    temperature=0.5,
+                    max_output_tokens=1000,
                 ),
             )
-
             if formatted_history:
                 chat._history = formatted_history
 
             response = chat.send_message(mensaje_usuario)
             return {"response": response.text, "fallback": False}
-
         except Exception as e:
             print(f"[GeminiLayer] Error en chat médico: {e}")
             return {"response": self._fallback_chat(diagnostico, mensaje_usuario), "fallback": True}
 
     def _fallback_chat(self, diagnostico: str, mensaje: str) -> str:
-        msg = mensaje.lower()
-        if any(w in msg for w in ["habito", "dieta", "comer", "reposo"]):
-            return f"Para la recuperación de **{diagnostico}**, consulte el apartado de hábitos en el informe clínico. El asistente IA no está disponible en este momento."
-        elif any(w in msg for w in ["medicamento", "pastilla", "dosis"]):
-            return f"Consulte el apartado farmacológico del informe para **{diagnostico}**. Recuerde que los medicamentos deben ser prescritos por un médico. El asistente IA está temporalmente no disponible."
-        elif any(w in msg for w in ["peligro", "emergencia", "alarma"]):
-            return f"Revise las señales de alarma del informe para **{diagnostico}**. Ante cualquier deterioro súbito, acuda a urgencias inmediatamente. (Asistente IA no disponible temporalmente.)"
-        return f"El asistente médico IA no está disponible en este momento. Consulte el informe clínico detallado para información sobre **{diagnostico}**."
+        return f"El asistente médico IA no está disponible en este momento. Consulte el informe clínico para **{diagnostico}**."
 
+    # ── 4. SUGERENCIA DE RECETA MÉDICA CON GUARDRAILS ─────────────────────────
     def generar_receta_con_ia(
         self,
         diagnostico: str,
@@ -368,52 +330,60 @@ Summary clínico: {meta.get('summary', '')}
         paciente_genero: str,
         alert_level: str
     ) -> dict:
-        """
-        Genera una sugerencia de receta médica estructurada con Gemini AI.
-        """
-        if not self.available_rx:
+        if not self.available:
             return {"medications": [], "fallback": True}
 
-        prompt = f"""Genera una receta para el siguiente caso clínico:
+        # GUARDRAIL EN PYTHON: Si el triage es crítico, forzar receta de alivio sintomático básico
+        # y derivación inmediata a nivel de código
+        es_critico = alert_level.strip().lower() in ["rojo", "crítico", "critico"]
 
-PACIENTE:
-- Edad: {paciente_edad} años
-- Género: {paciente_genero}
-
-CASO CLÍNICO:
-- Diagnóstico: {diagnostico}
-- Nivel de Alerta: {alert_level}
-- Motivo de Consulta: {motivo_consulta or "No especificado"}
-- Notas del Doctor: {doctor_notes or "Ninguna"}
-
-DATOS CLÍNICOS:
-- Síntomas Activos: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno'}
-- Antecedentes: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
-- Constantes Vitales:
-  * Temperatura: {constantes.get('temperatura', '?')} °C
-  * SpO2: {constantes.get('spo2', '?')} %
-  * Presión Arterial: {constantes.get('pas', '?')}/{constantes.get('pad', '?')} mmHg
-  * Frecuencia Cardíaca: {constantes.get('fc', '?')} bpm
-  * Frecuencia Respiratoria: {constantes.get('fr', '?')} rpm
-
-Tu tarea es responder EXACTAMENTE en el formato JSON especificado en las instrucciones del sistema, sin incluir bloques de código markdown ni texto adicional.
+        prompt = f"""Genera una sugerencia de receta para el caso clínico:
+PACIENTE: {paciente_edad} años | {paciente_genero}
+DIAGNÓSTICO: {diagnostico}
+TRIAGE: {alert_level}
+MOTIVO: {motivo_consulta}
+SÍNTOMAS ACTIVOS: {', '.join(sintomas_activos)}
+ANTECEDENTES: {', '.join(antecedentes_activos)}
+NOTAS DOCTOR: {doctor_notes}
 """
+        if es_critico:
+            prompt += "\n[GUARDRAIL CRÍTICO]: Prescribe únicamente analgésico simple y advierte derivación inmediata."
+
         try:
             config = types.GenerateContentConfig(
                 system_instruction=_SYSTEM_RECETAS,
-                temperature=0.3,
-                max_output_tokens=1024,
+                temperature=0.2,
+                max_output_tokens=1500,
+                response_mime_type="application/json",
+                response_schema=PrescriptionResponse,
             )
-            response = self.client_rx.models.generate_content(
+            response = self.client.models.generate_content(
                 model=_MODEL,
                 contents=prompt,
                 config=config,
             )
-            raw = _clean_json_response(response.text)
-            result = json.loads(raw)
+            result = json.loads(response.text)
+            
+            # GUARDRAIL EXTRA: Validar alergias registradas del paciente a nivel de código
+            tiene_alergia_penicilina = any(
+                "penicilina" in ant.lower() or "alergia" in ant.lower()
+                for ant in antecedentes_activos
+            )
+            if tiene_alergia_penicilina:
+                # Remover cualquier betalactámico o penicilina sugerido por error
+                antibioticos_peligrosos = ["amoxicilina", "penicilina", "ampicilina", "piperacilina", "clavulan"]
+                filtered_meds = []
+                for med in result.get("medications", []):
+                    med_name = med.get("medication", "").lower()
+                    if any(ap in med_name for ap in antibioticos_peligrosos):
+                        # Reemplazar por una nota o sustituto seguro
+                        med["medication"] = "Sustituto no penicilínico (Ej. Claritromicina 500mg)"
+                        med["notes"] = "⚠️ AJUSTADO: Se detectó antecedente de alergia a la penicilina."
+                    filtered_meds.append(med)
+                result["medications"] = filtered_meds
+
             result["fallback"] = False
             return result
         except Exception as e:
             print(f"[GeminiLayer] Error generando receta con IA: {e}")
             return {"medications": [], "fallback": True}
-

@@ -89,6 +89,30 @@ def api_diagnose_preliminar():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@diagnostics_bp.route("/api/diagnose/extract-symptoms", methods=["POST"])
+@requires_login
+def api_extract_symptoms():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
+    sub_blocked = _check_subscription()
+    if sub_blocked:
+        return sub_blocked
+
+    data = request.json or {}
+    narrative = data.get("narrative", "").strip()
+    if not narrative:
+        return jsonify({"success": False, "error": "Relato clínico vacío."}), 400
+
+    try:
+        sintomas_estandar = list(engine.P_sintoma.keys())
+        sintomas_detectados = gemini_layer.extraer_sintomas_de_narrativa(narrative, sintomas_estandar)
+        return jsonify({"success": True, "sintomas": sintomas_detectados})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @diagnostics_bp.route("/api/diagnose/gemini-analisis", methods=["POST"])
 @requires_login
 def api_diagnose_gemini_analisis():
@@ -113,6 +137,7 @@ def api_diagnose_gemini_analisis():
     sintomas     = data.get("sintomas", {})
     constantes   = data.get("constantes", {})
     antecedentes = data.get("antecedentes", {})
+    motivo       = data.get("motivo_consulta") or data.get("motivo")
 
     if not probs_bayes:
         return jsonify({"success": False, "error": "Se requieren probabilidades bayesianas."}), 400
@@ -123,8 +148,34 @@ def api_diagnose_gemini_analisis():
             sintomas=sintomas,
             constantes=constantes,
             antecedentes=antecedentes,
+            motivo_consulta=motivo
         )
         return jsonify({"success": True, **resultado})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+@diagnostics_bp.route("/api/diagnose/phase2-calculate", methods=["POST"])
+@requires_login
+def api_diagnose_phase2_calculate():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
+    data = request.json or {}
+    preliminar_probs  = data.get("preliminar_probs", {})
+    tests_resultados  = data.get("tests_resultados", [])
+
+    try:
+        probabilidades, pasos = engine.calcular_diagnostico_final(
+            preliminar_probs, tests_resultados
+        )
+        return jsonify({
+            "success": True,
+            "probabilities": probabilidades,
+            "pasos_calculo": pasos
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -208,8 +259,9 @@ def api_diagnose_final():
             preliminar_probs, tests_resultados
         )
 
-        diagnostico  = max(probabilidades, key=probabilidades.get)
-        probabilidad = probabilidades[diagnostico]
+        diagnostico_top  = max(probabilidades, key=probabilidades.get)
+        diagnostico = data.get("confirmed_diagnosis") or diagnostico_top
+        probabilidad = probabilidades.get(diagnostico, probabilidades[diagnostico_top])
 
         sintomas_activos     = [s for s, pres in sintomas.items() if pres]
         antecedentes_activos = [a for a, pres in antecedentes.items() if pres]
@@ -241,9 +293,15 @@ def api_diagnose_final():
             seccion_gemini_override=seccion_gemini,
         )
 
-        is_refuted = data.get("is_refuted", False)
-        refutation_reason = data.get("refutation_reason")
-        doctor_override_diagnosis = data.get("doctor_override_diagnosis")
+        if diagnostico != diagnostico_top:
+            is_refuted = True
+            doctor_override_diagnosis = diagnostico
+            refutation_reason = data.get("refutation_reason") or "El médico seleccionó este diagnóstico alternativo tras los estudios de Fase 2."
+        else:
+            is_refuted = data.get("is_refuted", False)
+            refutation_reason = data.get("refutation_reason")
+            doctor_override_diagnosis = data.get("doctor_override_diagnosis")
+        
         should_save = data.get("save_diagnosis", False)
 
         if visit_id and should_save:

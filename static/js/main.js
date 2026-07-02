@@ -35,6 +35,8 @@ const ALL_SYMPTOMS = [
   "Pérdida del Olfato o Gusto","Erupciones Cutáneas (Rash)",
   "Náuseas / Vómitos","Diarrea","Dolor Abdominal Agudo",
   "Dolor de Garganta","Dolor de Oído / Cara",
+  "Disuria (Ardor al orinar)","Polaquiuria (Orinar muy seguido)","Dolor Lumbar / Suprapúbico",
+  "Pirosis (Acidez estomacal)","Regurgitación Ácida","Congestión Nasal / Estornudos","Rinorrea (Moqueo)",
 ];
 
 const ALL_ANTECEDENTES = [
@@ -943,6 +945,52 @@ function getCheckedFrom(containerId) {
   return result;
 }
 
+async function extractSymptomsFromNarrative() {
+  const motivo = document.getElementById('diag-motivo')?.value.trim();
+  if (!motivo) {
+    toast('warning', 'Por favor, escribe primero el relato o motivo de consulta del paciente.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-extract-symptoms');
+  setButtonLoading(btn, true, 'Analizando relato...');
+
+  try {
+    const res = await api('POST', '/api/diagnose/extract-symptoms', { narrative: motivo });
+    if (!res.success) {
+      toast('error', res.error || 'Error al extraer síntomas con IA.');
+      return;
+    }
+
+    // Desmarcar todos primero
+    document.querySelectorAll('#symptoms-checkboxes .symptom-toggle').forEach(lbl => {
+      const cb = lbl.querySelector('input[type="checkbox"]');
+      if (cb) cb.checked = false;
+      lbl.classList.remove('checked');
+    });
+
+    // Marcar los que la IA detectó como True
+    let count = 0;
+    document.querySelectorAll('#symptoms-checkboxes .symptom-toggle').forEach(lbl => {
+      const name = lbl.textContent.trim();
+      const cb = lbl.querySelector('input[type="checkbox"]');
+      if (cb && res.sintomas && res.sintomas[name] === true) {
+        cb.checked = true;
+        lbl.classList.add('checked');
+        count++;
+      }
+    });
+
+    toast('success', `Síntomas actualizados por IA (${count} detectados).`);
+  } catch (e) {
+    toast('error', 'Error al llamar a la API de extracción.');
+    console.error(e);
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+
 async function loadDiagnoseTab() {
   updateVitalBadge(null);
   
@@ -1269,6 +1317,8 @@ async function runPhase1() {
 }
 
 async function runGeminiAnalysis(probs) {
+  const sortedBayes = Object.entries(probs).sort(([,a],[,b]) => b - a);
+  const topBayesDiag = sortedBayes[0]?.[0];
   const panel = document.getElementById('gemini-analisis-panel');
   if (!panel) return;
   panel.style.display = '';
@@ -1291,6 +1341,7 @@ async function runGeminiAnalysis(probs) {
       sintomas:      STATE.diagSintomas,
       constantes:    STATE.diagConstantes,
       antecedentes:  STATE.diagAntecedentes,
+      motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
     });
 
     if (!res.success) {
@@ -1331,12 +1382,68 @@ async function runGeminiAnalysis(probs) {
             <strong>Valoración Gemini:</strong> ${res.confianza_gemini}
           </div>
         ` : ''}
+
+        ${res.diagnostico_propuesto && res.diagnostico_propuesto !== topBayesDiag ? `
+          <div class="gemini-correction-banner" style="margin-top:16px; padding:16px; background: rgba(239, 68, 68, 0.15); border: 1px dashed #ef4444; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+              <span style="color:#ef4444; font-weight:bold; font-size:14px; display: flex; align-items: center; gap: 6px;">
+                ⚠️ Discrepancia Clínica Detectada
+              </span>
+              <span style="font-size:13px; color: var(--text);">
+                La IA sugiere cambiar el diagnóstico a: <strong style="color:var(--brand-light);">${res.diagnostico_propuesto}</strong>.
+              </span>
+            </div>
+            <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin: 0; background-color: #ef4444; border-color: #ef4444;" onclick="applyAIDiagnosis('${res.diagnostico_propuesto.replace(/'/g, "\\'")}')">
+              Aplicar Corrección de IA
+            </button>
+          </div>
+        ` : ''}
       </div>
     `;
   } catch(e) {
     panel.innerHTML = '';
   }
 }
+
+function applyAIDiagnosis(newDiag) {
+  if (!newDiag) return;
+  const currentProbs = STATE.phase1Probs || {};
+  const updatedProbs = {};
+  
+  let maxVal = 0.95;
+  for (let k in currentProbs) {
+    updatedProbs[k] = 0.01;
+  }
+  updatedProbs[newDiag] = maxVal;
+  
+  STATE.phase1Probs = updatedProbs;
+  
+  const dd = document.getElementById('phase1-diagnosis-display');
+  if (dd) {
+    dd.innerHTML = `
+      <div class="diagnosis-name" style="color:var(--brand-light)">${newDiag} <span class="badge badge-verde" style="font-size:12px;margin-left:8px;">Sugerido por IA</span></div>
+      <div class="diagnosis-specialist" style="margin-top:6px;">El diagnóstico preliminar ha sido corregido según la sugerencia clínica de la IA.</div>
+    `;
+  }
+  
+  const chart = document.getElementById('phase1-probs-chart');
+  if (chart) {
+    const sorted = Object.entries(updatedProbs).sort(([,a],[,b]) => b - a).slice(0, 10);
+    const max = sorted[0][1];
+    chart.innerHTML = sorted.map(([d, p]) => {
+      const pct  = ((p / max) * 100).toFixed(1);
+      const col  = p > 0.3 ? '#ef4444' : p > 0.1 ? '#f59e0b' : '#3b82f6';
+      return `<div class="prob-row">
+        <div class="prob-name" title="${d}">${d}</div>
+        <div class="prob-track"><div class="prob-fill" style="width:${pct}%;background:${col};"></div></div>
+        <div class="prob-pct">${(p*100).toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+  }
+  
+  toast('success', `Se aplicó la corrección de la IA: ${newDiag}`);
+}
+
 
 function renderPhase1Result(res) {
   const diag = res.diagnosis_preliminar;
@@ -1369,60 +1476,151 @@ function renderPhase1Result(res) {
     </div>`;
   }).join('');
 
-  // Tests sugeridos
+  // Inicializar estudios sugeridos dinámicamente en el estado
+  STATE.selectedTests = (res.tests_sugeridos || []).map(t => ({
+    name: t,
+    done: false,
+    result: ""
+  }));
+
+  // Cargar todos los disponibles en paralelo
+  loadAvailableTestsAndRender();
+}
+
+async function loadAvailableTestsAndRender() {
+  if (!STATE.allAvailableTests || STATE.allAvailableTests.length === 0) {
+    try {
+      const data = await api('GET', '/api/medical_tests');
+      STATE.allAvailableTests = data.success ? data.tests : [];
+    } catch (e) {
+      console.error("Error al obtener estudios médicos:", e);
+      STATE.allAvailableTests = [];
+    }
+  }
+  renderTestsList();
+}
+
+function renderTestsList() {
   const testsForm = document.getElementById('tests-form');
-  if (!res.tests_sugeridos?.length) {
-    testsForm.innerHTML = `<div style="color:var(--text-muted);font-size:13px;">No se requieren análisis adicionales mandatorios.</div>`;
+  if (!testsForm) return;
+  
+  let html = '';
+  
+  if (!STATE.selectedTests || STATE.selectedTests.length === 0) {
+    html += `<div style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">No se requieren análisis adicionales obligatorios. Puedes añadir estudios usando la caja inferior.</div>`;
+  } else {
+    html += STATE.selectedTests.map((t, i) => {
+      const match = (STATE.allAvailableTests || []).find(dbT => dbT.test_name.toLowerCase() === t.name.toLowerCase());
+      const hasPossibleResults = match && match.possible_results && match.possible_results.length > 0;
+      
+      let resultField = '';
+      if (hasPossibleResults) {
+        resultField = `
+          <select class="form-input test-result-select" style="margin:0; width: 100%;" onchange="updateTestState(${i}, 'result', this.value)">
+            <option value="">— Seleccionar Resultado —</option>
+            ${match.possible_results.map(r => `<option value="${r}" ${t.result === r ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
+        `;
+      } else {
+        resultField = `
+          <input type="text" class="form-input test-result-select" style="margin:0; width: 100%;" placeholder="Escriba resultado..." value="${t.result || ''}" oninput="updateTestState(${i}, 'result', this.value)" />
+        `;
+      }
+      
+      return `
+        <div class="test-item" style="display:grid; grid-template-columns: 2.5fr 1.2fr 2fr auto; align-items:center; gap:12px; margin-bottom:12px; padding:10px; background:rgba(255,255,255,0.02); border-radius:6px; border: 1px solid var(--border-color);">
+          <div class="test-name" style="font-weight:600; font-size:13px; color:var(--text); text-align: left;">🔬 ${t.name}</div>
+          <div class="test-done-toggle" style="display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="test-done-${i}" ${t.done ? 'checked' : ''} onchange="updateTestState(${i}, 'done', this.checked)"/>
+            <label for="test-done-${i}" style="margin:0; font-size:12px; cursor:pointer;">¿Realizado?</label>
+          </div>
+          <div id="test-result-wrap-${i}" style="display: ${t.done ? 'block' : 'none'};">
+            ${resultField}
+          </div>
+          <div>
+            <button type="button" class="btn-secondary" style="padding:4px 8px; margin:0; border-color:transparent; background:transparent; color:#ef4444; font-size: 15px;" onclick="removeTestFromList(${i})">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  const addedNames = (STATE.selectedTests || []).map(t => t.name.toLowerCase());
+  const remainingTests = (STATE.allAvailableTests || []).filter(t => !addedNames.includes(t.test_name.toLowerCase()));
+  
+  html += `
+    <div class="add-test-row" style="display:flex; gap:12px; align-items:center; margin-top:16px; padding-top:12px; border-top: 1px dashed var(--border-color);">
+      <select id="select-new-test" class="form-input" style="margin:0; flex: 2;" onchange="handleNewTestSelect(this)">
+        <option value="">— Seleccionar estudio para añadir (+) —</option>
+        ${remainingTests.map(t => `<option value="${t.test_name}">${t.test_name}</option>`).join('')}
+        <option value="__custom__">Otro estudio (escribir)...</option>
+      </select>
+      <input type="text" id="custom-test-name" class="form-input" style="display:none; margin:0; flex: 2;" placeholder="Nombre del estudio..." />
+      <button type="button" class="btn-primary" style="padding: 8px 16px; margin:0; background-color: var(--brand);" onclick="addTestToList()">
+        ➕ Añadir Estudio
+      </button>
+    </div>
+  `;
+  
+  testsForm.innerHTML = html;
+}
+
+function updateTestState(index, key, val) {
+  if (STATE.selectedTests[index]) {
+    STATE.selectedTests[index][key] = val;
+    if (key === 'done') {
+      const wrap = document.getElementById(`test-result-wrap-${index}`);
+      if (wrap) wrap.style.display = val ? 'block' : 'none';
+    }
+  }
+}
+
+function removeTestFromList(index) {
+  STATE.selectedTests.splice(index, 1);
+  renderTestsList();
+}
+
+function handleNewTestSelect(el) {
+  const customInput = document.getElementById('custom-test-name');
+  if (!customInput) return;
+  if (el.value === '__custom__') {
+    customInput.style.display = 'block';
+  } else {
+    customInput.style.display = 'none';
+  }
+}
+
+function addTestToList() {
+  const select = document.getElementById('select-new-test');
+  const customInput = document.getElementById('custom-test-name');
+  if (!select) return;
+  
+  let testName = "";
+  if (select.value === '__custom__') {
+    testName = customInput?.value.trim();
+  } else {
+    testName = select.value;
+  }
+  
+  if (!testName) {
+    toast('warning', 'Selecciona o escribe un nombre de estudio válido.');
     return;
   }
-  testsForm.innerHTML = res.tests_sugeridos.map((t, i) => `
-    <div class="test-item" id="test-item-${i}">
-      <div class="test-name">🔬 ${t}</div>
-      <div class="test-done-toggle">
-        <input type="checkbox" id="test-done-${i}" onchange="onTestDoneToggle(${i})"/>
-        <label for="test-done-${i}">¿Realizado?</label>
-      </div>
-      <div id="test-result-wrap-${i}" style="display:none;">
-        <select class="form-input test-result-select" id="test-result-${i}">
-          <option value="">— Resultado —</option>
-        </select>
-      </div>
-    </div>
-  `).join('');
-
-  // Populsar opciones del motor
-  populateTestResultOptions(res.tests_sugeridos);
-}
-
-
-async function populateTestResultOptions(tests) {
-  const data = await api('GET', '/api/medical_tests');
-  const testsDB = data.success ? data.tests : [];
-
-  tests.forEach((testName, i) => {
-    const wrap = document.getElementById(`test-result-wrap-${i}`);
-    if (!wrap) return;
-
-    const match = testsDB.find(t => {
-      const dbName = t.test_name.toLowerCase();
-      const query = testName.toLowerCase();
-      return query === dbName || query.includes(dbName.split(' ')[0]);
-    });
-
-    if (match && match.possible_results && match.possible_results.length > 0) {
-      wrap.innerHTML = `<select class="form-input test-result-select" id="test-result-${i}">
-        <option value="">— Seleccionar Resultado —</option>
-        ${match.possible_results.map(r => `<option value="${r}">${r}</option>`).join('')}
-      </select>`;
-    } else {
-      wrap.innerHTML = `<input type="text" class="form-input test-result-select" id="test-result-${i}" placeholder="Escriba el resultado del estudio..." />`;
-    }
+  
+  if (STATE.selectedTests.some(t => t.name.toLowerCase() === testName.toLowerCase())) {
+    toast('warning', 'Este estudio ya está en la lista.');
+    return;
+  }
+  
+  STATE.selectedTests.push({
+    name: testName,
+    done: false,
+    result: ""
   });
-}
-
-function onTestDoneToggle(i) {
-  const done = document.getElementById(`test-done-${i}`).checked;
-  document.getElementById(`test-result-wrap-${i}`).style.display = done ? '' : 'none';
+  
+  renderTestsList();
 }
 
 async function runPhase2() {
@@ -1433,7 +1631,6 @@ async function runPhase2() {
   if (!STATE.currentVisitId && patientId) {
     const appIdRaw = document.getElementById('diag-appointment-id')?.value;
     const appointmentId = appIdRaw ? parseInt(appIdRaw) : null;
-    // Crear visita silenciosamente para poder guardar el diagnóstico
     const visitRes = await api('POST', '/api/visits', {
       patient_id: patientId,
       visit_type: 'consulta',
@@ -1450,14 +1647,146 @@ async function runPhase2() {
     STATE.currentVisitId = visitRes.visit_id;
   }
 
-  const testsResultados = STATE.tests.map((t, i) => {
-    const done   = document.getElementById(`test-done-${i}`)?.checked || false;
-    const result = document.getElementById(`test-result-${i}`)?.value || null;
-    return { test_name: t, done, result: done ? result : null };
-  });
+  const testsResultados = (STATE.selectedTests || []).map(t => ({
+    test_name: t.name,
+    done: t.done,
+    result: t.done ? t.result : null
+  }));
 
   const btn = document.getElementById('btn-diag-phase2');
-  setButtonLoading(btn, true, 'Finalizando...');
+  setButtonLoading(btn, true, 'Calculando Fase 2...');
+
+  try {
+    const res = await api('POST', '/api/diagnose/phase2-calculate', {
+      preliminar_probs: STATE.phase1Probs,
+      tests_resultados: testsResultados,
+    });
+
+    if (!res.success) { toast('error', res.error || 'Error al calcular Fase 2.'); return; }
+
+    STATE.finalProbs = res.probabilities;
+    STATE.finalTestsResultados = testsResultados;
+
+    renderPhase2ReviewScreen(res);
+    toast('success', '✅ Fase 2 calculada. Revise y seleccione el diagnóstico final.');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+function renderPhase2ReviewScreen(res) {
+  document.getElementById('phase1-result').style.display = 'none';
+  
+  let reviewPanel = document.getElementById('phase2-review-panel');
+  if (!reviewPanel) {
+    reviewPanel = document.createElement('div');
+    reviewPanel.id = 'phase2-review-panel';
+    reviewPanel.style.marginTop = '24px';
+    const parent = document.getElementById('phase1-result').parentNode;
+    parent.insertBefore(reviewPanel, document.getElementById('phase1-result').nextSibling);
+  }
+  
+  reviewPanel.style.display = '';
+  
+  const sorted = Object.entries(res.probabilities || {}).sort(([,a],[,b]) => b - a);
+  const topDiag = sorted[0]?.[0] || '';
+  const topProb = sorted[0]?.[1] || 0.0;
+  
+  STATE.confirmedDiagnosisSelected = topDiag;
+  
+  let html = `
+    <div class="section-card">
+      <div class="section-header">
+        <h2>⚖️ Revisión del Diagnóstico Final (Fase 2)</h2>
+        <div class="confidence-pill" style="background-color: var(--brand); font-family:var(--mono);">${(topProb * 100).toFixed(2)}%</div>
+      </div>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Los análisis y estudios clínicos han actualizado las probabilidades. Seleccione el diagnóstico final definitivo para generar el informe clínico final y la receta médica:
+      </p>
+      
+      <div class="review-diagnoses-list" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+  `;
+  
+  html += sorted.slice(0, 8).map(([d, p], idx) => {
+    const isChecked = d === topDiag ? 'checked' : '';
+    const pct = (p * 100).toFixed(2);
+    return `
+      <label class="symptom-toggle ${d === topDiag ? 'checked' : ''}" id="review-lbl-${idx}" style="display:flex; align-items:center; justify-content:space-between; padding:12px; border: 1px solid var(--border-color); border-radius:8px; cursor:pointer;" onclick="selectReviewDiagnosis('${d.replace(/'/g, "\\'")}', ${idx}, ${sorted.length + 1})">
+        <div style="display:flex; align-items:center; gap:10px; text-align:left;">
+          <input type="radio" name="review-diagnosis-radio" id="radio-diag-${idx}" value="${d}" ${isChecked} style="margin:0;" />
+          <span style="font-weight:600; font-size:14px; color: var(--text);">${d}</span>
+        </div>
+        <span style="font-family:var(--mono); font-weight:bold; color: var(--brand-light);">${pct}%</span>
+      </label>
+    `;
+  }).join('');
+  
+  html += `
+        <!-- Opción manual -->
+        <label class="symptom-toggle" id="review-lbl-manual" style="display:flex; flex-direction:column; gap:8px; padding:12px; border: 1px solid var(--border-color); border-radius:8px; cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:10px; text-align:left;" onclick="selectReviewDiagnosis('__manual__', 'manual', ${sorted.length + 1})">
+            <input type="radio" name="review-diagnosis-radio" id="radio-diag-manual" value="__manual__" style="margin:0;" />
+            <span style="font-weight:600; font-size:14px; color: var(--text);">Otro diagnóstico (Escribir manualmente)</span>
+          </div>
+          <input type="text" id="custom-final-diagnosis" class="form-input" style="display:none; margin: 4px 0 0 24px;" placeholder="Ej. Síndrome de Intestino Irritable..." oninput="STATE.confirmedDiagnosisSelected = this.value" />
+        </label>
+      </div>
+      
+      <div class="form-actions" style="margin-top:24px; border-top: 1px solid var(--border-color); padding-top:16px; justify-content: flex-end; gap:12px;">
+        <button id="btn-confirm-final" class="btn-primary btn-large" onclick="confirmFinalDiagnosis()">
+          📄 Generar Informe Clínico y Receta
+        </button>
+      </div>
+    </div>
+  `;
+  
+  reviewPanel.innerHTML = html;
+}
+
+function selectReviewDiagnosis(diag, idx, total) {
+  for (let i = 0; i < total; i++) {
+    const lbl = document.getElementById(`review-lbl-${i}`);
+    if (lbl) lbl.classList.remove('checked');
+    const rd = document.getElementById(`radio-diag-${i}`);
+    if (rd) rd.checked = false;
+  }
+  const lblManual = document.getElementById('review-lbl-manual');
+  if (lblManual) lblManual.classList.remove('checked');
+  const rdManual = document.getElementById('radio-diag-manual');
+  if (rdManual) rdManual.checked = false;
+  
+  const customInput = document.getElementById('custom-final-diagnosis');
+  if (customInput) customInput.style.display = 'none';
+
+  if (diag === '__manual__') {
+    if (lblManual) lblManual.classList.add('checked');
+    if (rdManual) rdManual.checked = true;
+    if (customInput) {
+      customInput.style.display = 'block';
+      STATE.confirmedDiagnosisSelected = customInput.value.trim();
+    }
+  } else {
+    const activeLbl = document.getElementById(`review-lbl-${idx}`);
+    if (activeLbl) activeLbl.classList.add('checked');
+    const activeRd = document.getElementById(`radio-diag-${idx}`);
+    if (activeRd) activeRd.checked = true;
+    STATE.confirmedDiagnosisSelected = diag;
+  }
+}
+
+async function confirmFinalDiagnosis() {
+  const diag = STATE.confirmedDiagnosisSelected;
+  if (!diag) {
+    toast('warning', 'Por favor, seleccione o ingrese un diagnóstico final.');
+    return;
+  }
+
+  const patientId      = STATE.currentPatient?.id;
+  const patientName    = document.getElementById('diag-patient-name').value.trim() || 'Paciente Anónimo';
+  const motivoConsulta = document.getElementById('diag-motivo').value.trim() || 'Sin especificar';
+  
+  const btn = document.getElementById('btn-confirm-final');
+  setButtonLoading(btn, true, 'Generando reporte e informe...');
 
   try {
     const res = await api('POST', '/api/diagnose/final', {
@@ -1466,20 +1795,29 @@ async function runPhase2() {
       motivo_consulta: motivoConsulta,
       visit_id:        STATE.currentVisitId,
       preliminar_probs: STATE.phase1Probs,
-      tests_resultados: testsResultados,
+      tests_resultados: STATE.finalTestsResultados,
       sintomas:        STATE.diagSintomas,
       antecedentes:    STATE.diagAntecedentes,
       constantes:      STATE.diagConstantes,
+      confirmed_diagnosis: diag,
+      save_diagnosis:  false
     });
 
-    if (!res.success) { toast('error', res.error || 'Error en diagnóstico final.'); return; }
+    if (!res.success) {
+      toast('error', res.error || 'Error al confirmar diagnóstico final.');
+      return;
+    }
 
-    // Guardar datos temporalmente para la decisión final
     STATE.finalDiagnosisRes = res;
-    STATE.finalTestsResultados = testsResultados;
+    
+    const reviewPanel = document.getElementById('phase2-review-panel');
+    if (reviewPanel) reviewPanel.style.display = 'none';
 
     renderFinalResult(res);
-    toast('success', '✅ Diagnóstico final calculado. Verifique y finalice la consulta.');
+    toast('success', '✅ Informe generado. Revise las indicaciones y finalice la consulta para guardar.');
+  } catch (e) {
+    toast('error', 'Error en la conexión con el servidor.');
+    console.error(e);
   } finally {
     setButtonLoading(btn, false);
   }
@@ -1523,6 +1861,7 @@ async function saveFinalDecision(createPrescription) {
       sintomas: STATE.diagSintomas,
       antecedentes: STATE.diagAntecedentes,
       constantes: STATE.diagConstantes,
+      confirmed_diagnosis: STATE.confirmedDiagnosisSelected || null,
       save_diagnosis: true,
       is_refuted: isRefuted,
       refutation_reason: refutationReason,
@@ -1534,10 +1873,12 @@ async function saveFinalDecision(createPrescription) {
       return;
     }
 
-    // Marcar la cita como completada
-    const appId = document.getElementById('diag-appointment-id')?.value;
-    if (appId) {
-      api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+    // Marcar la cita como completada solo si no va a crear receta
+    if (!createPrescription) {
+      const appId = document.getElementById('diag-appointment-id')?.value;
+      if (appId) {
+        api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+      }
     }
 
     toast('success', 'Consulta finalizada con éxito.');
@@ -2296,6 +2637,12 @@ async function savePrescription() {
     
     if (successCount === STATE.rxList.length) {
       toast('success', 'Receta guardada correctamente en el historial.');
+      
+      const appId = document.getElementById('diag-appointment-id')?.value;
+      if (appId) {
+        api('POST', `/api/appointments/${appId}/status`, { status: 'completada' });
+      }
+      
       closeModal('modal-prescription');
       openModal('modal-prescription-success');
     } else {

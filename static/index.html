@@ -300,8 +300,13 @@
                 <input type="text" id="diag-patient-name" class="form-input" disabled/>
               </div>
               <div class="form-group">
-                <label class="form-label">Motivo de Consulta</label>
-                <input type="text" id="diag-motivo" class="form-input" placeholder="Dolor de cabeza intenso, dificultad para respirar..."/>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <label class="form-label" style="margin: 0;">Motivo de Consulta / Relato del Paciente</label>
+                  <button type="button" id="btn-extract-symptoms" class="btn-primary" style="padding: 4px 10px; font-size: 0.8rem; margin: 0; background-color: var(--brand);" onclick="extractSymptomsFromNarrative()">
+                    ✨ Auto-detectar Síntomas con IA
+                  </button>
+                </div>
+                <textarea id="diag-motivo" class="form-input" rows="3" placeholder="Paciente relata dolor de cabeza intenso luego de estar mucho tiempo bajo el sol, con náuseas y mareos..."></textarea>
               </div>
               <div class="form-group" style="margin-top:16px;">
                 <label class="form-label">Anotaciones Médicas de la Consulta (Opcional)</label>

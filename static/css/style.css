@@ -1151,10 +1151,12 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .vital-val-input::-webkit-outer-spin-button,
 .vital-val-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 .vital-val-input[type=number] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Sidebar Reorder Editor styles */
