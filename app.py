@@ -58,6 +58,11 @@ app.register_blueprint(documents_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(billing_bp)
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    from database import close_all_thread_connections
+    close_all_thread_connections()
+
 if __name__ == "__main__":
     print("Iniciando base de datos...")
     initialize_database()

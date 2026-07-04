@@ -5,6 +5,7 @@ Gestiona todas las operaciones con SQL Server via pyodbc.
 import os
 import json
 import pyodbc
+import threading
 from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -18,9 +19,27 @@ SQLSERVER_CONN = os.environ.get(
 MAX_LOGIN_ATTEMPTS = 5    # Intentos antes del bloqueo
 LOCKOUT_MINUTES    = 15   # Minutos de bloqueo
 
+_local_data = threading.local()
 
 def get_connection() -> pyodbc.Connection:
-    return pyodbc.connect(SQLSERVER_CONN, autocommit=True)
+    conn = pyodbc.connect(SQLSERVER_CONN, autocommit=True)
+    if not hasattr(_local_data, "connections"):
+        _local_data.connections = []
+    _local_data.connections.append(conn)
+    return conn
+
+def close_all_thread_connections():
+    """
+    Cierra de forma segura todas las conexiones de base de datos creadas
+    en el hilo actual. Se utiliza en el teardown de Flask para evitar fugas.
+    """
+    if hasattr(_local_data, "connections"):
+        for conn in _local_data.connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        _local_data.connections.clear()
 
 
 def rows_to_dicts(cursor: pyodbc.Cursor) -> list:

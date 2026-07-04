@@ -30,7 +30,7 @@ def api_pdf_prescription(visit_id):
     return send_file(
         io.BytesIO(pdf_bytes),
         mimetype="application/pdf",
-        as_attachment=True,
+        as_attachment=False,
         download_name=f"receta_visita_{visit_id}.pdf"
     )
 
@@ -51,7 +51,7 @@ def api_pdf_lab_order(visit_id):
     return send_file(
         io.BytesIO(pdf_bytes),
         mimetype="application/pdf",
-        as_attachment=True,
+        as_attachment=False,
         download_name=f"orden_lab_visita_{visit_id}.pdf"
     )
 
@@ -76,7 +76,7 @@ def api_pdf_schedule():
     return send_file(
         io.BytesIO(pdf_bytes),
         mimetype="application/pdf",
-        as_attachment=True,
+        as_attachment=False,
         download_name=f"agenda_{day_str}.pdf"
     )
 
@@ -146,7 +146,7 @@ def api_pdf_invoice(invoice_id):
     return send_file(
         io.BytesIO(pdf_bytes),
         mimetype="application/pdf",
-        as_attachment=True,
+        as_attachment=False,
         download_name=f"factura_{invoice.get('encf') or invoice_id}.pdf"
     )
 

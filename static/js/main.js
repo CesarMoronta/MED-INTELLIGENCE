@@ -1511,21 +1511,17 @@ function renderTestsList() {
   } else {
     html += STATE.selectedTests.map((t, i) => {
       const match = (STATE.allAvailableTests || []).find(dbT => dbT.test_name.toLowerCase() === t.name.toLowerCase());
-      const hasPossibleResults = match && match.possible_results && match.possible_results.length > 0;
+      const defaultResults = ["Normal", "Alto", "Bajo", "Positivo", "Negativo"];
+      const possibleResults = (match && match.possible_results && match.possible_results.length > 0)
+        ? match.possible_results
+        : defaultResults;
       
-      let resultField = '';
-      if (hasPossibleResults) {
-        resultField = `
-          <select class="form-input test-result-select" style="margin:0; width: 100%;" onchange="updateTestState(${i}, 'result', this.value)">
-            <option value="">— Seleccionar Resultado —</option>
-            ${match.possible_results.map(r => `<option value="${r}" ${t.result === r ? 'selected' : ''}>${r}</option>`).join('')}
-          </select>
-        `;
-      } else {
-        resultField = `
-          <input type="text" class="form-input test-result-select" style="margin:0; width: 100%;" placeholder="Escriba resultado..." value="${t.result || ''}" oninput="updateTestState(${i}, 'result', this.value)" />
-        `;
-      }
+      const resultField = `
+        <select class="form-input test-result-select" style="margin:0; width: 100%;" onchange="updateTestState(${i}, 'result', this.value)">
+          <option value="">— Seleccionar Resultado —</option>
+          ${possibleResults.map(r => `<option value="${r}" ${t.result === r ? 'selected' : ''}>${r}</option>`).join('')}
+        </select>
+      `;
       
       return `
         <div class="test-item" style="display:grid; grid-template-columns: 2.5fr 1.2fr 2fr auto; align-items:center; gap:12px; margin-bottom:12px; padding:10px; background:rgba(255,255,255,0.02); border-radius:6px; border: 1px solid var(--border-color);">
@@ -3810,6 +3806,14 @@ async function openMyAccountModal() {
 
 let paypalSdkLoaded = false;
 
+function sanitize_dgii_url(url) {
+  if (!url) return url;
+  if (url.includes("fc.dgii.gov.do") && !url.includes("consultatimbrefc")) {
+    return url.replace("fc.dgii.gov.do", "ecf.dgii.gov.do");
+  }
+  return url;
+}
+
 async function loadPayPalSdk(clientId) {
   if (paypalSdkLoaded || window.paypal) {
     return Promise.resolve();
@@ -4167,9 +4171,11 @@ function renderBillingHistory(invoices) {
     const paymentMethodText = i.payment_method === 'tarjeta' ? '💳 Tarjeta' : '💵 Efectivo';
     
     // Links de acciones
+    const pdfLink = `<a href="/api/pdf/invoice/${i.id}" target="_blank" class="btn-icon" title="Ver Factura PDF" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></a>`;
+
     const dgiiLink = i.dgii_url 
       ? `<a href="${i.dgii_url}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
-      : '—';
+      : '';
 
     // Credit Note Button E34
     // E34 can be applied if tipo_ecf starts with E31 or E32 (or is null/empty for legacy consultations) and it is not already a credit note and has not been cancelled yet
@@ -4200,6 +4206,7 @@ function renderBillingHistory(invoices) {
         <td style="font-weight:600; color:${i.total < 0 || i.is_cancelled ? 'var(--red)' : 'var(--text-primary)'}; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
         <td>
           <div style="display:flex; gap:8px; align-items:center;">
+            ${pdfLink}
             ${dgiiLink}
             ${creditNoteBtn}
           </div>
@@ -4611,6 +4618,79 @@ function selectDoctorForAppointment(id, name) {
   document.getElementById('app-doctor').value = id;
   document.getElementById('app-doctor-name').value = name;
   closeModal('modal-search-doctor-app');
+}
+
+// ─── CALCULADORA DE APOYO (NOTA DE CRÉDITO) ──────────────────────────────────
+let calcExpression = '';
+let calcResultCalculated = false;
+
+function pressCalc(val) {
+  const display = document.getElementById('calc-display');
+  const history = document.getElementById('calc-history');
+  if (!display) return;
+
+  if (val === 'C') {
+    calcExpression = '';
+    display.textContent = '0';
+    history.textContent = '';
+    calcResultCalculated = false;
+  } else if (val === 'DEL') {
+    if (calcResultCalculated) {
+      calcExpression = '';
+      display.textContent = '0';
+      history.textContent = '';
+      calcResultCalculated = false;
+    } else {
+      calcExpression = calcExpression.slice(0, -1);
+      display.textContent = calcExpression || '0';
+    }
+  } else if (val === '=') {
+    try {
+      if (!calcExpression) return;
+      const cleanExpr = calcExpression.replace(/×/g, '*').replace(/÷/g, '/');
+      // Evaluación matemática segura: solo permitimos números, operadores básicos y paréntesis
+      if (/^[0-9.+\-*/\s()]+$/.test(cleanExpr)) {
+        const res = new Function(`return (${cleanExpr})`)();
+        history.textContent = calcExpression + ' =';
+        display.textContent = Number(res.toFixed(4)).toString();
+        calcExpression = display.textContent;
+        calcResultCalculated = true;
+      } else {
+        display.textContent = 'Error';
+        calcExpression = '';
+      }
+    } catch (e) {
+      display.textContent = 'Error';
+      calcExpression = '';
+    }
+  } else {
+    if (calcResultCalculated) {
+      if (['+', '-', '*', '/'].includes(val)) {
+        calcResultCalculated = false;
+      } else {
+        calcExpression = '';
+        calcResultCalculated = false;
+      }
+    }
+    // Evitar acumulaciones inválidas como operadores consecutivos
+    if (['+', '-', '*', '/'].includes(val) && ['+', '-', '*', '/'].includes(calcExpression.slice(-1))) {
+      calcExpression = calcExpression.slice(0, -1);
+    }
+    calcExpression += val;
+    display.textContent = calcExpression;
+  }
+}
+
+function applyCalcToAmount() {
+  const display = document.getElementById('calc-display');
+  const amountInput = document.getElementById('cn-credit-amount');
+  if (!display || !amountInput) return;
+  const val = parseFloat(display.textContent);
+  if (!isNaN(val) && val >= 0) {
+    amountInput.value = val.toFixed(2);
+    // Disparar evento change si es necesario para lógica reactiva
+    amountInput.dispatchEvent(new Event('input'));
+  }
 }
 
 

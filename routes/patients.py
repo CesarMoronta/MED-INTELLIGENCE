@@ -137,8 +137,9 @@ def api_consultar_cedula(cedula):
     if len(cedula_clean) != 11 or not cedula_clean.isdigit():
         return jsonify({"success": False, "error": "La cédula debe tener exactamente 11 dígitos."}), 400
 
-    BASE_URL = "https://ecf-platform-backend-50801509587.us-central1.run.app"
-    API_KEY  = "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe"
+    import os
+    BASE_URL = os.environ.get("DGII_JCE_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
+    API_KEY  = os.environ.get("DGII_JCE_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
 
     url = f"{BASE_URL}/api/v1/dgii/jce?cedula={cedula_clean}"
     headers = {
@@ -182,8 +183,9 @@ def api_consultar_rnc(rnc):
     if len(rnc_clean) not in [9, 11] or not rnc_clean.isdigit():
         return jsonify({"success": False, "error": "El RNC/Cédula debe tener 9 u 11 dígitos."}), 400
 
-    BASE_URL = "https://ecf-platform-backend-50801509587.us-central1.run.app"
-    API_KEY  = "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe"
+    import os
+    BASE_URL = os.environ.get("DGII_JCE_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
+    API_KEY  = os.environ.get("DGII_JCE_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
 
     url = f"{BASE_URL}/api/v1/dgii/rnc?value={rnc_clean}"
     headers = {

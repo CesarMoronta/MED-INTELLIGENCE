@@ -46,13 +46,38 @@ def api_diagnose_preliminar():
     sintomas     = data.get("sintomas", {})
     constantes   = data.get("constantes", {})
 
-    edad        = int(constantes.get("edad") or data.get("edad") or 30)
-    temperatura = float(constantes.get("temperatura") or data.get("temperatura") or 37.0)
-    spo2        = int(constantes.get("spo2") or data.get("spo2") or 98)
-    pas         = int(constantes.get("pas") or data.get("pas") or 120)
-    pad         = int(constantes.get("pad") or data.get("pad") or 80)
-    fc          = int(constantes.get("fc") or data.get("fc") or 80)
-    fr          = int(constantes.get("fr") or data.get("fr") or 16)
+    def safe_int(val, default):
+        if val is None or val == "":
+            return default
+        try:
+            return int(float(val))
+        except (ValueError, TypeError):
+            return default
+
+    def safe_float(val, default):
+        if val is None or val == "":
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    edad        = safe_int(constantes.get("edad") or data.get("edad"), 30)
+    temperatura = safe_float(constantes.get("temperatura") or data.get("temperatura"), 37.0)
+    spo2        = safe_int(constantes.get("spo2") or data.get("spo2"), 98)
+    pas         = safe_int(constantes.get("pas") or data.get("pas"), 120)
+    pad         = safe_int(constantes.get("pad") or data.get("pad"), 80)
+    fc          = safe_int(constantes.get("fc") or data.get("fc"), 80)
+    fr          = safe_int(constantes.get("fr") or data.get("fr"), 16)
+
+    # Validar rangos clínicos básicos para evitar cómputos insensatos
+    edad        = max(0, min(edad, 125))
+    temperatura = max(30.0, min(temperatura, 45.0))
+    spo2        = max(0, min(spo2, 100))
+    pas         = max(30, min(pas, 280))
+    pad         = max(10, min(pad, 180))
+    fc          = max(0, min(fc, 300))
+    fr          = max(0, min(fr, 100))
 
     constantes_dict = {
         "edad": edad, "temperatura": temperatura, "spo2": spo2,
@@ -198,7 +223,33 @@ def api_diagnose_final():
     tests_resultados  = data.get("tests_resultados", [])
     sintomas          = data.get("sintomas", {})
     antecedentes      = data.get("antecedentes", {})
-    constantes        = data.get("constantes", {})
+    constantes_raw    = data.get("constantes", {})
+
+    def safe_int(val, default):
+        if val is None or val == "":
+            return default
+        try:
+            return int(float(val))
+        except (ValueError, TypeError):
+            return default
+
+    def safe_float(val, default):
+        if val is None or val == "":
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    constantes = {
+        "edad": safe_int(constantes_raw.get("edad"), 30),
+        "temperatura": safe_float(constantes_raw.get("temperatura"), 37.0),
+        "spo2": safe_int(constantes_raw.get("spo2"), 98),
+        "pas": safe_int(constantes_raw.get("pas"), 120),
+        "pad": safe_int(constantes_raw.get("pad"), 80),
+        "fc": safe_int(constantes_raw.get("fc"), 80),
+        "fr": safe_int(constantes_raw.get("fr"), 16)
+    }
 
     try:
         # Verificar si tiene suscripción activa o si requiere modo manual

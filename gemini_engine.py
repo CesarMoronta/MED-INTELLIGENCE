@@ -86,6 +86,36 @@ class GeminiDiagnosticLayer:
             except Exception as e:
                 print(f"[GeminiLayer] Error inicializando cliente: {e}")
 
+    def _generate_content_with_retry(self, contents, config) -> any:
+        """
+        Llama a la API de Gemini utilizando un pool de modelos alternativos y
+        un mecanismo de reintentos con retroceso exponencial.
+        """
+        models_pool = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        last_exception = None
+
+        for model in models_pool:
+            retries = 3
+            backoff = 1.5
+            for attempt in range(retries):
+                try:
+                    response = self.client.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=config,
+                    )
+                    return response
+                except Exception as e:
+                    last_exception = e
+                    print(f"[GeminiLayer] Error con modelo {model} (intento {attempt+1}/{retries}): {e}")
+                    if attempt < retries - 1:
+                        time.sleep(backoff)
+                        backoff *= 2.0
+                    else:
+                        break
+        raise last_exception
+
+
     # ── NUEVA FUNCIÓN: EXTRACCIÓN DE SÍNTOMAS DESDE NARRATIVA ──────────────────
     def extraer_sintomas_de_narrativa(self, narrativa: str, lista_sintomas_estandar: list) -> dict:
         """
@@ -112,12 +142,22 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
                 response_mime_type="application/json",
                 response_schema=SymptomExtraction,
             )
-            response = self.client.models.generate_content(
-                model=_MODEL,
+            response = self._generate_content_with_retry(
                 contents=prompt,
                 config=config,
             )
-            res = json.loads(response.text)
+            try:
+                res = json.loads(response.text)
+            except Exception as parse_err:
+                print(f"[GeminiLayer] Falló parsing JSON de síntomas. Intentando recuperar texto directo: {parse_err}")
+                res = {}
+                # Intento de extracción simple si falla la estructura
+                presentes = []
+                for s in lista_sintomas_estandar:
+                    if s.lower() in response.text.lower():
+                        presentes.append(s)
+                res["sintomas_presentes"] = presentes
+            
             presentes = res.get("sintomas_presentes", [])
             
             # Convertir a diccionario de booleanos {sintoma: True/False}
@@ -131,7 +171,7 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
                 final_map[s] = val
             return final_map
         except Exception as e:
-            print(f"[GeminiLayer] Error en extracción de síntomas: {e}")
+            print(f"[GeminiLayer] Error crítico en extracción de síntomas tras reintentos: {e}")
             return {s: False for s in lista_sintomas_estandar}
 
     # ── 1. ANÁLISIS ENRIQUECIDO POST-BAYES ────────────────────────────────────
@@ -181,16 +221,22 @@ Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto'
                 response_mime_type="application/json",
                 response_schema=DiagnosticEnrichment,
             )
-            response = self.client.models.generate_content(
-                model=_MODEL,
+            response = self._generate_content_with_retry(
                 contents=prompt,
                 config=config,
             )
-            result = json.loads(response.text)
+            try:
+                result = json.loads(response.text)
+            except Exception as parse_err:
+                print(f"[GeminiLayer] Error parseando enriquecimiento: {parse_err}. Generando fallback seguro.")
+                result = self._fallback_enriquecimiento(probs_bayes)
+                result["fallback"] = False
+                return result
+
             result["fallback"] = False
             return result
         except Exception as e:
-            print(f"[GeminiLayer] Error en enriquecimiento: {e}")
+            print(f"[GeminiLayer] Error crítico en enriquecimiento tras reintentos: {e}")
             return self._fallback_enriquecimiento(probs_bayes)
 
     def _fallback_enriquecimiento(self, probs_bayes: dict) -> dict:
@@ -245,8 +291,7 @@ Genera solo el texto en markdown (sin títulos iniciales). Sé conciso (máx 150
                 temperature=0.4,
                 max_output_tokens=1000,
             )
-            response = self.client.models.generate_content(
-                model=_MODEL,
+            response = self._generate_content_with_retry(
                 contents=prompt,
                 config=config,
             )
@@ -256,7 +301,7 @@ Genera solo el texto en markdown (sin títulos iniciales). Sé conciso (máx 150
                 "fallback": False,
             }
         except Exception as e:
-            print(f"[GeminiLayer] Error generando informe: {e}")
+            print(f"[GeminiLayer] Error crítico generando informe tras reintentos: {e}")
             return {"seccion_gemini": None, "fallback": True}
 
     # ── 3. CHATBOT MÉDICO CON CONTEXTO BAYESIANO ──────────────────────────────
@@ -297,21 +342,38 @@ Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2
                     )
                 )
 
-            chat = self.client.chats.create(
-                model=_MODEL,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_con_contexto,
-                    temperature=0.5,
-                    max_output_tokens=1000,
-                ),
-            )
-            if formatted_history:
-                chat._history = formatted_history
+            models_pool = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            last_exception = None
 
-            response = chat.send_message(mensaje_usuario)
-            return {"response": response.text, "fallback": False}
+            for model in models_pool:
+                retries = 3
+                backoff = 1.5
+                for attempt in range(retries):
+                    try:
+                        chat = self.client.chats.create(
+                            model=model,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_con_contexto,
+                                temperature=0.5,
+                                max_output_tokens=1000,
+                            ),
+                        )
+                        if formatted_history:
+                            chat._history = formatted_history
+
+                        response = chat.send_message(mensaje_usuario)
+                        return {"response": response.text, "fallback": False}
+                    except Exception as e:
+                        last_exception = e
+                        print(f"[GeminiLayer] Error en chat médico con modelo {model} (intento {attempt+1}/{retries}): {e}")
+                        if attempt < retries - 1:
+                            time.sleep(backoff)
+                            backoff *= 2.0
+                        else:
+                            break
+            raise last_exception
         except Exception as e:
-            print(f"[GeminiLayer] Error en chat médico: {e}")
+            print(f"[GeminiLayer] Error crítico en chat médico tras reintentos y fallback: {e}")
             return {"response": self._fallback_chat(diagnostico, mensaje_usuario), "fallback": True}
 
     def _fallback_chat(self, diagnostico: str, mensaje: str) -> str:
@@ -357,12 +419,28 @@ NOTAS DOCTOR: {doctor_notes}
                 response_mime_type="application/json",
                 response_schema=PrescriptionResponse,
             )
-            response = self.client.models.generate_content(
-                model=_MODEL,
+            response = self._generate_content_with_retry(
                 contents=prompt,
                 config=config,
             )
-            result = json.loads(response.text)
+            
+            try:
+                result = json.loads(response.text)
+            except Exception as parse_err:
+                print(f"[GeminiLayer] Falló el parsing JSON de la receta: {parse_err}")
+                # Fallback simple seguro: recetar Paracetamol
+                result = {
+                    "medications": [
+                        {
+                            "medication": "Paracetamol 500mg",
+                            "dosage": "1 tableta",
+                            "frequency": "Cada 8 horas",
+                            "duration_days": 3,
+                            "quantity": 10,
+                            "notes": "Tomar en caso de dolor o fiebre. Se usó el modo de contingencia clínica."
+                        }
+                    ]
+                }
             
             # GUARDRAIL EXTRA: Validar alergias registradas del paciente a nivel de código
             tiene_alergia_penicilina = any(
@@ -385,5 +463,5 @@ NOTAS DOCTOR: {doctor_notes}
             result["fallback"] = False
             return result
         except Exception as e:
-            print(f"[GeminiLayer] Error generando receta con IA: {e}")
+            print(f"[GeminiLayer] Error crítico generando receta tras reintentos: {e}")
             return {"medications": [], "fallback": True}

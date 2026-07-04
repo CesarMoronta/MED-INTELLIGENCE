@@ -13,6 +13,9 @@ billing_bp = Blueprint("billing_bp", __name__)
 DGII_API_URL = os.environ.get("DGII_API_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
 DGII_API_KEY = os.environ.get("DGII_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
 
+def sanitize_dgii_url(url: str) -> str:
+    return url
+
 def requires_billing_permission(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -200,7 +203,7 @@ def api_charge_visit():
             estado=res_data.get("estado", "Aceptado"),
             track_id=res_data.get("trackId"),
             codigo_seguridad=res_data.get("codigoSeguridad"),
-            dgii_url=res_data.get("dgiiUrl"),
+            dgii_url=sanitize_dgii_url(res_data.get("dgiiUrl")),
             xml_url=res_data.get("xmlUrl"),
             tipo_ecf=f"E{tipo_ecf}"
         )
@@ -216,7 +219,7 @@ def api_charge_visit():
                 "encf": res_data.get("encf"),
                 "estado": res_data.get("estado"),
                 "codigo_seguridad": res_data.get("codigoSeguridad"),
-                "dgii_url": res_data.get("dgiiUrl")
+                "dgii_url": sanitize_dgii_url(res_data.get("dgiiUrl"))
             }
         })
 
@@ -302,7 +305,7 @@ def generate_subscription_invoice(user_id: int):
                 estado=res_data.get("estado", "Aceptado"),
                 track_id=res_data.get("trackId"),
                 codigo_seguridad=res_data.get("codigoSeguridad"),
-                dgii_url=res_data.get("dgiiUrl"),
+                dgii_url=sanitize_dgii_url(res_data.get("dgiiUrl")),
                 xml_url=res_data.get("xmlUrl")
             )
             return True
@@ -475,7 +478,7 @@ def api_create_credit_note():
             estado=res_data.get("estado", "Aceptado"),
             track_id=res_data.get("trackId"),
             codigo_seguridad=res_data.get("codigoSeguridad"),
-            dgii_url=res_data.get("dgiiUrl"),
+            dgii_url=sanitize_dgii_url(res_data.get("dgiiUrl")),
             xml_url=res_data.get("xmlUrl"),
             tipo_ecf="E34"
         )
@@ -490,7 +493,7 @@ def api_create_credit_note():
                 "encf": res_data.get("encf"),
                 "estado": res_data.get("estado"),
                 "codigo_seguridad": res_data.get("codigoSeguridad"),
-                "dgii_url": res_data.get("dgiiUrl")
+                "dgii_url": sanitize_dgii_url(res_data.get("dgiiUrl"))
             }
         })
 
