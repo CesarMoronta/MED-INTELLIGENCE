@@ -111,11 +111,16 @@ BEGIN
         blood_type      NVARCHAR(5)         NULL,
         registered_by   INT                 NULL,   -- FK → users(id)
         photo_url       NVARCHAR(MAX)       NULL,
+        vital_status    NVARCHAR(20)        NOT NULL DEFAULT 'Vivo',
+        death_date      DATE                NULL,
+        death_certificate_url NVARCHAR(MAX) NULL,
+        death_notes     NVARCHAR(MAX)       NULL,
         created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_patients          PRIMARY KEY (id),
         CONSTRAINT UQ_patients_cedula   UNIQUE (cedula),
         CONSTRAINT CK_patients_gender   CHECK (gender IN ('Masculino','Femenino','Otro')),
+        CONSTRAINT CK_patients_vital_status CHECK (vital_status IN ('Vivo', 'Fallecido')),
         CONSTRAINT FK_patients_user     FOREIGN KEY (registered_by)
             REFERENCES dbo.users(id) ON DELETE SET NULL
     );
@@ -444,6 +449,9 @@ BEGIN
         itbis               DECIMAL(10,2)       NOT NULL,
         total               DECIMAL(10,2)       NOT NULL,
         payment_method      NVARCHAR(20)        NOT NULL,
+        amount_paid         DECIMAL(10,2)       NOT NULL DEFAULT 0,
+        balance_due         DECIMAL(10,2)       NOT NULL DEFAULT 0,
+        due_date            DATE                NULL,
         ecf_id              NVARCHAR(100)       NULL,
         encf                NVARCHAR(50)        NULL,
         estado              NVARCHAR(50)        NOT NULL DEFAULT 'Pendiente',
@@ -480,6 +488,10 @@ SELECT
     p.created_at,
     p.updated_at,
     p.photo_url,
+    p.vital_status,
+    p.death_date,
+    p.death_certificate_url,
+    p.death_notes,
     DATEDIFF(YEAR, p.dob, GETDATE())
         - CASE WHEN MONTH(p.dob) > MONTH(GETDATE())
                 OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE()))
@@ -775,12 +787,16 @@ CREATE PROCEDURE dbo.sp_create_patient
     @phone          NVARCHAR(30)  = NULL,
     @blood_type     NVARCHAR(5)   = NULL,
     @registered_by  INT           = NULL,
-    @photo_url      NVARCHAR(MAX) = NULL
+    @photo_url      NVARCHAR(MAX) = NULL,
+    @vital_status   NVARCHAR(20)  = 'Vivo',
+    @death_date     DATE          = NULL,
+    @death_certificate_url NVARCHAR(MAX) = NULL,
+    @death_notes    NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by, photo_url)
-    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by, @photo_url);
+    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by, photo_url, vital_status, death_date, death_certificate_url, death_notes)
+    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by, @photo_url, @vital_status, @death_date, @death_certificate_url, @death_notes);
     SELECT SCOPE_IDENTITY() AS patient_id;
 END
 GO

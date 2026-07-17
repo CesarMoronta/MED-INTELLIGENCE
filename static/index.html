@@ -716,6 +716,125 @@
       </div>
     </div>
 
+    <!-- Consultas y Reportes -->
+    <div class="tab-panel" id="tab-reports">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Consultas y Reportes</h1>
+          <p class="page-subtitle">Generación de informes de gestión, clínicos y de auditoría</p>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h2>📊 Filtros de Reporte</h2>
+        </div>
+        <div class="form-row" style="align-items: flex-end; gap: 16px; flex-wrap: wrap; display: flex;">
+          <div class="form-group" id="reports-filter-doctor" style="display: none; flex: 1; min-width: 200px;">
+            <label class="form-label" for="reports-doctor-select">Doctor</label>
+            <select id="reports-doctor-select" class="form-input">
+              <option value="">Seleccione un doctor...</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label class="form-label" for="reports-type">Tipo de Reporte</label>
+            <select id="reports-type" class="form-input" onchange="onReportTypeChange()">
+              <!-- Se poblará dinámicamente según rol por JS -->
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 150px;">
+            <label class="form-label" for="reports-date-from">Desde</label>
+            <input type="date" id="reports-date-from" class="form-input" />
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 150px;">
+            <label class="form-label" for="reports-date-to">Hasta</label>
+            <input type="date" id="reports-date-to" class="form-input" />
+          </div>
+          
+          <!-- Filtro dinámico: Tipo de Visita -->
+          <div class="form-group" id="reports-filter-visit-type" style="display: none; flex: 1; min-width: 150px;">
+            <label class="form-label" for="reports-val-visit-type">Tipo de Visita</label>
+            <select id="reports-val-visit-type" class="form-input">
+              <option value="">Todas</option>
+              <option value="consulta">Consulta Médica</option>
+              <option value="emergencia">Emergencia</option>
+            </select>
+          </div>
+
+          <!-- Filtro dinámico: Tipo de Factura -->
+          <div class="form-group" id="reports-filter-invoice-type" style="display: none; flex: 1; min-width: 150px;">
+            <label class="form-label" for="reports-val-invoice-type">Tipo de Comprobante</label>
+            <select id="reports-val-invoice-type" class="form-input">
+              <option value="">Todos</option>
+              <option value="factura">Factura Regular</option>
+              <option value="comprobante_fiscal">Comprobante Fiscal (e-CF)</option>
+            </select>
+          </div>
+
+          <!-- Filtro dinámico: Acción Auditoría -->
+          <div class="form-group" id="reports-filter-audit-action" style="display: none; flex: 1; min-width: 120px;">
+            <label class="form-label" for="reports-val-audit-action">Acción</label>
+            <select id="reports-val-audit-action" class="form-input">
+              <option value="">Todas</option>
+              <option value="CREATE">CREATE (Crear)</option>
+              <option value="READ">READ (Leer)</option>
+              <option value="UPDATE">UPDATE (Editar)</option>
+              <option value="DELETE">DELETE (Eliminar)</option>
+              <option value="LOGIN">LOGIN</option>
+              <option value="EXPORT">EXPORT</option>
+            </select>
+          </div>
+
+          <!-- Filtro dinámico: Entidad Auditoría -->
+          <div class="form-group" id="reports-filter-audit-entity" style="display: none; flex: 1; min-width: 150px;">
+            <label class="form-label" for="reports-val-audit-entity">Entidad</label>
+            <input type="text" id="reports-val-audit-entity" class="form-input" placeholder="Ej. Patient, Billing" />
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+          <button class="btn-primary" id="btn-generate-report" onclick="generateReport()" style="display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Generar Reporte
+          </button>
+          <button class="btn-outline" id="btn-export-pdf" onclick="exportReport('pdf')" style="display: flex; align-items: center; gap: 8px;">
+            🖨️ PDF
+          </button>
+          <button class="btn-outline" id="btn-export-xlsx" onclick="exportReport('xlsx')" style="display: flex; align-items: center; gap: 8px;">
+            📊 Excel
+          </button>
+          <button class="btn-outline" id="btn-export-csv" onclick="exportReport('csv')" style="display: flex; align-items: center; gap: 8px;">
+            📄 CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Estadísticas del Reporte -->
+      <div class="stats-grid" id="reports-stats-grid" style="display: none; margin-top: 24px;">
+        <!-- Se poblará dinámicamente -->
+      </div>
+
+      <!-- Resultados del Reporte -->
+      <div class="section-card" style="margin-top: 24px;">
+        <div class="section-header">
+          <h2>📋 Datos del Reporte</h2>
+        </div>
+        <div id="reports-table-wrap" class="table-wrap">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="9" y1="9" x2="15" y2="9"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="13" y2="17"/>
+            </svg>
+            <span>Selecciona un reporte y presiona "Generar Reporte" para ver los resultados.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Historial Clínico Doctor -->
     <div class="tab-panel" id="tab-history">
       <div class="page-header">
@@ -1092,6 +1211,16 @@
               style="font-size:12px; color:var(--text-muted); display:block; margin-left:24px; margin-bottom: 12px;">Permite
               que el rol Doctor acceda a la pestaña de Cobros y emita facturas e-CF.</span>
           </div>
+          <div class="form-group">
+            <label class="form-label"
+              style="display:flex; align-items:center; gap:8px; cursor: pointer; font-weight: 600;">
+              <input type="checkbox" id="cfg-enable-secretaria-reports" style="width:16px; height:16px; cursor:pointer;" />
+              Habilitar módulo de "Reportes" para Secretaría
+            </label>
+            <span
+              style="font-size:12px; color:var(--text-muted); display:block; margin-left:24px; margin-bottom: 12px;">Permite
+              que el rol Secretaría acceda a visualizar los reportes de los doctores.</span>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Intentos de Login</label>
@@ -1295,6 +1424,7 @@
         <button class="modal-tab" id="mtab-meds" onclick="switchPatientTab('meds')">💊 Medicamentos</button>
         <button class="modal-tab" id="mtab-alerts" onclick="switchPatientTab('alerts')">🚨 Alertas</button>
         <button class="modal-tab" id="mtab-docs" onclick="switchPatientTab('docs')">📁 Documentos</button>
+        <button class="modal-tab doctor-only-btn" id="mtab-statement" onclick="switchPatientTab('statement')">💰 Estado de Cuenta</button>
       </div>
       <div class="modal-body" style="padding-top:0;">
         <div id="patient-tab-info"><!-- Se llena con JS --></div>
@@ -1344,6 +1474,19 @@
               </label>
             </div>
             <div id="patient-docs-content">
+              <div class="loading-state">
+                <div class="spinner-ring"></div><span>Cargando...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="patient-tab-statement" style="display:none;">
+          <div style="padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h4 style="color:var(--text-muted); margin:0;">Estado de Cuenta</h4>
+              <div id="patient-statement-total" style="font-weight:bold;font-size:16px;">Total Pendiente: RD$ 0.00</div>
+            </div>
+            <div id="patient-statement-content">
               <div class="loading-state">
                 <div class="spinner-ring"></div><span>Cargando...</span>
               </div>
@@ -1875,6 +2018,25 @@
             <option value="efectivo">💵 Efectivo</option>
             <option value="tarjeta">💳 Tarjeta de Crédito/Débito</option>
           </select>
+        </div>
+        
+        <!-- Pago a Crédito -->
+        <div class="form-group" style="margin-top: 12px; background: rgba(59, 130, 246, 0.05); padding: 12px; border-radius: 8px; border: 1px dashed var(--brand);">
+          <label class="form-label" style="display:flex; align-items:center; gap:8px; margin-bottom: 8px;">
+            <input type="checkbox" id="charge-is-credit" onchange="toggleCreditFields()" />
+            <strong>Pago a Crédito (Pago Parcial)</strong>
+          </label>
+          <div id="charge-credit-fields" style="display: none; flex-direction: column; gap: 8px;">
+            <div>
+              <label class="form-label" style="font-size:12px;">Monto a Pagar Ahora (RD$)</label>
+              <input type="number" id="charge-amount-paid" class="form-input" min="0" step="0.01" placeholder="Ej. 1500" oninput="calcChargeCreditBalance()" />
+              <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Saldo pendiente: <strong id="charge-balance-due" style="color:var(--rojo);">RD$ 3,000.00</strong></div>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:12px;">Fecha Límite de Pago (Opcional)</label>
+              <input type="date" id="charge-due-date" class="form-input" />
+            </div>
+          </div>
         </div>
 
         <div class="form-group" style="margin-top: 12px;">

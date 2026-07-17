@@ -1,9 +1,12 @@
+import os
 import requests
 from flask import Blueprint, request, jsonify
 from database import (list_patients, add_patient, get_patient, update_patient,
                       delete_patient, log_audit_action, get_patient_vitals_history,
-                      get_active_medications, get_patient_red_alerts, get_patient_billing_info)
+                      get_active_medications, get_patient_red_alerts, get_patient_billing_info,
+                      mark_patient_deceased, get_patient_account_statement)
 from utils import requires_login, requires_role, get_current_user, get_client_ip, format_cedula
+from werkzeug.utils import secure_filename
 
 patients_bp = Blueprint("patients_bp", __name__)
 
@@ -213,3 +216,60 @@ def api_consultar_rnc(rnc):
 def api_get_patient_billing_info(patient_id):
     info = get_patient_billing_info(patient_id)
     return jsonify({"success": True, "billing_info": info})
+
+
+@patients_bp.route("/api/patients/<int:patient_id>/mark-deceased", methods=["POST"])
+@requires_login
+@requires_role("doctor")
+def api_mark_patient_deceased(patient_id):
+    """Marca un paciente como fallecido. Solo doctores. Requiere acta de defunción."""
+    u = get_current_user()
+
+    # Verificar que el paciente existe y está vivo
+    patient = get_patient(patient_id)
+    if not patient:
+        return jsonify({"success": False, "error": "Paciente no encontrado."}), 404
+    if patient.get("vital_status") == "Fallecido":
+        return jsonify({"success": False, "error": "El paciente ya está registrado como fallecido."}), 409
+
+    death_date = request.form.get("death_date")
+    notes = request.form.get("notes", "").strip() or None
+
+    if not death_date:
+        return jsonify({"success": False, "error": "La fecha de fallecimiento es obligatoria."}), 400
+
+    # Procesar el acta de defunción (archivo adjunto)
+    cert_path = None
+    if "certificate" in request.files:
+        file = request.files["certificate"]
+        if file and file.filename:
+            upload_folder = os.environ.get("UPLOAD_FOLDER", "uploads")
+            os.makedirs(upload_folder, exist_ok=True)
+            filename = secure_filename(f"death_cert_{patient_id}_{file.filename}")
+            save_path = os.path.join(upload_folder, filename)
+            file.save(save_path)
+            cert_path = f"/uploads/{filename}"
+
+    ok = mark_patient_deceased(
+        patient_id=patient_id,
+        death_date=death_date,
+        cert_path=cert_path,
+        notes=notes,
+        doctor_id=u.get("id"),
+        doctor_username=u.get("username")
+    )
+    if ok:
+        return jsonify({"success": True, "message": f"Paciente '{patient['name']}' marcado como fallecido."})
+    return jsonify({"success": False, "error": "No se pudo registrar el fallecimiento."}), 500
+
+
+@patients_bp.route("/api/patients/<int:patient_id>/account-statement", methods=["GET"])
+@requires_login
+@requires_role("doctor")
+def api_patient_account_statement(patient_id):
+    """Estado de cuenta del paciente. Solo visible para el doctor que lo haya atendido."""
+    u = get_current_user()
+    result = get_patient_account_statement(patient_id, doctor_id=u.get("id"))
+    if result is None:
+        return jsonify({"success": False, "error": "Acceso denegado o sin registros para este paciente."}), 403
+    return jsonify({"success": True, "statement": result})

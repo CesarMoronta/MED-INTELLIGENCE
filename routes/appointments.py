@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from database import (list_appointments, create_appointment, update_appointment_status,
                       reschedule_appointment, update_appointment, get_waiting_room,
-                      mark_patient_arrived, confirm_appointment)
+                      mark_patient_arrived, confirm_appointment, get_patient)
 from utils import requires_login, requires_role, get_current_user
 
 appointments_bp = Blueprint("appointments_bp", __name__)
@@ -43,6 +43,11 @@ def api_create_appointment():
 
     if not all([patient_id, doctor_id, scheduled_date, scheduled_time]):
         return jsonify({"success": False, "error": "Faltan campos requeridos."}), 400
+
+    # Bloquear cita si paciente fallecido
+    patient = get_patient(patient_id)
+    if patient and patient.get("vital_status") == "Fallecido":
+        return jsonify({"success": False, "error": "No se puede agendar una cita para un paciente fallecido."}), 409
 
     app_id = create_appointment(patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_app_id)
     return jsonify({"success": True, "appointment_id": app_id, "message": "Cita agendada."})

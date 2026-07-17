@@ -33,6 +33,11 @@ def api_create_visit():
     if visit_type == "emergencia" and not motivo_emergencia:
         return jsonify({"success": False, "error": "El motivo de emergencia es obligatorio."}), 400
 
+    # Bloquear visita si paciente fallecido
+    patient_check = get_patient(patient_id)
+    if patient_check and patient_check.get("vital_status") == "Fallecido":
+        return jsonify({"success": False, "error": "No se puede abrir una consulta para un paciente fallecido."}), 409
+
     u = get_current_user()
     doctor_id = u.get("id")
 

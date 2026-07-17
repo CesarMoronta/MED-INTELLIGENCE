@@ -7,6 +7,7 @@ Complementa el motor bayesiano con razonamiento clínico avanzado en lenguaje na
 import os
 import json
 import time
+import requests
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -113,7 +114,63 @@ class GeminiDiagnosticLayer:
                         backoff *= 2.0
                     else:
                         break
-        raise last_exception
+        # OpenRouter Fallback
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if openrouter_key:
+            openrouter_models = ["google/gemini-2.0-flash-exp:free", "openrouter/free"]
+            
+            prompt_text = ""
+            if isinstance(contents, list):
+                prompt_text = " ".join([str(c) for c in contents])
+            else:
+                prompt_text = str(contents)
+                
+            if config and hasattr(config, "response_schema") and config.response_schema:
+                try:
+                    schema_json = json.dumps(config.response_schema, default=lambda x: x.model_json_schema() if hasattr(x, "model_json_schema") else str(x))
+                    prompt_text += f"\n\nResponde ÚNICAMENTE con un objeto JSON válido que cumpla este esquema:\n{schema_json}"
+                except Exception:
+                    pass
+            elif config and hasattr(config, "response_mime_type") and config.response_mime_type == "application/json":
+                prompt_text += "\n\nResponde ÚNICAMENTE con JSON válido."
+
+            headers = {
+                "Authorization": f"Bearer {openrouter_key}",
+                "Content-Type": "application/json"
+            }
+            
+            for or_model in openrouter_models:
+                try:
+                    payload = {
+                        "model": or_model,
+                        "messages": [{"role": "user", "content": prompt_text}]
+                    }
+                    if config and getattr(config, "system_instruction", None):
+                        payload["messages"].insert(0, {"role": "system", "content": str(config.system_instruction)})
+                        
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                    response.raise_for_status()
+                    result_json = response.json()
+                    
+                    if "choices" in result_json and len(result_json["choices"]) > 0:
+                        content_text = result_json["choices"][0]["message"]["content"]
+                        print(f"[GeminiLayer] Fallback activado: usando OpenRouter ({or_model}) tras agotar pool de Gemini")
+                        
+                        class OpenRouterResponse:
+                            def __init__(self, text):
+                                self.text = text
+                        return OpenRouterResponse(content_text)
+                except Exception as e:
+                    print(f"[GeminiLayer] Error en OpenRouter con modelo {or_model}: {e}")
+                    
+        if last_exception is not None:
+            raise last_exception
+        raise Exception("Todos los modelos fallaron.")
 
 
     # ── NUEVA FUNCIÓN: EXTRACCIÓN DE SÍNTOMAS DESDE NARRATIVA ──────────────────
@@ -371,7 +428,9 @@ Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2
                             backoff *= 2.0
                         else:
                             break
-            raise last_exception
+            if last_exception is not None:
+                raise last_exception
+            raise Exception("Todos los modelos de chat fallaron.")
         except Exception as e:
             print(f"[GeminiLayer] Error crítico en chat médico tras reintentos y fallback: {e}")
             return {"response": self._fallback_chat(diagnostico, mensaje_usuario), "fallback": True}

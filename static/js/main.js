@@ -181,6 +181,7 @@ function switchTab(tab) {
     'simulator':     initSimulator,
     'appointments':  loadAppointments,
     'billing':       loadBillingTab,
+    'reports':       loadReportsTab,
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -201,7 +202,8 @@ const SIDEBAR_ITEMS = {
   'admin-bayes': { label: 'Config. Bayesiana', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' },
   'admin-users': { label: 'Usuarios y Admins', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M16 16v2M8 16v2M4 20a8 8 0 0 1 16 0"/></svg>' },
   'admin-settings': { label: 'Ajustes Consultorio', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' },
-  'admin-audit': { label: 'Logs de Auditoría', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' }
+  'admin-audit': { label: 'Logs de Auditoría', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+  'reports': { label: 'Consultas y Reportes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' }
 };
 
 function applyPrimaryColor(hex) {
@@ -238,13 +240,18 @@ function renderSidebars() {
   const allowDoctorBilling = settings.allow_doctor_billing === 'true';
 
   const defaultOrders = {
-    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
-    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator'],
+    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'reports', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator', 'reports'],
     secretaria: ['waiting-room', 'appointments', 'patients', 'billing']
   };
 
   if (allowDoctorBilling && !defaultOrders.doctor.includes('billing')) {
     defaultOrders.doctor.push('billing');
+  }
+  
+  const enableSecretariaReports = settings.enable_secretaria_reports === '1';
+  if (enableSecretariaReports && !defaultOrders.secretaria.includes('reports')) {
+    defaultOrders.secretaria.push('reports');
   }
 
   let orderAdmin = settings.sidebar_order_admin ? settings.sidebar_order_admin.split(',').map(s => s.trim()) : defaultOrders.admin;
@@ -255,6 +262,28 @@ function renderSidebars() {
     orderDoctor.push('billing');
   } else if (!allowDoctorBilling && orderDoctor.includes('billing')) {
     orderDoctor = orderDoctor.filter(x => x !== 'billing');
+  }
+
+  // Garantizar que 'reports' siempre aparezca en el sidebar de doctor,
+  // aunque tenga guardado un orden anterior sin él.
+  if (!orderDoctor.includes('reports')) {
+    orderDoctor.push('reports');
+  }
+
+  // Garantizar que 'reports' aparezca/desaparezca en el sidebar de secretaria
+  // según el toggle enable_secretaria_reports, ignorando el orden guardado.
+  if (enableSecretariaReports && !orderSecretaria.includes('reports')) {
+    orderSecretaria.push('reports');
+  } else if (!enableSecretariaReports && orderSecretaria.includes('reports')) {
+    orderSecretaria = orderSecretaria.filter(x => x !== 'reports');
+  }
+
+  // Garantizar que 'reports' siempre aparezca en el sidebar de admin,
+  // aunque tenga guardado un orden anterior sin él.
+  if (!orderAdmin.includes('reports')) {
+    const auditIdx = orderAdmin.indexOf('admin-audit');
+    if (auditIdx >= 0) orderAdmin.splice(auditIdx, 0, 'reports');
+    else orderAdmin.push('reports');
   }
 
   renderSidebarNav('nav-admin', 'Administración', orderAdmin, 'admin-dashboard');
@@ -3087,8 +3116,9 @@ window.openModal = function(id) {
 STATE.viewingPatientId = null;
 
 function switchPatientTab(tab) {
-  ['info','vitals','meds','alerts','docs'].forEach(t => {
-    document.getElementById(`patient-tab-${t}`).style.display = t === tab ? '' : 'none';
+  ['info','vitals','meds','alerts','docs','statement'].forEach(t => {
+    const el = document.getElementById(`patient-tab-${t}`);
+    if (el) el.style.display = t === tab ? '' : 'none';
     const btn = document.getElementById(`mtab-${t}`);
     if (btn) btn.classList.toggle('active', t === tab);
   });
@@ -3097,6 +3127,61 @@ function switchPatientTab(tab) {
   if (tab === 'meds')    loadPatientMeds(STATE.viewingPatientId);
   if (tab === 'alerts')  loadPatientAlerts(STATE.viewingPatientId);
   if (tab === 'docs')    loadPatientDocs(STATE.viewingPatientId);
+  if (tab === 'statement') loadPatientStatement(STATE.viewingPatientId);
+}
+
+async function loadPatientStatement(id) {
+  if (!id) return;
+  const el = document.getElementById('patient-statement-content');
+  const totalEl = document.getElementById('patient-statement-total');
+  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  totalEl.textContent = 'Calculando...';
+  
+  const data = await api('GET', `/api/patients/${id}/account-statement`);
+  if (!data.success) {
+    el.innerHTML = `<div class="empty-state"><span>${escHtml(data.error || 'Error al cargar')}</span></div>`;
+    totalEl.textContent = 'Total Pendiente: RD$ 0.00';
+    return;
+  }
+  
+  const stmt = data.statement;
+  totalEl.textContent = `Total Pendiente: RD$ ${stmt.total_balance.toFixed(2)}`;
+  
+  if (!stmt.invoices || stmt.invoices.length === 0) {
+    el.innerHTML = '<div class="empty-state"><span>No hay historial de cargos.</span></div>';
+    return;
+  }
+  
+  const rows = stmt.invoices.map(item => {
+    let statusBadge = '<span class="badge badge-verde">Pagado</span>';
+    if (item.balance_due > 0 && item.amount_paid === 0) statusBadge = '<span class="badge badge-rojo">Pendiente</span>';
+    else if (item.balance_due > 0 && item.amount_paid > 0) statusBadge = '<span class="badge badge-amarillo">Parcial</span>';
+    
+    return `<tr>
+      <td>${item.created_at}</td>
+      <td style="text-transform: capitalize;">${escHtml(item.invoice_type)}</td>
+      <td>RD$ ${item.total.toFixed(2)}</td>
+      <td>RD$ ${item.amount_paid.toFixed(2)}</td>
+      <td style="color:var(--rojo); font-weight:bold;">RD$ ${item.balance_due.toFixed(2)}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+  
+  el.innerHTML = `
+    <table class="vitals-history-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Concepto</th>
+          <th>Total</th>
+          <th>Pagado</th>
+          <th>Pendiente</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 async function viewPatient(id) {
@@ -3119,41 +3204,69 @@ async function viewPatient(id) {
     ? `<img src="${p.photo_url}" style="width: 100px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border);" />`
     : `<div style="width: 100px; height: 120px; border-radius: 8px; border: 1px dashed var(--border); background: var(--bg-input); display: flex; align-items: center; justify-content: center;"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" style="width: 40px; height: 40px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>`;
 
-  document.getElementById('patient-tab-info').innerHTML = `
-    <div style="padding:20px 28px; display: flex; gap: 24px; align-items: flex-start;">
-      <div style="flex-shrink: 0;">
-        ${photoHtml}
+  let statusHtml = '';
+  if (p.vital_status === 'Fallecido') {
+    statusHtml = `
+      <div style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; display:flex; align-items:center; gap: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <path d="M12 2v20M8 6h8" />
+        </svg>
+        PACIENTE FALLECIDO — ${fmtDate(p.death_date)}
+        ${p.death_notes ? `<span style="font-weight:normal; font-size: 13px;">(${escHtml(p.death_notes)})</span>` : ''}
+        ${p.death_certificate_url ? `<a href="${p.death_certificate_url}" target="_blank" style="margin-left:auto; color: #991b1b; text-decoration: underline; font-size: 13px;">Ver Acta</a>` : ''}
       </div>
-      <div style="flex: 1;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-          <div class="form-group" style="margin:0;">
-            <div class="form-label">Cédula / ID</div>
-            <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.cedula || '—')}</div>
+    `;
+  } else {
+    // Si es doctor, mostrar botón para marcar fallecido
+    if (STATE.currentUser && STATE.currentUser.role === 'doctor') {
+       statusHtml = `
+         <div style="margin-bottom: 16px; text-align: right;">
+           <button class="btn-outline" style="color: var(--rojo); border-color: var(--rojo);" onclick="promptMarkDeceased(${id}, '${escHtml(p.name)}')">
+             Marcar como Fallecido
+           </button>
+         </div>
+       `;
+    }
+  }
+
+  document.getElementById('patient-tab-info').innerHTML = `
+    <div style="padding:20px 28px; display: flex; gap: 24px; align-items: flex-start; flex-direction: column;">
+      ${statusHtml}
+      <div style="display: flex; gap: 24px; width: 100%;">
+        <div style="flex-shrink: 0;">
+          ${photoHtml}
+        </div>
+        <div style="flex: 1;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Cédula / ID</div>
+              <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.cedula || '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Tipo de Sangre</div>
+              <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.blood_type || '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Fecha de Nacimiento</div>
+              <div style="color:var(--text-primary);">${escHtml(p.dob || '—')} (${age} años)</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Género</div>
+              <div style="color:var(--text-primary);">${escHtml(p.gender || '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Teléfono</div>
+              <div style="color:var(--text-primary);">${escHtml(p.phone || '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Registrado</div>
+              <div style="color:var(--text-muted);font-size:13px;">${fmtDate(p.created_at)}</div>
+            </div>
           </div>
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Tipo de Sangre</div>
-          <div style="color:var(--text-primary);font-weight:600;">${escHtml(p.blood_type || '—')}</div>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Fecha de Nacimiento</div>
-          <div style="color:var(--text-primary);">${escHtml(p.dob || '—')} (${age} años)</div>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Género</div>
-          <div style="color:var(--text-primary);">${escHtml(p.gender || '—')}</div>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Teléfono</div>
-          <div style="color:var(--text-primary);">${escHtml(p.phone || '—')}</div>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <div class="form-label">Registrado</div>
-          <div style="color:var(--text-muted);font-size:13px;">${fmtDate(p.created_at)}</div>
-        </div>
-        </div>
-        <div style="margin-top:20px;">
-          <div class="form-label">Antecedentes Patológicos</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${ants}</div>
+          <div style="margin-top:20px;">
+            <div class="form-label">Antecedentes Patológicos</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${ants}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -3162,19 +3275,84 @@ async function viewPatient(id) {
   openModalOrig('modal-view-patient');
 }
 
+async function promptMarkDeceased(id, name) {
+  const { value: formValues } = await Swal.fire({
+    title: `Fallecimiento de ${escHtml(name)}`,
+    html: `
+      <div style="text-align: left; display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label">Fecha de Fallecimiento <span class="badge-required">*</span></label>
+          <input type="date" id="swal-death-date" class="form-input" max="${new Date().toISOString().split('T')[0]}" />
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label">Acta de Defunción (PDF o Imagen)</label>
+          <input type="file" id="swal-death-cert" class="form-input" accept="image/*,application/pdf" />
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label">Notas Adicionales</label>
+          <textarea id="swal-death-notes" class="form-input" rows="2" placeholder="Causa preliminar, lugar, etc."></textarea>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Registrar Fallecimiento',
+    confirmButtonColor: '#ef4444',
+    cancelButtonText: 'Cancelar',
+    focusConfirm: false,
+    preConfirm: () => {
+      const date = document.getElementById('swal-death-date').value;
+      if (!date) {
+        Swal.showValidationMessage('La fecha de fallecimiento es obligatoria');
+        return false;
+      }
+      return {
+        date,
+        file: document.getElementById('swal-death-cert').files[0],
+        notes: document.getElementById('swal-death-notes').value
+      };
+    }
+  });
+
+  if (formValues) {
+    const formData = new FormData();
+    formData.append('death_date', formValues.date);
+    if (formValues.file) formData.append('certificate', formValues.file);
+    if (formValues.notes) formData.append('notes', formValues.notes);
+
+    try {
+      const res = await fetch(`/api/patients/${id}/mark-deceased`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast('success', data.message || 'Paciente marcado como fallecido.');
+        viewPatient(id); // recargar
+        if (typeof loadPatients === 'function') loadPatients();
+      } else {
+        Swal.fire('Error', data.error || 'No se pudo procesar la solicitud.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'Error de red.', 'error');
+    }
+  }
+}
+
 async function loadPatientVitals(id) {
   if (!id) return;
   const el = document.getElementById('patient-vitals-content');
   el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
-  const data = await api('GET', `/api/history?patient_id=${id}&limit=10`);
-  if (!data.success || !data.records?.length) {
+  const data = await api('GET', `/api/patients/${id}/vitals-history?limit=10`);
+  if (!data.success || !data.vitals_history?.length) {
     el.innerHTML = '<div class="empty-state"><span>Sin registros de vitales.</span></div>'; return;
   }
   const headers = ['Fecha','Temp','SpO2','PAS','PAD','FC','FR','Peso','Altura','IMC'];
-  const rows = data.records.map(r => {
-    const c = r.constantes || {};
+  const rows = data.vitals_history.map(r => {
+    const c = r.vitals || {};
     return `<tr>
-      <td>${fmtDate(r.created_at)}</td>
+      <td>${r.visit_date || '—'}</td>
       <td>${c.temperatura ?? '—'}</td><td>${c.spo2 ?? '—'}</td>
       <td>${c.pas ?? '—'}</td><td>${c.pad ?? '—'}</td>
       <td>${c.fc ?? '—'}</td><td>${c.fr ?? '—'}</td>
@@ -3403,11 +3581,16 @@ async function loadClinicSettings() {
   if (checkbox) {
     checkbox.checked = s.allow_doctor_billing === 'true';
   }
+  
+  const secRepCheckbox = document.getElementById('cfg-enable-secretaria-reports');
+  if (secRepCheckbox) {
+    secRepCheckbox.checked = s.enable_secretaria_reports === '1';
+  }
 
   // Cargar visual editor del sidebar
   const defaultOrders = {
-    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
-    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator'],
+    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'reports', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator', 'reports'],
     secretaria: ['waiting-room', 'appointments', 'patients', 'billing']
   };
   
@@ -3424,6 +3607,13 @@ async function loadClinicSettings() {
     CURRENT_SIDEBAR_ORDERS.doctor.push('billing');
   } else if (!allowDoctorBilling && CURRENT_SIDEBAR_ORDERS.doctor.includes('billing')) {
     CURRENT_SIDEBAR_ORDERS.doctor = CURRENT_SIDEBAR_ORDERS.doctor.filter(x => x !== 'billing');
+  }
+
+  const enableSecretariaReports = s.enable_secretaria_reports === '1';
+  if (enableSecretariaReports && !CURRENT_SIDEBAR_ORDERS.secretaria.includes('reports')) {
+    CURRENT_SIDEBAR_ORDERS.secretaria.push('reports');
+  } else if (!enableSecretariaReports && CURRENT_SIDEBAR_ORDERS.secretaria.includes('reports')) {
+    CURRENT_SIDEBAR_ORDERS.secretaria = CURRENT_SIDEBAR_ORDERS.secretaria.filter(x => x !== 'reports');
   }
 
   renderSidebarOrderEditor('admin');
@@ -3457,6 +3647,11 @@ async function saveClinicSettings() {
   const checkbox = document.getElementById('cfg-allow-doctor-billing');
   if (checkbox) {
     payload['allow_doctor_billing'] = checkbox.checked ? 'true' : 'false';
+  }
+  
+  const secRepCb = document.getElementById('cfg-enable-secretaria-reports');
+  if (secRepCb) {
+    payload['enable_secretaria_reports'] = secRepCb.checked ? '1' : '0';
   }
 
   const btn = document.querySelector('button[onclick="saveClinicSettings()"]');
@@ -4363,6 +4558,8 @@ function clearChargeBillingFields() {
   document.getElementById('charge-rnc').value = '';
   document.getElementById('charge-razon-social').value = '';
   document.getElementById('charge-correo').value = '';
+  document.getElementById('charge-is-credit').checked = false;
+  toggleCreditFields();
 }
 
 let isRncLookupInProgress = false;
@@ -4420,6 +4617,28 @@ async function openChargeModal(visitId, patientName, patientId) {
   openModal('modal-charge-visit');
 }
 
+function toggleCreditFields() {
+  const isCredit = document.getElementById('charge-is-credit').checked;
+  const fields = document.getElementById('charge-credit-fields');
+  fields.style.display = isCredit ? 'flex' : 'none';
+  if (!isCredit) {
+    document.getElementById('charge-amount-paid').value = '';
+    document.getElementById('charge-due-date').value = '';
+    calcChargeCreditBalance();
+  }
+}
+
+function calcChargeCreditBalance() {
+  const total = 3000.00; // hardcoded por ahora
+  let paid = parseFloat(document.getElementById('charge-amount-paid').value);
+  if (isNaN(paid)) paid = 0;
+  if (paid < 0) paid = 0;
+  if (paid > total) paid = total;
+  
+  const balance = total - paid;
+  document.getElementById('charge-balance-due').textContent = `RD$ ${balance.toFixed(2)}`;
+}
+
 async function submitChargeVisit() {
   const visitId = document.getElementById('charge-visit-id').value;
   const paymentMethod = document.getElementById('charge-payment-method').value;
@@ -4430,8 +4649,16 @@ async function submitChargeVisit() {
   const payload = {
     visit_id: parseInt(visitId, 10),
     payment_method: paymentMethod,
-    tipo_ecf: tipoEcf
+    tipo_ecf: tipoEcf,
+    is_credit: document.getElementById('charge-is-credit').checked
   };
+
+  if (payload.is_credit) {
+    const amtPaid = document.getElementById('charge-amount-paid').value;
+    const dueDate = document.getElementById('charge-due-date').value;
+    payload.amount_paid = amtPaid ? parseFloat(amtPaid) : 0;
+    if (dueDate) payload.due_date = dueDate;
+  }
 
   if (tipoEcf === '31') {
     const rnc = document.getElementById('charge-rnc').value.trim();
@@ -4692,5 +4919,762 @@ function applyCalcToAmount() {
     amountInput.dispatchEvent(new Event('input'));
   }
 }
+
+
+// =============================================================================
+// CONSULTAS Y REPORTES
+// =============================================================================
+
+function loadReportsTab() {
+  const reportsTypeSelect = document.getElementById('reports-type');
+  if (!reportsTypeSelect) return;
+
+  const role = STATE.user ? STATE.user.role : '';
+  
+  // Limpiar selector y rellenar según permisos
+  reportsTypeSelect.innerHTML = '';
+  
+  // Configurar las opciones basadas en el rol
+  let options = [];
+  
+  if (role === 'doctor') {
+    options = [
+      { value: 'agenda', text: 'Agenda y Citas' },
+      { value: 'recurrent', text: 'Pacientes Recurrentes' },
+      { value: 'ai-comparison', text: 'Comparación IA vs Médico' },
+      { value: 'prescriptions', text: 'Prescripciones Emitidas' },
+      { value: 'activity', text: 'Mi Actividad' },
+      { value: 'billing', text: 'Mis Cobros y Facturación' }
+    ];
+  } else {
+    // Admin o Secretaria
+    options = [
+      { value: 'agenda', text: 'Agenda y Citas' },
+      { value: 'recurrent', text: 'Pacientes Recurrentes' },
+      { value: 'ai-comparison', text: 'Comparación IA vs Médico' },
+      { value: 'prescriptions', text: 'Prescripciones Emitidas' },
+      { value: 'activity', text: 'Actividad de Doctores' },
+      { value: 'billing', text: 'Facturación General' }
+    ];
+    if (role === 'admin') {
+      options.push({ value: 'audit', text: 'Registro de Auditoría' });
+    }
+    
+    // Cargar selector de doctores
+    const doctorFilter = document.getElementById('reports-filter-doctor');
+    const doctorSelect = document.getElementById('reports-doctor-select');
+    if (doctorFilter && doctorSelect) {
+      doctorFilter.style.display = 'block';
+      api('GET', '/api/reports/doctor-list').then(res => {
+        if (res.success) {
+          let html = '<option value="">Todos los doctores / General</option>';
+          res.doctors.forEach(d => {
+            html += `<option value="${d.id}">${d.full_name} ${d.especialidad ? `(${d.especialidad})` : ''}</option>`;
+          });
+          doctorSelect.innerHTML = html;
+        }
+      });
+    }
+  }
+
+  options.forEach(opt => {
+    reportsTypeSelect.innerHTML += `<option value="${opt.value}">${opt.text}</option>`;
+  });
+
+  // Fechas por defecto: primer día del mes actual hasta hoy
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const formatDate = (d) => {
+    const month = '' + (d.getMonth() + 1);
+    const day = '' + d.getDate();
+    const year = d.getFullYear();
+    return [year, month.padStart(2, '0'), day.padStart(2, '0')].join('-');
+  };
+
+  document.getElementById('reports-date-from').value = formatDate(firstDay);
+  document.getElementById('reports-date-to').value = formatDate(now);
+
+  onReportTypeChange();
+  
+  // Resetear interfaz
+  document.getElementById('reports-stats-grid').style.display = 'none';
+  document.getElementById('reports-stats-grid').innerHTML = '';
+  document.getElementById('reports-table-wrap').innerHTML = `
+    <div class="empty-state">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="9" y1="9" x2="15" y2="9"/>
+        <line x1="9" y1="13" x2="15" y2="13"/>
+        <line x1="9" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span>Selecciona un reporte y presiona "Generar Reporte" para ver los resultados.</span>
+    </div>`;
+}
+
+function onReportTypeChange() {
+  const type = document.getElementById('reports-type').value;
+  
+  // Ocultar todos los subfiltros
+  document.getElementById('reports-filter-visit-type').style.display = 'none';
+  document.getElementById('reports-filter-invoice-type').style.display = 'none';
+  document.getElementById('reports-filter-audit-action').style.display = 'none';
+  document.getElementById('reports-filter-audit-entity').style.display = 'none';
+
+  // Mostrar los específicos
+  if (type === 'visits') {
+    document.getElementById('reports-filter-visit-type').style.display = 'block';
+  } else if (type === 'billing') {
+    document.getElementById('reports-filter-invoice-type').style.display = 'block';
+  } else if (type === 'audit') {
+    document.getElementById('reports-filter-audit-action').style.display = 'block';
+    document.getElementById('reports-filter-audit-entity').style.display = 'block';
+  }
+}
+
+async function generateReport() {
+  const btn = document.getElementById('btn-generate-report');
+  const type = document.getElementById('reports-type').value;
+  const dateFrom = document.getElementById('reports-date-from').value;
+  const dateTo = document.getElementById('reports-date-to').value;
+
+  if (!type) return;
+
+  setButtonLoading(btn, true, 'Generando...');
+
+  let url = `/api/reports/`;
+  const params = new URLSearchParams();
+  if (dateFrom) params.append('date_from', dateFrom);
+  if (dateTo) params.append('date_to', dateTo);
+  
+  const doctorFilter = document.getElementById('reports-filter-doctor');
+  const doctorSelect = document.getElementById('reports-doctor-select');
+  if (doctorFilter && doctorFilter.style.display !== 'none' && doctorSelect.value) {
+    params.append('doctor_id', doctorSelect.value);
+  }
+
+  if (type === 'agenda') {
+    url += 'agenda';
+  } else if (type === 'recurrent') {
+    url += 'recurrent';
+  } else if (type === 'ai-comparison') {
+    url += 'ai-comparison';
+  } else if (type === 'prescriptions') {
+    url += 'prescriptions';
+  } else if (type === 'activity') {
+    url += 'activity';
+  } else if (type === 'billing') {
+    url += 'billing';
+    const it = document.getElementById('reports-val-invoice-type').value;
+    if (it) params.append('invoice_type', it);
+  } else if (type === 'audit') {
+    url = '/api/audit_logs'; // Usar el existente
+    const action = document.getElementById('reports-val-audit-action').value;
+    const entity = document.getElementById('reports-val-audit-entity').value.trim();
+    if (action) params.append('action', action);
+    if (entity) params.append('entity', entity);
+  }
+
+  const queryString = params.toString();
+  const finalUrl = url + (queryString ? `?${queryString}` : '');
+
+  try {
+    const res = await api('GET', finalUrl);
+    if (res.success) {
+      renderReportStats(type, res);
+      renderReportTable(type, res);
+      toast('success', 'Reporte generado correctamente');
+    } else {
+      if (res.error === 'subscription_required') {
+        toast('error', res.message || 'Se requiere una suscripción VIP activa.');
+      } else {
+        toast('error', res.error || 'Error al generar reporte');
+      }
+    }
+  } catch (err) {
+    toast('error', 'Error al consultar la base de datos');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+function renderReportStats(type, res) {
+  const statsGrid = document.getElementById('reports-stats-grid');
+  statsGrid.innerHTML = '';
+  statsGrid.style.display = 'none';
+
+  let cardsHtml = '';
+
+  // ── Tipos nuevos ─────────────────────────────────────────────────────────
+  if (type === 'agenda') {
+    const data = res.agenda || [];
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${data.length}</div>
+        <div class="stat-label">Citas en período</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${data.filter(d => d.appointment_status === 'atendido').length}</div>
+        <div class="stat-label">Atendidas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--danger)">${data.filter(d => d.appointment_status === 'cancelada').length}</div>
+        <div class="stat-label">Canceladas</div>
+      </div>`;
+  } else if (type === 'recurrent') {
+    const data = res.recurrent_patients || [];
+    const totalVisits = data.reduce((a, r) => a + (r.total_visits || 0), 0);
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${data.length}</div>
+        <div class="stat-label">Pacientes Recurrentes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${totalVisits}</div>
+        <div class="stat-label">Visitas Acumuladas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${data.length ? Math.round(totalVisits / data.length) : 0}</div>
+        <div class="stat-label">Promedio Visitas / Paciente</div>
+      </div>`;
+  } else if (type === 'ai-comparison') {
+    const perf = res.performance || {};
+    const refutations = res.refutations || [];
+    const rate = perf.refutation_rate ? (perf.refutation_rate * 100).toFixed(1) + '%' : '0%';
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${perf.total_diagnoses || 0}</div>
+        <div class="stat-label">Diagnósticos IA Totales</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--danger)">${perf.total_refuted || 0}</div>
+        <div class="stat-label">Refutados por el Médico</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${rate}</div>
+        <div class="stat-label">Tasa de Refutación</div>
+      </div>`;
+  } else if (type === 'prescriptions') {
+    const data = res.prescriptions || [];
+    const meds = [...new Set(data.map(p => p.medication).filter(Boolean))];
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${data.length}</div>
+        <div class="stat-label">Prescripciones Emitidas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${meds.length}</div>
+        <div class="stat-label">Medicamentos Distintos</div>
+      </div>`;
+  } else if (type === 'activity') {
+    const data = res.activity || [];
+    const totalVisits = data.reduce((a, r) => a + (r.total_visits || 0), 0);
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${data.length}</div>
+        <div class="stat-label">Doctores con Actividad</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${totalVisits}</div>
+        <div class="stat-label">Visitas Totales</div>
+      </div>`;
+  // ── Tipos legacy ─────────────────────────────────────────────────────────
+  } else if (type === 'visits') {
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${res.total || 0}</div>
+        <div class="stat-label">Total Visitas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${res.data.filter(v => v.visit_type === 'consulta').length}</div>
+        <div class="stat-label">Consultas Médicas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--danger);">${res.data.filter(v => v.visit_type === 'emergencia').length}</div>
+        <div class="stat-label">Emergencias</div>
+      </div>
+    `;
+  } else if (type === 'waiting-time' && res.stats) {
+    const s = res.stats;
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${s.avg_wait_minutes ?? '0'} min</div>
+        <div class="stat-label">Tiempo Espera Promedio</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.max_wait_minutes ?? '0'} min</div>
+        <div class="stat-label">Tiempo de Espera Máximo</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${s.total_with_arrival ?? '0'}</div>
+        <div class="stat-label">Pacientes Atendidos</div>
+      </div>
+    `;
+  } else if (type === 'diagnoses-summary') {
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${res.total_diagnoses || 0}</div>
+        <div class="stat-label">Diagnósticos Emitidos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${res.total_groups || 0}</div>
+        <div class="stat-label">Patologías Únicas Detectadas</div>
+      </div>
+    `;
+  } else if (type === 'model-performance') {
+    const d = res.data;
+    const rate = d.refutation_rate ? (d.refutation_rate * 100).toFixed(1) + '%' : '0%';
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${d.total_diagnoses || 0}</div>
+        <div class="stat-label">Predicciones Totales</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${d.total_refuted || 0}</div>
+        <div class="stat-label">Predicciones Refutadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${rate}</div>
+        <div class="stat-label">Tasa de Refutación</div>
+      </div>
+    `;
+  } else if (type === 'billing' && res.data) {
+    const d = res.data;
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">$${(d.total_amount || 0).toLocaleString('es-DO', {minimumFractionDigits: 2})}</div>
+        <div class="stat-label">Total Facturado</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">$${(d.total_collected || 0).toLocaleString('es-DO', {minimumFractionDigits: 2})}</div>
+        <div class="stat-label">Total Recaudado</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${d.invoices ? d.invoices.length : 0}</div>
+        <div class="stat-label">Comprobantes Emitidos</div>
+      </div>
+    `;
+  } else if (type === 'doctor-activity') {
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${res.total_doctors || 0}</div>
+        <div class="stat-label">Doctores Evaluados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${res.data.reduce((acc, curr) => acc + (curr.total_visits || 0), 0)}</div>
+        <div class="stat-label">Visitas Totales Procesadas</div>
+      </div>
+    `;
+  } else if (type === 'audit') {
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${res.total || 0}</div>
+        <div class="stat-label">Acciones Registradas</div>
+      </div>
+    `;
+  }
+
+  if (cardsHtml) {
+    statsGrid.innerHTML = cardsHtml;
+    statsGrid.style.display = 'flex';
+  }
+}
+
+function renderReportTable(type, res) {
+  const wrap = document.getElementById('reports-table-wrap');
+  wrap.innerHTML = '';
+
+  // Resolver el array de filas según el key real de cada endpoint
+  let list = [];
+  if (type === 'agenda')         list = res.agenda || [];
+  else if (type === 'recurrent') list = res.recurrent_patients || [];
+  else if (type === 'ai-comparison') list = res.refutations || [];
+  else if (type === 'prescriptions') list = res.prescriptions || [];
+  else if (type === 'activity')  list = res.activity || [];
+  else if (type === 'billing')   list = (res.data && res.data.invoices) ? res.data.invoices : [];
+  else if (type === 'audit')     list = res.logs || [];
+  else { const rows = res.data || []; list = Array.isArray(rows) ? rows : []; }
+
+  if (!list.length) {
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>No se encontraron registros con los filtros seleccionados.</span>
+      </div>`;
+    return;
+  }
+
+  let tableHtml = '<table class="data-table"><thead><tr>';
+  let rowsHtml = '';
+
+  const fmtDate = (str) => {
+    if (!str) return '—';
+    try { return str.substring(0, 16).replace('T', ' '); } catch(e) { return str; }
+  };
+
+  // ── Tablas para tipos nuevos ──────────────────────────────────────────────
+  if (type === 'agenda') {
+    tableHtml += `
+      <th>Fecha</th><th>Hora</th><th>Paciente</th><th>Doctor</th>
+      <th>Estado</th><th>Confirmada</th>
+    </tr></thead><tbody>`;
+    rowsHtml = list.map(v => {
+      const statusBadge = v.appointment_status === 'atendido' ? 'badge-verde' : v.appointment_status === 'cancelada' ? 'badge-rojo' : 'badge-amarillo';
+      return `<tr>
+        <td>${v.scheduled_date || '—'}</td>
+        <td><code>${v.scheduled_time || '—'}</code></td>
+        <td><strong>${v.patient_name || '—'}</strong></td>
+        <td>${v.doctor_fullname || '—'}</td>
+        <td><span class="badge ${statusBadge}">${(v.appointment_status || '—').toUpperCase()}</span></td>
+        <td><span class="badge ${v.confirmed ? 'badge-verde' : 'badge-amarillo'}">${v.confirmed ? 'SÍ' : 'NO'}</span></td>
+      </tr>`;
+    }).join('');
+
+  } else if (type === 'recurrent') {
+    tableHtml += `
+      <th>Paciente</th><th>Cédula</th><th>Teléfono</th>
+      <th>Total Visitas</th><th>Primera Visita</th><th>Última Visita</th>
+    </tr></thead><tbody>`;
+    rowsHtml = list.map(v => `<tr>
+      <td><strong>${v.patient_name || '—'}</strong></td>
+      <td><code style="font-family:var(--mono);font-size:12px;">${v.patient_cedula || '—'}</code></td>
+      <td>${v.phone || '—'}</td>
+      <td><code style="font-weight:bold;color:var(--primary);">${v.total_visits || 0}</code></td>
+      <td>${v.first_visit_date || '—'}</td>
+      <td>${v.last_visit_date || '—'}</td>
+    </tr>`).join('');
+
+  } else if (type === 'ai-comparison') {
+    tableHtml += `
+      <th>Paciente</th><th>Dx IA (rechazado)</th>
+      <th>Dx Médico Final</th><th>Razón Refutación</th><th>Fecha</th>
+    </tr></thead><tbody>`;
+    rowsHtml = list.map(v => `<tr>
+      <td><strong>${v.patient_name || '—'}</strong></td>
+      <td style="color:var(--danger);">${v.final_diagnosis || '—'}</td>
+      <td style="color:var(--success);">${v.doctor_override_diagnosis || '—'}</td>
+      <td><span style="font-size:12px;">${v.refutation_reason || '—'}</span></td>
+      <td>${fmtDate(v.created_at)}</td>
+    </tr>`).join('');
+
+  } else if (type === 'prescriptions') {
+    tableHtml += `
+      <th>Paciente</th><th>Cédula</th><th>Medicamento</th>
+      <th>Dosis</th><th>Frecuencia</th><th>Días</th><th>Fecha</th>
+    </tr></thead><tbody>`;
+    rowsHtml = list.map(v => `<tr>
+      <td><strong>${v.patient_name || '—'}</strong></td>
+      <td><code style="font-family:var(--mono);font-size:12px;">${v.patient_cedula || '—'}</code></td>
+      <td><strong>${v.medication || '—'}</strong></td>
+      <td>${v.dosage || '—'}</td>
+      <td>${v.frequency || '—'}</td>
+      <td>${v.duration_days != null ? v.duration_days + 'd' : '—'}</td>
+      <td>${fmtDate(v.created_at)}</td>
+    </tr>`).join('');
+
+  } else if (type === 'activity') {
+    tableHtml += `
+      <th>Médico</th><th>Especialidad</th><th>Visitas Totales</th>
+      <th>Consultas</th><th>Emergencias</th><th>Diagnósticos</th><th>Alertas Rojas</th>
+    </tr></thead><tbody>`;
+    rowsHtml = list.map(v => `<tr>
+      <td><strong>${v.doctor_fullname || '—'}</strong></td>
+      <td>${v.especialidad || 'General'}</td>
+      <td><code>${v.total_visits || 0}</code></td>
+      <td>${v.total_consultas || 0}</td>
+      <td style="${(v.total_emergencias || 0) > 0 ? 'color:var(--danger);font-weight:bold;' : ''}">${v.total_emergencias || 0}</td>
+      <td>${v.visits_with_diagnosis || 0}</td>
+      <td style="${(v.red_alerts || 0) > 0 ? 'color:var(--danger);font-weight:bold;' : ''}">${v.red_alerts || 0}</td>
+    </tr>`).join('');
+
+  // ── Tablas legacy ─────────────────────────────────────────────────────────
+  } else if (type === 'visits') {
+    tableHtml += `
+      <th>Fecha</th>
+      <th>Tipo</th>
+      <th>Paciente</th>
+      <th>Cédula</th>
+      <th>Doctor</th>
+      <th>Diagnóstico</th>
+      <th>Alerta</th>
+      <th>Estado</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = list.map(v => {
+      const alertClass = v.alert_level === 'rojo' ? 'danger' : (v.alert_level === 'amarillo' ? 'warning' : 'success');
+      const typeClass = v.visit_type === 'emergencia' ? 'badge-rojo' : 'badge-verde';
+      return `
+        <tr>
+          <td>${fmtDate(v.visit_date)}</td>
+          <td><span class="badge ${typeClass}">${v.visit_type.toUpperCase()}</span></td>
+          <td><strong>${v.patient_name || '—'}</strong></td>
+          <td><code style="font-family:var(--mono);font-size:12px;">${v.patient_cedula || '—'}</code></td>
+          <td>${v.doctor_fullname || '—'}</td>
+          <td>${v.diagnosis_primary || '—'}</td>
+          <td><span class="badge badge-${alertClass}">${(v.alert_level || '—').toUpperCase()}</span></td>
+          <td>${v.status || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+  } else if (type === 'waiting-time') {
+    tableHtml += `
+      <th>Fecha</th>
+      <th>Hora Prog.</th>
+      <th>Paciente</th>
+      <th>Doctor</th>
+      <th>Llegada Real</th>
+      <th>Espera</th>
+      <th>Estado Cita</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = list.map(v => {
+      const wait = v.wait_minutes !== null ? `${v.wait_minutes} min` : '—';
+      const waitColor = v.wait_minutes > 30 ? 'color: var(--danger); font-weight:bold;' : '';
+      return `
+        <tr>
+          <td>${v.scheduled_date || '—'}</td>
+          <td><code>${v.scheduled_time || '—'}</code></td>
+          <td><strong>${v.patient_name || '—'}</strong></td>
+          <td>${v.doctor_fullname || '—'}</td>
+          <td><code>${v.actual_arrival ? v.actual_arrival.substring(11, 16) : '—'}</code></td>
+          <td style="${waitColor}">${wait}</td>
+          <td>${v.appointment_status || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+  } else if (type === 'diagnoses-summary') {
+    tableHtml += `
+      <th>Diagnóstico</th>
+      <th>Nivel Alerta</th>
+      <th>Frecuencia</th>
+      <th>Prob. Promedio</th>
+      <th>Prob. Máx.</th>
+      <th>Prob. Mín.</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = list.map(v => {
+      const alertClass = v.alert_level === 'rojo' ? 'danger' : (v.alert_level === 'amarillo' ? 'warning' : 'success');
+      return `
+        <tr>
+          <td><strong>${v.diagnosis_primary || '—'}</strong></td>
+          <td><span class="badge badge-${alertClass}">${(v.alert_level || '—').toUpperCase()}</span></td>
+          <td><code>${v.total || 0}</code></td>
+          <td>${(v.avg_probability * 100).toFixed(1)}%</td>
+          <td>${(v.max_probability * 100).toFixed(1)}%</td>
+          <td>${(v.min_probability * 100).toFixed(1)}%</td>
+        </tr>
+      `;
+    }).join('');
+
+  } else if (type === 'model-performance') {
+    // Rendimiento de la IA viene en un formato diferente, serializado o estructurado
+    tableHtml += `
+      <th>Métrica del Motor de IA</th>
+      <th>Valor de Rendimiento</th>
+    </tr></thead><tbody>`;
+
+    const metrics = [
+      { name: 'Total diagnósticos evaluados', val: res.data.total_diagnoses },
+      { name: 'Diagnósticos refutados por el médico', val: res.data.total_refuted },
+      { name: 'Tasa de discrepancia / refutación', val: (res.data.refutation_rate * 100).toFixed(1) + '%' },
+      { name: 'Probabilidad bayesiana promedio', val: (res.data.avg_probability * 100).toFixed(1) + '%' },
+      { name: 'Visitas críticas (Alertas Rojas)', val: res.data.red_alerts },
+      { name: 'Visitas moderadas (Alertas Amarillas)', val: res.data.yellow_alerts }
+    ];
+
+    if (res.data.top_diagnoses) {
+      res.data.top_diagnoses.forEach(td => {
+        metrics.push({ name: `Top Patología detectada por IA: ${td.diagnosis}`, val: `${td.total} veces` });
+      });
+    }
+
+    rowsHtml = metrics.map(m => `
+      <tr>
+        <td><strong>${m.name}</strong></td>
+        <td><code>${m.val ?? '0'}</code></td>
+      </tr>
+    `).join('');
+
+  } else if (type === 'billing') {
+    const listInvoices = res.data.invoices || [];
+    tableHtml += `
+      <th>ID</th>
+      <th>Fecha</th>
+      <th>Tipo Comprobante</th>
+      <th>Paciente</th>
+      <th>Cédula</th>
+      <th>e-CF / NCF</th>
+      <th>Monto Neto</th>
+      <th>ITBIS</th>
+      <th>Total</th>
+      <th>Metodo</th>
+      <th>Estado</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = listInvoices.map(v => {
+      const statusClass = v.estado === 'pagada' ? 'badge-verde' : 'badge-rojo';
+      return `
+        <tr>
+          <td><code>#${v.id}</code></td>
+          <td>${fmtDate(v.created_at)}</td>
+          <td><span class="badge badge-amarillo">${(v.invoice_type || 'factura').toUpperCase()}</span></td>
+          <td><strong>${v.patient_name || '—'}</strong></td>
+          <td><code style="font-family:var(--mono);font-size:12px;">${v.patient_cedula || '—'}</code></td>
+          <td><code>${v.encf || v.ncf || '—'}</code></td>
+          <td>$${(v.amount || 0).toFixed(2)}</td>
+          <td>$${(v.itbis || 0).toFixed(2)}</td>
+          <td><strong>$${(v.total || 0).toFixed(2)}</strong></td>
+          <td>${(v.payment_method || 'efectivo').toUpperCase()}</td>
+          <td><span class="badge ${statusClass}">${(v.estado || 'pendiente').toUpperCase()}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+  } else if (type === 'doctor-activity') {
+    tableHtml += `
+      <th>Médico</th>
+      <th>Especialidad</th>
+      <th>Visitas Totales</th>
+      <th>Consultas</th>
+      <th>Emergencias</th>
+      <th>Diagnósticos</th>
+      <th>Alertas Rojas</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = list.map(v => `
+      <tr>
+        <td><strong>${v.doctor_fullname || '—'}</strong></td>
+        <td>${v.especialidad || 'General'}</td>
+        <td><code>${v.total_visits || 0}</code></td>
+        <td>${v.total_consultas || 0}</td>
+        <td style="${v.total_emergencias > 0 ? 'color: var(--danger); font-weight:bold;' : ''}">${v.total_emergencias || 0}</td>
+        <td>${v.visits_with_diagnosis || 0}</td>
+        <td style="${v.red_alerts > 0 ? 'color: var(--danger); font-weight:bold;' : ''}">${v.red_alerts || 0}</td>
+      </tr>
+    `).join('');
+
+  } else if (type === 'audit') {
+    tableHtml += `
+      <th>Fecha/Hora</th>
+      <th>Usuario</th>
+      <th>Acción</th>
+      <th>Entidad</th>
+      <th>ID Entidad</th>
+      <th>Detalles de la Actividad</th>
+      <th>Dirección IP</th>
+    </tr></thead><tbody>`;
+
+    rowsHtml = list.map(v => {
+      let actionClass = 'badge-verde';
+      if (v.action === 'DELETE') actionClass = 'badge-rojo';
+      else if (v.action === 'UPDATE') actionClass = 'badge-amarillo';
+      else if (v.action === 'LOGIN') actionClass = 'badge-cyan';
+      
+      return `
+        <tr>
+          <td><small>${fmtDate(v.logged_at)}</small></td>
+          <td><strong>${v.username || '—'}</strong></td>
+          <td><span class="badge ${actionClass}">${v.action || '—'}</span></td>
+          <td><code>${v.entity || '—'}</code></td>
+          <td><code>${v.entity_id || '—'}</code></td>
+          <td><span style="font-size:12px; color:var(--text-primary);">${v.details || '—'}</span></td>
+          <td><code>${v.ip_address || '—'}</code></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  tableHtml += rowsHtml + '</tbody></table>';
+  wrap.innerHTML = tableHtml;
+}
+
+function exportReport(format) {
+  const tableWrap = document.getElementById('reports-table-wrap');
+  const table = tableWrap ? tableWrap.querySelector('table') : null;
+
+  if (!table) {
+    toast('warning', 'Primero genera un reporte antes de exportar.');
+    return;
+  }
+
+  const type = document.getElementById('reports-type').value;
+  const typeLabel = document.getElementById('reports-type').options[document.getElementById('reports-type').selectedIndex]?.text || type;
+
+  if (format === 'pdf') {
+    // Imprimir la tabla como PDF usando el diálogo de impresión del navegador
+    const printWin = window.open('', '_blank');
+    const statsHtml = document.getElementById('reports-stats-grid')?.innerHTML || '';
+    printWin.document.write(`
+      <!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <title>Reporte: ${typeLabel}</title>
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #111; }
+          h1 { font-size: 16px; margin-bottom: 4px; }
+          p.sub { color: #666; font-size: 11px; margin-bottom: 16px; }
+          .stats { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+          .stat-card { border: 1px solid #ddd; border-radius: 6px; padding: 10px 16px; min-width: 120px; }
+          .stat-value { font-size: 20px; font-weight: bold; }
+          .stat-label { font-size: 10px; color: #666; }
+          table { width: 100%; border-collapse: collapse; }
+          th { background: #1e293b; color: #fff; padding: 6px 8px; text-align: left; font-size: 11px; }
+          td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 11px; }
+          tr:nth-child(even) td { background: #f8fafc; }
+          .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+          code { font-family: monospace; font-size: 11px; }
+          @media print { button { display: none; } }
+        </style>
+      </head><body>
+        <h1>Reporte: ${typeLabel}</h1>
+        <p class="sub">Generado el ${new Date().toLocaleString('es-DO')} &mdash; Sistema MED-INTELLIGENCE PRO</p>
+        <div class="stats">${statsHtml}</div>
+        ${table.outerHTML}
+        <script>window.onload = () => { window.print(); }<\/script>
+      </body></html>`);
+    printWin.document.close();
+
+  } else if (format === 'csv') {
+    // Exportar la tabla visible como CSV
+    const headers = [];
+    table.querySelectorAll('thead th').forEach(th => headers.push(`"${th.innerText.trim()}"`));
+
+    const csvRows = [headers.join(',')];
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const cols = [];
+      tr.querySelectorAll('td').forEach(td => {
+        cols.push(`"${td.innerText.trim().replace(/"/g, "'")}"`); 
+      });
+      csvRows.push(cols.join(','));
+    });
+
+    const blob = new Blob(["\uFEFF" + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `reporte_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+
+  } else if (format === 'xlsx') {
+    // Para Excel, reutilizar el CSV (compatible con Excel con BOM UTF-8)
+    const headers = [];
+    table.querySelectorAll('thead th').forEach(th => headers.push(`"${th.innerText.trim()}"`));
+    const csvRows = [headers.join(',')];
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const cols = [];
+      tr.querySelectorAll('td').forEach(td => {
+        cols.push(`"${td.innerText.trim().replace(/"/g, "'")}"`);
+      });
+      csvRows.push(cols.join(','));
+    });
+    const blob = new Blob(["\uFEFF" + csvRows.join('\n')], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `reporte_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.click();
+  }
+}
+
 
 

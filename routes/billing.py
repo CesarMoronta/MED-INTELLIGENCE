@@ -56,6 +56,10 @@ def api_charge_visit():
     visit_id = data.get("visit_id")
     payment_method = data.get("payment_method", "efectivo").lower()
     tipo_ecf = data.get("tipo_ecf", "32")
+    # Crédito
+    is_credit = data.get("is_credit", False)
+    amount_paid_input = data.get("amount_paid")
+    due_date_input = data.get("due_date") or None
 
     if not visit_id:
         return jsonify({"success": False, "error": "ID de visita es requerido."}), 400
@@ -189,6 +193,19 @@ def api_charge_visit():
             err_msg = res_data.get("errorMessage") or "Error al procesar la factura con la DGII."
             return jsonify({"success": False, "error": err_msg}), 502
 
+        # Calcular montos de crédito
+        total_amount = 3000.00
+        if is_credit:
+            try:
+                paid = float(amount_paid_input) if amount_paid_input is not None else 0.0
+            except (TypeError, ValueError):
+                paid = 0.0
+            paid = max(0.0, min(paid, total_amount))
+            balance = round(total_amount - paid, 2)
+        else:
+            paid = total_amount
+            balance = 0.0
+
         # Guardar en base de datos
         invoice_id = create_invoice(
             visit_id=visit_id,
@@ -196,7 +213,7 @@ def api_charge_visit():
             invoice_type="consulta",
             amount=float(monto_gravado) if tipo_ecf == "31" else 3000.00,
             itbis=float(total_itbis),
-            total=3000.00,
+            total=total_amount,
             payment_method=payment_method,
             ecf_id=res_data.get("id"),
             encf=res_data.get("encf"),
@@ -205,7 +222,10 @@ def api_charge_visit():
             codigo_seguridad=res_data.get("codigoSeguridad"),
             dgii_url=sanitize_dgii_url(res_data.get("dgiiUrl")),
             xml_url=res_data.get("xmlUrl"),
-            tipo_ecf=f"E{tipo_ecf}"
+            tipo_ecf=f"E{tipo_ecf}",
+            amount_paid=paid,
+            balance_due=balance,
+            due_date=due_date_input
         )
 
         if not invoice_id:
@@ -219,7 +239,10 @@ def api_charge_visit():
                 "encf": res_data.get("encf"),
                 "estado": res_data.get("estado"),
                 "codigo_seguridad": res_data.get("codigoSeguridad"),
-                "dgii_url": sanitize_dgii_url(res_data.get("dgiiUrl"))
+                "dgii_url": sanitize_dgii_url(res_data.get("dgiiUrl")),
+                "amount_paid": paid,
+                "balance_due": balance,
+                "due_date": due_date_input
             }
         })
 
