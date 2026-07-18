@@ -92,7 +92,7 @@ class GeminiDiagnosticLayer:
         Llama a la API de Gemini utilizando un pool de modelos alternativos y
         un mecanismo de reintentos con retroceso exponencial.
         """
-        models_pool = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_pool = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"]
         last_exception = None
 
         for model in models_pool:
@@ -117,7 +117,7 @@ class GeminiDiagnosticLayer:
         # OpenRouter Fallback
         openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if openrouter_key:
-            openrouter_models = ["google/gemini-2.0-flash-exp:free", "openrouter/free"]
+            openrouter_models = ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openrouter/free"]
             
             prompt_text = ""
             if isinstance(contents, list):
@@ -141,9 +141,14 @@ class GeminiDiagnosticLayer:
             
             for or_model in openrouter_models:
                 try:
+                    max_tokens = 2048
+                    if config and hasattr(config, "max_output_tokens") and config.max_output_tokens:
+                        max_tokens = config.max_output_tokens
+                    
                     payload = {
                         "model": or_model,
-                        "messages": [{"role": "user", "content": prompt_text}]
+                        "messages": [{"role": "user", "content": prompt_text}],
+                        "max_tokens": max_tokens
                     }
                     if config and getattr(config, "system_instruction", None):
                         payload["messages"].insert(0, {"role": "system", "content": str(config.system_instruction)})
@@ -163,7 +168,15 @@ class GeminiDiagnosticLayer:
                         
                         class OpenRouterResponse:
                             def __init__(self, text):
-                                self.text = text
+                                cleaned = text.strip()
+                                if cleaned.startswith("```"):
+                                    lines = cleaned.splitlines()
+                                    if lines[0].startswith("```"):
+                                        lines = lines[1:]
+                                    if lines and lines[-1].startswith("```"):
+                                        lines = lines[:-1]
+                                    cleaned = "\n".join(lines).strip()
+                                self.text = cleaned
                         return OpenRouterResponse(content_text)
                 except Exception as e:
                     print(f"[GeminiLayer] Error en OpenRouter con modelo {or_model}: {e}")
@@ -399,7 +412,7 @@ Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2
                     )
                 )
 
-            models_pool = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            models_pool = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"]
             last_exception = None
 
             for model in models_pool:
