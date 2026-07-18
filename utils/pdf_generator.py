@@ -682,15 +682,33 @@ def generate_invoice_pdf(invoice: dict, clinic_info: dict) -> bytes:
         [Paragraph(f"ITBIS (18%)", styles["InvoiceLeftText"]), Paragraph(f"{itbis:,.2f}", ParagraphStyle("Right", parent=styles["InvoiceLeftText"], alignment=TA_RIGHT))],
         [Paragraph("<b>TOTAL</b>", ParagraphStyle("TotalText", fontSize=12, fontName="Helvetica-Bold")), Paragraph(f"<b>{total:,.2f}</b>", ParagraphStyle("TotalVal", fontSize=12, fontName="Helvetica-Bold", alignment=TA_RIGHT))],
     ]
-    totales_table = Table(totales_rows, colWidths=["60%", "40%"])
-    totales_table.setStyle(TableStyle([
+    
+    amount_paid = invoice.get("amount_paid")
+    balance_due = invoice.get("balance_due")
+    
+    totales_style = [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("LINEBELOW", (0, 2), (1, 2), 1.5, colors.black), # Línea gruesa antes del total
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
+    ]
+    
+    # Si hay cobro parcial
+    if balance_due is not None and amount_paid is not None and float(balance_due) > 0:
+        totales_rows.append([
+            Paragraph("<b>Monto Pagado (Abono)</b>", ParagraphStyle("PaidText", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#16a34a"))),
+            Paragraph(f"<b>{float(amount_paid):,.2f}</b>", ParagraphStyle("PaidVal", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#16a34a"), alignment=TA_RIGHT))
+        ])
+        totales_rows.append([
+            Paragraph("<b>Balance Pendiente</b>", ParagraphStyle("DueText", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#dc2626"))),
+            Paragraph(f"<b>{float(balance_due):,.2f}</b>", ParagraphStyle("DueVal", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#dc2626"), alignment=TA_RIGHT))
+        ])
+        totales_style.append(("LINEBELOW", (0, 3), (1, 3), 1, colors.HexColor("#cbd5e1")))
+    
+    totales_table = Table(totales_rows, colWidths=["60%", "40%"])
+    totales_table.setStyle(TableStyle(totales_style))
     
     # Tabla contenedora de QR e Totales
     bottom_split_table = Table([[qr_cell, totales_table]], colWidths=["50%", "50%"])

@@ -21,7 +21,10 @@ LOCKOUT_MINUTES    = 15   # Minutos de bloqueo
 _local_data = threading.local()
 
 def get_connection() -> pyodbc.Connection:
-    conn = pyodbc.connect(SQLSERVER_CONN, autocommit=True)
+    conn_str = SQLSERVER_CONN
+    if "APP=" not in conn_str.upper() and "APPLICATION NAME=" not in conn_str.upper():
+        conn_str += ";APP=MedIntelligenceApp"
+    conn = pyodbc.connect(conn_str, autocommit=True)
     if not hasattr(_local_data, "connections"):
         _local_data.connections = []
     _local_data.connections.append(conn)
@@ -1626,26 +1629,55 @@ def list_pending_bills() -> list:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT ev.id AS visit_id, ev.visit_date, p.name AS patient_name, p.cedula AS patient_cedula,
-               u.full_name AS doctor_fullname, p.id AS patient_id
-        FROM dbo.emergency_visits ev
-        INNER JOIN dbo.patients p ON ev.patient_id = p.id
-        INNER JOIN dbo.users u ON ev.doctor_id = u.id
-        LEFT JOIN dbo.appointments app ON ev.appointment_id = app.id
-        WHERE ev.status = 'cerrada' AND ev.visit_type = 'consulta'
-          AND (
-              SELECT COALESCE(SUM(total), 0)
-              FROM dbo.invoices
-              WHERE visit_id = ev.id
-          ) = 0
-          AND (app.parent_appointment_id IS NULL OR ev.appointment_id IS NULL)
-        ORDER BY ev.visit_date DESC
+        WITH visit_billing AS (
+            SELECT 
+                ev.id AS visit_id,
+                ev.visit_date,
+                p.name AS patient_name,
+                p.cedula AS patient_cedula,
+                u.full_name AS doctor_fullname,
+                p.id AS patient_id,
+                inv.balance_due,
+                inv.is_cancelled
+            FROM dbo.emergency_visits ev
+            INNER JOIN dbo.patients p ON ev.patient_id = p.id
+            INNER JOIN dbo.users u ON ev.doctor_id = u.id
+            LEFT JOIN dbo.appointments app ON ev.appointment_id = app.id
+            OUTER APPLY (
+                SELECT TOP 1 
+                    i.balance_due,
+                    CASE 
+                        WHEN EXISTS (
+                            SELECT 1 FROM dbo.invoices cn 
+                            WHERE cn.visit_id = i.visit_id 
+                              AND cn.invoice_type = 'nota_credito' 
+                              AND cn.created_at > i.created_at
+                        ) THEN 1 
+                        ELSE 0 
+                    END AS is_cancelled
+                FROM dbo.invoices i
+                WHERE i.visit_id = ev.id AND i.invoice_type = 'consulta'
+                ORDER BY i.created_at DESC
+            ) inv
+            WHERE ev.status = 'cerrada' AND ev.visit_type = 'consulta'
+              AND (app.parent_appointment_id IS NULL OR ev.appointment_id IS NULL)
+        )
+        SELECT 
+            visit_id, visit_date, patient_name, patient_cedula, doctor_fullname, patient_id,
+            CASE 
+                WHEN balance_due IS NULL OR is_cancelled = 1 THEN 3000.00
+                ELSE balance_due
+            END AS pending_amount
+        FROM visit_billing
+        WHERE (balance_due IS NULL OR is_cancelled = 1 OR balance_due > 0)
+        ORDER BY visit_date DESC
     """)
     rows = rows_to_dicts(cursor)
     cursor.close()
     conn.close()
     for r in rows:
         r["visit_date"] = _fmt_date(r.get("visit_date"))
+        r["pending_amount"] = float(r.get("pending_amount") or 3000.00)
     return rows
 
 

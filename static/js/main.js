@@ -4319,15 +4319,20 @@ async function loadBillingPending() {
   el.innerHTML = res.pending.map(p => {
     // Formatear fecha corta
     const date = p.visit_date ? p.visit_date.substring(0, 16).replace('T', ' ') : '—';
+    const pendingAmount = p.pending_amount !== undefined ? p.pending_amount : 3000.00;
+    let amountHtml = `RD$ ${pendingAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    if (pendingAmount < 3000.00) {
+      amountHtml += `<div style="font-size:11px; color:var(--text-muted); font-weight:normal; margin-top:2px;">(Faltante de RD$ 3,000.00)</div>`;
+    }
     return `
       <tr>
         <td>${date}</td>
         <td style="font-weight:600; color:var(--text-primary);">${escHtml(p.patient_name)}</td>
         <td>${escHtml(p.patient_cedula || '—')}</td>
         <td>Dr. ${escHtml(p.doctor_fullname)}</td>
-        <td style="color:var(--brand-light); font-weight:600;">RD$ 3,000.00</td>
+        <td style="color:var(--brand-light); font-weight:600;">${amountHtml}</td>
         <td>
-          <button class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="openChargeModal(${p.visit_id}, '${escHtml(p.patient_name)}', ${p.patient_id})">
+          <button class="btn-primary" style="font-size:12px; padding:6px 12px;" onclick="openChargeModal(${p.visit_id}, '${escHtml(p.patient_name)}', ${p.patient_id}, ${pendingAmount})">
             💳 Cobrar
           </button>
         </td>
@@ -4398,7 +4403,15 @@ function renderBillingHistory(invoices) {
         <td>${paymentMethodText}</td>
         <td style="font-family:var(--mono); font-size:12px; color:var(--text-primary); font-weight:600; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">${escHtml(i.encf || '—')}</td>
         <td><span class="badge ${statusBadgeClass}" style="font-size:10px;">${statusText}</span></td>
-        <td style="font-weight:600; color:${i.total < 0 || i.is_cancelled ? 'var(--red)' : 'var(--text-primary)'}; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+        <td style="font-weight:600; color:${i.total < 0 || i.is_cancelled ? 'var(--red)' : 'var(--text-primary)'}; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">
+          RD$ ${i.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+          ${(i.balance_due > 0 && !i.is_cancelled && i.invoice_type !== 'nota_credito') ? `
+            <div style="font-size: 11px; color: var(--text-secondary); font-weight: normal; margin-top: 4px;">
+              <span style="color:var(--brand-light);">Cobrado: RD$ ${i.amount_paid.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</span><br/>
+              <span style="color:var(--rojo);">Faltante: RD$ ${i.balance_due.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</span>
+            </div>
+          ` : ''}
+        </td>
         <td>
           <div style="display:flex; gap:8px; align-items:center;">
             ${pdfLink}
@@ -4533,24 +4546,30 @@ function toggleChargeEcfFields() {
   const subtotalLabel = document.getElementById('charge-breakdown-subtotal-label');
   const itbisLabel = document.getElementById('charge-breakdown-itbis-label');
 
+  // Obtener el monto pendiente actual a cobrar
+  const pendingAmount = parseFloat(document.getElementById('modal-charge-visit').getAttribute('data-pending-amount') || '3000.00');
+
   if (type === '31') {
-    fields.style.display = 'block';
+    if (fields) fields.style.display = 'block';
     
-    // E31 details: Subtotal (Base) = 2,542.37, ITBIS = 457.63, Total = 3,000.00
+    // E31 details: Subtotal (Base) = pendingAmount / 1.18, ITBIS = pendingAmount * 18/118, Total = pendingAmount
+    const itbis = pendingAmount * 18 / 118;
+    const subtotal = pendingAmount - itbis;
+
     if (subtotalLabel) subtotalLabel.textContent = 'Subtotal (Base Gravable):';
-    if (subtotalEl) subtotalEl.textContent = 'RD$ 2,542.37';
+    if (subtotalEl) subtotalEl.textContent = `RD$ ${subtotal.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
     if (itbisLabel) itbisLabel.textContent = 'ITBIS (18%):';
-    if (itbisEl) itbisEl.textContent = 'RD$ 457.63';
-    if (totalEl) totalEl.textContent = 'RD$ 3,000.00';
+    if (itbisEl) itbisEl.textContent = `RD$ ${itbis.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
+    if (totalEl) totalEl.textContent = `RD$ ${pendingAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
   } else {
-    fields.style.display = 'none';
+    if (fields) fields.style.display = 'none';
     
-    // E32 details: Subtotal (Exento) = 3,000.00, ITBIS = 0.00, Total = 3,000.00
+    // E32 details: Subtotal (Exento) = pendingAmount, ITBIS = 0.00, Total = pendingAmount
     if (subtotalLabel) subtotalLabel.textContent = 'Subtotal (Monto Exento):';
-    if (subtotalEl) subtotalEl.textContent = 'RD$ 3,000.00';
+    if (subtotalEl) subtotalEl.textContent = `RD$ ${pendingAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
     if (itbisLabel) itbisLabel.textContent = 'ITBIS (0%):';
     if (itbisEl) itbisEl.textContent = 'RD$ 0.00';
-    if (totalEl) totalEl.textContent = 'RD$ 3,000.00';
+    if (totalEl) totalEl.textContent = `RD$ ${pendingAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
   }
 }
 
@@ -4588,12 +4607,18 @@ async function lookupChargeRnc(rncVal) {
   }
 }
 
-async function openChargeModal(visitId, patientName, patientId) {
+async function openChargeModal(visitId, patientName, patientId, pendingAmount) {
+  pendingAmount = pendingAmount !== undefined ? parseFloat(pendingAmount) : 3000.00;
+  
   document.getElementById('charge-visit-id').value = visitId;
   document.getElementById('charge-patient-id').value = patientId || '';
   document.getElementById('charge-patient-name').textContent = patientName;
   document.getElementById('charge-payment-method').value = 'efectivo';
   document.getElementById('charge-ecf-type').value = '32';
+  
+  // Guardamos el total actual a cobrar en el modal
+  document.getElementById('modal-charge-visit').setAttribute('data-pending-amount', pendingAmount);
+  
   toggleChargeEcfFields();
   clearChargeBillingFields();
 
@@ -4624,12 +4649,12 @@ function toggleCreditFields() {
   if (!isCredit) {
     document.getElementById('charge-amount-paid').value = '';
     document.getElementById('charge-due-date').value = '';
-    calcChargeCreditBalance();
   }
+  calcChargeCreditBalance();
 }
 
 function calcChargeCreditBalance() {
-  const total = 3000.00; // hardcoded por ahora
+  const total = parseFloat(document.getElementById('modal-charge-visit').getAttribute('data-pending-amount') || '3000.00');
   let paid = parseFloat(document.getElementById('charge-amount-paid').value);
   if (isNaN(paid)) paid = 0;
   if (paid < 0) paid = 0;

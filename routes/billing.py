@@ -68,16 +68,73 @@ def api_charge_visit():
     if not visit:
         return jsonify({"success": False, "error": "Visita no encontrada."}), 404
 
-    # Verificar si ya existe una factura activa (no anulada totalmente) para esta visita
+    # Verificar si ya existe una factura activa para esta visita
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COALESCE(SUM(total), 0) FROM dbo.invoices WHERE visit_id = ?", visit_id)
-    total_invoiced = cursor.fetchone()[0]
+    cursor.execute("""
+        SELECT id, total, amount_paid, balance_due, payment_method, tipo_ecf, encf, estado, codigo_seguridad, dgii_url
+        FROM dbo.invoices
+        WHERE visit_id = ? AND invoice_type = 'consulta'
+          AND NOT EXISTS (
+              SELECT 1 FROM dbo.invoices cn
+              WHERE cn.visit_id = dbo.invoices.visit_id
+                AND cn.invoice_type = 'nota_credito'
+                AND cn.created_at > dbo.invoices.created_at
+          )
+    """, visit_id)
+    existing_invoice = cursor.fetchone()
+
+    if existing_invoice:
+        inv_id, inv_total, inv_amount_paid, inv_balance_due, inv_pay_method, inv_tipo_ecf, inv_encf, inv_estado, inv_cod_seg, inv_dgii_url = existing_invoice
+        
+        if float(inv_balance_due) <= 0:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Esta visita ya ha sido cobrada totalmente."}), 400
+        
+        # Procesar el pago de la cuota o el saldo faltante
+        if is_credit:
+            try:
+                paid_now = float(amount_paid_input) if amount_paid_input is not None else 0.0
+            except (TypeError, ValueError):
+                paid_now = 0.0
+            paid_now = max(0.0, min(paid_now, float(inv_balance_due)))
+            new_amount_paid = float(inv_amount_paid) + paid_now
+            new_balance_due = round(float(inv_total) - new_amount_paid, 2)
+        else:
+            paid_now = float(inv_balance_due)
+            new_amount_paid = float(inv_total)
+            new_balance_due = 0.0
+
+        cursor.execute("""
+            UPDATE dbo.invoices
+            SET amount_paid = ?,
+                balance_due = ?,
+                payment_method = ?,
+                due_date = ?
+            WHERE id = ?
+        """, new_amount_paid, new_balance_due, payment_method, due_date_input, inv_id)
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "message": "Pago de balance pendiente registrado con éxito.",
+            "invoice_id": inv_id,
+            "invoice": {
+                "encf": inv_encf,
+                "estado": inv_estado,
+                "codigo_seguridad": inv_cod_seg,
+                "dgii_url": inv_dgii_url,
+                "amount_paid": new_amount_paid,
+                "balance_due": new_balance_due,
+                "due_date": due_date_input
+            }
+        })
+
     cursor.close()
     conn.close()
-
-    if total_invoiced > 0:
-        return jsonify({"success": False, "error": "Esta visita ya ha sido cobrada/facturada anteriormente."}), 400
 
     # Determinar código de pago
     # 1: Efectivo, 2: Tarjeta de Crédito/Débito
