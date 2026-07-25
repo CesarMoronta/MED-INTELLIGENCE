@@ -20,7 +20,8 @@ def apply_updates():
             ("subscription_active", "BIT NOT NULL DEFAULT 0"),
             ("subscription_id", "NVARCHAR(100) NULL"),
             ("subscription_plan", "NVARCHAR(50) NULL"),
-            ("subscription_expires_at", "DATETIME2 NULL")
+            ("subscription_expires_at", "DATETIME2 NULL"),
+            ("cedula", "NVARCHAR(50) NULL")
         ]
 
         for col_name, col_type in columns_to_add:
@@ -54,6 +55,7 @@ def apply_updates():
                 u.subscription_id,
                 u.subscription_plan,
                 u.subscription_expires_at,
+                u.cedula,
                 -- Datos de doctor (si existe)
                 doc.id          AS doctor_id,
                 doc.matricula,

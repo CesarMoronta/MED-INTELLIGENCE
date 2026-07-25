@@ -1,0 +1,26 @@
+steps:
+  # 1. Construir la imagen de Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/med-intelligence:latest', '.']
+
+  # 2. Subir la imagen de Docker a Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/med-intelligence:latest']
+
+  # 3. Desplegar la imagen en Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'med-intelligence'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/med-intelligence:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/med-intelligence:latest'

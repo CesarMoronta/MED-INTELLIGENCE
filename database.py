@@ -65,6 +65,38 @@ def initialize_database(seed_patients=None, default_priors=None, default_conditi
     Verifica que el schema ya exista (debe ejecutarse database_schema.txt antes).
     Hace el seeding inicial: admin, pacientes de prueba, priors del motor Bayes.
     """
+    # Ejecutar scripts de migración/actualización automáticos para sincronizar la base de datos
+    print("🔄 Verificando y aplicando actualizaciones de base de datos...")
+    try:
+        import update_db_subscription
+        update_db_subscription.apply_updates()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_subscription: {e}")
+
+    try:
+        import update_db_v3_1
+        update_db_v3_1.apply_updates()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_v3_1: {e}")
+
+    try:
+        import update_db_visits
+        update_db_visits.apply_migration()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_visits: {e}")
+
+    try:
+        import update_db_vw_visits
+        update_db_vw_visits.apply_migration()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_vw_visits: {e}")
+
+    try:
+        import update_db_billing_info
+        update_db_billing_info.apply_updates()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_billing_info: {e}")
+
     conn   = get_connection()
     cursor = conn.cursor()
 

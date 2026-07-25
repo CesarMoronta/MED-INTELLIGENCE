@@ -459,10 +459,29 @@ BEGIN
         codigo_seguridad    NVARCHAR(50)        NULL,
         dgii_url            NVARCHAR(MAX)       NULL,
         xml_url             NVARCHAR(MAX)       NULL,
+        tipo_ecf            NVARCHAR(10)        NULL,
         created_at          DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_invoices PRIMARY KEY (id),
         CONSTRAINT FK_invoices_visit FOREIGN KEY (visit_id) REFERENCES dbo.emergency_visits(id),
         CONSTRAINT FK_invoices_user FOREIGN KEY (user_id) REFERENCES dbo.users(id)
+    );
+END
+GO
+
+-- -----------------------------------------------------------------------------
+-- Tabla: dbo.patient_billing_info — Información de facturación del paciente (RNC)
+-- -----------------------------------------------------------------------------
+IF OBJECT_ID(N'dbo.patient_billing_info', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.patient_billing_info (
+        patient_id   INT                 NOT NULL,
+        rnc          NVARCHAR(50)        NOT NULL,
+        razon_social NVARCHAR(200)       NOT NULL,
+        correo       NVARCHAR(200)       NULL,
+        updated_at   DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_patient_billing_info PRIMARY KEY (patient_id),
+        CONSTRAINT FK_patient_billing_info_patient FOREIGN KEY (patient_id)
+            REFERENCES dbo.patients(id) ON DELETE CASCADE
     );
 END
 GO
@@ -628,6 +647,34 @@ SELECT
     (SELECT COUNT(1) FROM dbo.users WHERE role = 'doctor' AND is_active = 1)    AS active_doctors,
     (SELECT COUNT(1) FROM dbo.users WHERE role = 'admin')                       AS total_admins,
     (SELECT COUNT(1) FROM dbo.diagnoses WHERE alert_level = 'Rojo' AND phase = 'final') AS red_alerts;
+GO
+
+-- Vista: Reporte de tiempos de espera
+DROP VIEW IF EXISTS dbo.vw_reports_waiting_time;
+GO
+CREATE VIEW dbo.vw_reports_waiting_time AS
+SELECT
+    a.id            AS appointment_id,
+    a.patient_id,
+    p.name          AS patient_name,
+    a.doctor_id,
+    u.full_name     AS doctor_fullname,
+    a.scheduled_date,
+    a.scheduled_time,
+    ev.visit_date   AS actual_arrival,
+    DATEDIFF(MINUTE,
+        CAST(
+            CONVERT(NVARCHAR(10), a.scheduled_date, 120)
+            + N' '
+            + CONVERT(NVARCHAR(8), a.scheduled_time, 108)
+        AS DATETIME2),
+        ev.visit_date
+    ) AS wait_minutes,
+    a.status        AS appointment_status
+FROM dbo.appointments a
+JOIN dbo.patients p          ON a.patient_id = p.id
+JOIN dbo.users    u          ON a.doctor_id  = u.id
+LEFT JOIN dbo.emergency_visits ev ON ev.appointment_id = a.id;
 GO
 
 -- Vista: Listado y detalles de citas agendadas
