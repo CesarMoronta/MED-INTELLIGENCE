@@ -1,0 +1,15 @@
+.env
+.env.*
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.gitattributes
+.idea/
+.vscode/
+scratch/
+uploads/
+static/uploads/
+*.log
