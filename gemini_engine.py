@@ -87,6 +87,80 @@ class GeminiDiagnosticLayer:
             except Exception as e:
                 print(f"[GeminiLayer] Error inicializando cliente: {e}")
 
+    def _generate_content_with_openrouter(self, contents, config, messages=None):
+        """Intenta generar contenido mediante OpenRouter y retorna None si falla."""
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        if not openrouter_key:
+            return None
+
+        openrouter_models = ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openrouter/free"]
+
+        if messages is None:
+            prompt_text = ""
+            if isinstance(contents, list):
+                prompt_text = " ".join([str(c) for c in contents])
+            else:
+                prompt_text = str(contents)
+
+            if config and hasattr(config, "response_schema") and config.response_schema:
+                try:
+                    schema_json = json.dumps(config.response_schema, default=lambda x: x.model_json_schema() if hasattr(x, "model_json_schema") else str(x))
+                    prompt_text += f"\n\nResponde ÚNICAMENTE con un objeto JSON válido que cumpla este esquema:\n{schema_json}"
+                except Exception:
+                    pass
+            elif config and hasattr(config, "response_mime_type") and config.response_mime_type == "application/json":
+                prompt_text += "\n\nResponde ÚNICAMENTE con JSON válido."
+
+            messages = [{"role": "user", "content": prompt_text}]
+            if config and getattr(config, "system_instruction", None):
+                messages.insert(0, {"role": "system", "content": str(config.system_instruction)})
+
+        headers = {
+            "Authorization": f"Bearer {openrouter_key}",
+            "Content-Type": "application/json"
+        }
+
+        for or_model in openrouter_models:
+            try:
+                max_tokens = 2048
+                if config and hasattr(config, "max_output_tokens") and config.max_output_tokens:
+                    max_tokens = config.max_output_tokens
+
+                payload = {
+                    "model": or_model,
+                    "messages": messages,
+                    "max_tokens": max_tokens
+                }
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                response.raise_for_status()
+                result_json = response.json()
+
+                if "choices" in result_json and len(result_json["choices"]) > 0:
+                    content_text = result_json["choices"][0]["message"]["content"]
+                    print(f"[GeminiLayer] Fallback activado: usando OpenRouter ({or_model}) tras agotar pool de Gemini")
+
+                    class OpenRouterResponse:
+                        def __init__(self, text):
+                            cleaned = text.strip()
+                            if cleaned.startswith("```"):
+                                lines = cleaned.splitlines()
+                                if lines[0].startswith("```"):
+                                    lines = lines[1:]
+                                if lines and lines[-1].startswith("```"):
+                                    lines = lines[:-1]
+                                cleaned = "\n".join(lines).strip()
+                            self.text = cleaned
+                    return OpenRouterResponse(content_text)
+            except Exception as e:
+                print(f"[GeminiLayer] Error en OpenRouter con modelo {or_model}: {e}")
+
+        return None
+
     def _generate_content_with_retry(self, contents, config) -> any:
         """
         Llama a la API de Gemini utilizando un pool de modelos alternativos y
@@ -114,73 +188,11 @@ class GeminiDiagnosticLayer:
                         backoff *= 2.0
                     else:
                         break
-        # OpenRouter Fallback
-        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
-        if openrouter_key:
-            openrouter_models = ["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash", "openrouter/free"]
-            
-            prompt_text = ""
-            if isinstance(contents, list):
-                prompt_text = " ".join([str(c) for c in contents])
-            else:
-                prompt_text = str(contents)
-                
-            if config and hasattr(config, "response_schema") and config.response_schema:
-                try:
-                    schema_json = json.dumps(config.response_schema, default=lambda x: x.model_json_schema() if hasattr(x, "model_json_schema") else str(x))
-                    prompt_text += f"\n\nResponde ÚNICAMENTE con un objeto JSON válido que cumpla este esquema:\n{schema_json}"
-                except Exception:
-                    pass
-            elif config and hasattr(config, "response_mime_type") and config.response_mime_type == "application/json":
-                prompt_text += "\n\nResponde ÚNICAMENTE con JSON válido."
 
-            headers = {
-                "Authorization": f"Bearer {openrouter_key}",
-                "Content-Type": "application/json"
-            }
-            
-            for or_model in openrouter_models:
-                try:
-                    max_tokens = 2048
-                    if config and hasattr(config, "max_output_tokens") and config.max_output_tokens:
-                        max_tokens = config.max_output_tokens
-                    
-                    payload = {
-                        "model": or_model,
-                        "messages": [{"role": "user", "content": prompt_text}],
-                        "max_tokens": max_tokens
-                    }
-                    if config and getattr(config, "system_instruction", None):
-                        payload["messages"].insert(0, {"role": "system", "content": str(config.system_instruction)})
-                        
-                    response = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers=headers,
-                        json=payload,
-                        timeout=30
-                    )
-                    response.raise_for_status()
-                    result_json = response.json()
-                    
-                    if "choices" in result_json and len(result_json["choices"]) > 0:
-                        content_text = result_json["choices"][0]["message"]["content"]
-                        print(f"[GeminiLayer] Fallback activado: usando OpenRouter ({or_model}) tras agotar pool de Gemini")
-                        
-                        class OpenRouterResponse:
-                            def __init__(self, text):
-                                cleaned = text.strip()
-                                if cleaned.startswith("```"):
-                                    lines = cleaned.splitlines()
-                                    if lines[0].startswith("```"):
-                                        lines = lines[1:]
-                                    if lines and lines[-1].startswith("```"):
-                                        lines = lines[:-1]
-                                    cleaned = "\n".join(lines).strip()
-                                self.text = cleaned
-                        return OpenRouterResponse(content_text)
-                except Exception as e:
-                    print(f"[GeminiLayer] Error en OpenRouter con modelo {or_model}: {e}")
-                    
+        openrouter_response = self._generate_content_with_openrouter(contents, config)
+        if openrouter_response is not None:
+            return openrouter_response
+
         if last_exception is not None:
             raise last_exception
         raise Exception("Todos los modelos fallaron.")
@@ -441,6 +453,30 @@ Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2
                             backoff *= 2.0
                         else:
                             break
+
+            openrouter_messages = [{"role": "system", "content": system_con_contexto}]
+            for msg in historial:
+                role = msg.get("role", "user")
+                if role == "model":
+                    role = "assistant"
+                if role not in ("user", "assistant"):
+                    role = "user"
+                openrouter_messages.append({"role": role, "content": msg.get("text", "")})
+            openrouter_messages.append({"role": "user", "content": mensaje_usuario})
+
+            config = types.GenerateContentConfig(
+                system_instruction=system_con_contexto,
+                temperature=0.5,
+                max_output_tokens=1000,
+            )
+            openrouter_response = self._generate_content_with_openrouter(
+                contents=mensaje_usuario,
+                config=config,
+                messages=openrouter_messages,
+            )
+            if openrouter_response is not None:
+                return {"response": openrouter_response.text, "fallback": False}
+
             if last_exception is not None:
                 raise last_exception
             raise Exception("Todos los modelos de chat fallaron.")
