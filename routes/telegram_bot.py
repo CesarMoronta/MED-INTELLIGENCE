@@ -227,6 +227,33 @@ def db_notify_secretaries_and_admins(message_text: str, from_user_id: int):
     except Exception as e:
         print(f"Error notifying secretaries: {e}")
 
+# JCE Dominican Cédula API Integration
+def jce_api_lookup(cedula: str) -> dict | None:
+    cedula_clean = re.sub(r"\D", "", cedula)
+    base_url = os.environ.get("DGII_JCE_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
+    api_key  = os.environ.get("DGII_JCE_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
+    url = f"{base_url}/api/v1/dgii/jce?cedula={cedula_clean}"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": api_key
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.ok:
+            data = res.json()
+            if data.get("found"):
+                gender_str = "Masculino" if data.get("sexo") == "M" else "Femenino" if data.get("sexo") == "F" else "Otro"
+                dob_raw = data.get("fechaNacimiento") or ""
+                dob_clean = dob_raw[:10] if len(dob_raw) >= 10 else "1990-01-01"
+                return {
+                    "name": data.get("nombre"),
+                    "dob": dob_clean,
+                    "gender": gender_str
+                }
+    except Exception as e:
+        print(f"Error during JCE lookup for {cedula_clean}: {e}")
+    return None
+
 # Webhook Endpoint
 @telegram_bp.route("/api/telegram/webhook", methods=["POST"])
 def telegram_webhook():
@@ -369,13 +396,47 @@ def telegram_webhook():
             
             send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
         else:
-            # Create new patient flow
-            new_state = {
-                "state": "AGENDAR_NAME",
-                "cedula": formatted_cedula
-            }
-            save_bot_state(chat_id, new_state)
-            send_message(chat_id, "📝 Cédula no registrada. Vamos a registrarte.\n\nPor favor, escribe tu <b>Nombre Completo</b>:")
+            # Query JCE API to automatically fetch data!
+            send_message(chat_id, "🔍 Consultando cédula en la JCE...")
+            jce_data = jce_api_lookup(formatted_cedula)
+            
+            if jce_data:
+                # Successfully found in JCE! Register automatically in the database
+                try:
+                    patient_id = add_patient(
+                        cedula=formatted_cedula,
+                        name=jce_data["name"],
+                        dob=jce_data["dob"],
+                        gender=jce_data["gender"],
+                        antecedentes={}
+                    )
+                    new_state = {
+                        "state": "AGENDAR_DOCTOR",
+                        "patient_id": patient_id,
+                        "patient_name": jce_data["name"],
+                        "cedula": formatted_cedula
+                    }
+                    save_bot_state(chat_id, new_state)
+                    send_message(chat_id, f"👤 <b>Persona encontrada en JCE:</b> {jce_data['name']}\n✅ Te hemos registrado en el sistema automáticamente.")
+                    
+                    # Present active doctors
+                    doctors = db_get_active_doctors()
+                    keyboard = []
+                    for doc in doctors:
+                        keyboard.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                    
+                    send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+                except Exception as e:
+                    send_message(chat_id, f"❌ Error al registrar desde la JCE: {e}", reply_markup=get_main_menu_markup())
+                    save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
+            else:
+                # Fallback to manual flow if not found in JCE
+                new_state = {
+                    "state": "AGENDAR_NAME",
+                    "cedula": formatted_cedula
+                }
+                save_bot_state(chat_id, new_state)
+                send_message(chat_id, "📝 Cédula no encontrada en la JCE. Vamos a registrarte manualmente.\n\nPor favor, escribe tu <b>Nombre Completo</b>:")
 
     elif state == "AGENDAR_NAME":
         if len(text) < 4:
@@ -408,7 +469,8 @@ def telegram_webhook():
                 cedula=user_state["cedula"],
                 name=user_state["patient_name"],
                 dob=user_state["dob"],
-                gender=text
+                gender=text,
+                antecedentes={}
             )
             user_state["patient_id"] = patient_id
             user_state["state"] = "AGENDAR_DOCTOR"
