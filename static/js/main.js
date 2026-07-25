@@ -3458,8 +3458,8 @@ async function loadWaitingRoom() {
   if (!data.success) { el.innerHTML = '<div class="empty-state"><span>No se pudo cargar la sala de espera.</span></div>'; return; }
   
   let apps = data.appointments || [];
-  // Ocultar de la sala de espera las citas que ya están completadas
-  apps = apps.filter(a => a.status !== 'completada');
+  // Ocultar de la sala de espera las citas que ya están completadas o canceladas
+  apps = apps.filter(a => a.status !== 'completada' && a.status !== 'cancelada');
   
   if (!apps.length) { el.innerHTML = '<div class="empty-state"><span>Sin pacientes en espera para hoy.</span></div>'; return; }
 

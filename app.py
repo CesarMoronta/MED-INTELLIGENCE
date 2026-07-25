@@ -41,6 +41,7 @@ from routes.documents import documents_bp
 from routes.notifications import notifications_bp
 from routes.billing import billing_bp
 from routes.reports import reports_bp
+from routes.telegram_bot import telegram_bp
 
 # Registrar blueprints
 app.register_blueprint(static_bp)
@@ -59,6 +60,7 @@ app.register_blueprint(documents_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(billing_bp)
 app.register_blueprint(reports_bp)
+app.register_blueprint(telegram_bp)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):

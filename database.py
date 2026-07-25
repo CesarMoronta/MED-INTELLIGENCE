@@ -1061,7 +1061,7 @@ def create_appointment(patient_id: int, doctor_id: int, scheduled_date: str, sch
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO dbo.appointments (patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_appointment_id) OUTPUT INSERTED.id VALUES (?, ?, ?, ?, ?, ?)",
+        "SET NOCOUNT ON; INSERT INTO dbo.appointments (patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_appointment_id) VALUES (?, ?, ?, ?, ?, ?); SELECT SCOPE_IDENTITY();",
         patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_appointment_id
     )
     app_id = int(cursor.fetchone()[0])
