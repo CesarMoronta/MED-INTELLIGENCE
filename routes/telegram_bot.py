@@ -410,6 +410,14 @@ def telegram_webhook():
                         gender=jce_data["gender"],
                         antecedentes={}
                     )
+                    if not patient_id:
+                        p = db_get_patient_by_cedula(formatted_cedula)
+                        if p:
+                            patient_id = p["id"]
+
+                    if not patient_id:
+                        raise Exception("No se pudo obtener el ID del paciente tras el registro.")
+
                     new_state = {
                         "state": "AGENDAR_DOCTOR",
                         "patient_id": patient_id,
@@ -472,6 +480,14 @@ def telegram_webhook():
                 gender=text,
                 antecedentes={}
             )
+            if not patient_id:
+                p = db_get_patient_by_cedula(user_state["cedula"])
+                if p:
+                    patient_id = p["id"]
+
+            if not patient_id:
+                raise Exception("No se pudo obtener el ID del paciente tras el registro.")
+
             user_state["patient_id"] = patient_id
             user_state["state"] = "AGENDAR_DOCTOR"
             save_bot_state(chat_id, user_state)

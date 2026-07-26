@@ -44,14 +44,15 @@ def api_save_patient():
     u = get_current_user()
     registered_by = u.get("id")
 
-    if add_patient(cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by, photo_url):
+    patient_id = add_patient(cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by, photo_url)
+    if patient_id:
         log_audit_action(
             username=u.get("username"), action="CREATE", entity="Patient",
             details=f"Registrado paciente '{name}' cédula '{cedula}'",
             ip_address=get_client_ip(), user_id=u.get("id")
         )
         return jsonify({"success": True, "patient": {
-            "cedula": cedula, "name": name, "dob": dob, "gender": gender
+            "id": patient_id, "cedula": cedula, "name": name, "dob": dob, "gender": gender
         }})
     return jsonify({"success": False, "error": "Cédula ya registrada o error al guardar."}), 409
 

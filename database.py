@@ -437,8 +437,8 @@ def list_users() -> list:
 def add_patient(cedula: str, name: str, dob: str, gender: str,
                 antecedentes: dict, phone: str = None,
                 blood_type: str = None, registered_by: int = None,
-                photo_url: str = None) -> bool:
-    """Crea un nuevo paciente. Retorna True si tuvo éxito, False si ya existe."""
+                photo_url: str = None) -> int | None:
+    """Crea un nuevo paciente. Retorna el ID del paciente si tuvo éxito, None si ya existe o falla."""
     conn      = get_connection()
     cursor    = conn.cursor()
     patient_id = None
@@ -450,15 +450,18 @@ def add_patient(cedula: str, name: str, dob: str, gender: str,
         row        = cursor.fetchone()
         patient_id = int(row[0]) if row else None
     except pyodbc.IntegrityError:
-        return False
+        return None
+    except Exception as e:
+        print(f"Error en add_patient: {e}")
+        return None
     finally:
         cursor.close()
         conn.close()
 
     if not patient_id:
-        return False
+        return None
     _set_patient_antecedents(patient_id, antecedentes)
-    return True
+    return patient_id
 
 
 def _set_patient_antecedents(patient_id: int, antecedentes: dict):
