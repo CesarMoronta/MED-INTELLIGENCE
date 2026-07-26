@@ -59,15 +59,26 @@ class MedicationItem(BaseModel):
 class PrescriptionResponse(BaseModel):
     medications: List[MedicationItem]
 
+class RefinementQuestionItem(BaseModel):
+    sintoma: str = Field(description="Nombre exacto del síntoma de la lista estándar que se desea explorar y que NO esté ya marcado como presente.")
+    pregunta: str = Field(description="Pregunta en lenguaje sencillo y amigable para el paciente para evaluar el síntoma.")
+    tipo: str = Field(description="Tipo de respuesta esperado. Usualmente 'boolean' (para Sí/No).")
+
+class RefinementQuestionsResponse(BaseModel):
+    preguntas: List[RefinementQuestionItem] = Field(description="Lista de hasta 4 preguntas clave para depurar el diagnóstico.")
 
 ENFERMEDADES_PERMITIDAS = [
     "Gripe Común / Influenza", "Neumonía", "Bronquitis Aguda", "Crisis Asmática Aguda",
     "Exacerbación Aguda de EPOC", "Infarto Agudo de Miocardio (IAM)", "Insuficiencia Cardíaca Congestiva (ICC)",
-    "Miocarditis", "Encefalitis", "Accidente Cerebrovascular (ACV)", "Migraña Severa", "Dengue",
-    "Otitis Media", "Sinusitis Aguda", "COVID-19", "COVID-19 Grave", "Faringoamigdalitis Aguda",
-    "Tromboembolismo Pulmonar", "Diabetes Mellitus Tipo 2", "Gastroenteritis Aguda",
-    "Resfriado Común (Rinofaringitis)", "Infección de Vías Urinarias (IVU)", "Reflujo Gastroesofágico (ERGE)"
+    "Miocarditis", "Encefalitis", "Accidente Cerebrovascular (ACV)", "Migraña Severa", "Dengue No Grave (Clásico)",
+    "Dengue Grave", "Fiebre Zika", "Fiebre Chikungunya", "Otitis Media Aguda", "Otitis Externa Aguda",
+    "Sinusitis Aguda", "COVID-19", "COVID-19 Grave", "Faringoamigdalitis Viral", "Faringoamigdalitis Estreptocócica",
+    "Tromboembolismo Pulmonar", "Diabetes Mellitus Tipo 2", "Gastroenteritis Aguda Viral",
+    "Gastroenteritis Aguda Bacteriana", "Gastroenteritis Aguda Parasitaria", "Resfriado Común (Rinofaringitis)",
+    "Cistitis Aguda (IVU Baja)", "Pielonefritis Aguda (IVU Alta)", "Reflujo Gastroesofágico (ERGE)",
+    "Gastritis Aguda", "Úlcera Péptica No Complicada", "Varicela (Leve/Moderada)"
 ]
+
 
 
 class GeminiDiagnosticLayer:
@@ -573,3 +584,53 @@ NOTAS DOCTOR: {doctor_notes}
         except Exception as e:
             print(f"[GeminiLayer] Error crítico generando receta tras reintentos: {e}")
             return {"medications": [], "fallback": True}
+
+    def generar_preguntas_depuracion(
+        self,
+        probs_bayes: dict,
+        sintomas: dict,
+        constantes: dict,
+        antecedentes: dict,
+        sintomas_permitidos: List[str]
+    ) -> dict:
+        if not self.available:
+            return {"preguntas": []}
+
+        top3 = sorted(probs_bayes.items(), key=lambda x: x[1], reverse=True)[:3]
+        top3_str = "\n".join([f"  - {d}: {p*100:.2f}%" for d, p in top3])
+
+        sintomas_presentes = [s for s, v in sintomas.items() if v]
+        antecedentes_activos = [a for a, v in antecedentes.items() if v]
+
+        prompt = f"""Eres un médico internista realizando diagnóstico diferencial interactivo. 
+A partir de:
+- Diagnósticos probables (Bayes):
+{top3_str}
+- Síntomas ya presentes: {', '.join(sintomas_presentes) if sintomas_presentes else 'Ninguno'}
+- Antecedentes clínicos: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
+- Constantes vitales: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')}
+
+Tu objetivo es formular hasta 4 preguntas clave para el paciente. 
+Cada pregunta debe evaluar la presencia o ausencia de un síntoma de la siguiente lista de síntomas estándares (debes elegir únicamente de esta lista de síntomas estándar y que NO estén ya presentes):
+{", ".join(sintomas_permitidos)}
+
+Estas preguntas deben estar diseñadas estratégicamente para confirmar el diagnóstico sospechado o descartar los diferenciales inmediatos (por ejemplo, diferenciar entre faringoamigdalitis viral y estreptocócica, o entre dengue y zika/chikungunya, o entre cistitis y pielonefritis).
+Devuelve el JSON correspondiente.
+"""
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction="Eres un médico experto optimizando el triaje diagnóstico.",
+                temperature=0.2,
+                max_output_tokens=1000,
+                response_mime_type="application/json",
+                response_schema=RefinementQuestionsResponse,
+            )
+            response = self._generate_content_with_retry(
+                contents=prompt,
+                config=config,
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            print(f"[GeminiLayer] Error en generar_preguntas_depuracion: {e}")
+            return {"preguntas": []}
+

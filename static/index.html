@@ -609,6 +609,17 @@
             <!-- Panel análisis Gemini AI (se rellena dinámicamente) -->
             <div id="gemini-analisis-panel" style="display:none; margin-top:16px;"></div>
 
+            <!-- Panel de Depuración Médica Interactiva -->
+            <div id="refinement-panel" class="section-card" style="display:none; margin-top:16px;">
+              <div class="section-header">
+                <h2>🔍 Depuración Diagnóstica Interactiva</h2>
+              </div>
+              <p style="color: var(--text-muted); font-size:13px; margin-bottom:12px;">
+                Responde a estas preguntas sugeridas por el sistema para precisar el diagnóstico diferencial:
+              </p>
+              <div id="refinement-questions-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
+            </div>
+
             <!-- Tests sugeridos -->
             <div class="section-card" style="margin-top:20px;">
               <div class="section-header">

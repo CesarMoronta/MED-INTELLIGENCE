@@ -1774,16 +1774,18 @@ def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
             balance_due = 0.0
             
         cursor.execute("""
+            DECLARE @inserted TABLE (id INT);
             INSERT INTO dbo.invoices (visit_id, user_id, invoice_type, amount, itbis, total,
                                       payment_method, ecf_id, encf, estado, track_id,
                                       codigo_seguridad, dgii_url, xml_url, tipo_ecf, amount_paid, balance_due, due_date)
-            OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            OUTPUT INSERTED.id INTO @inserted
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            SELECT id FROM @inserted;
         """, visit_id, user_id, invoice_type, amount, itbis, total,
              payment_method, ecf_id, encf, estado, track_id,
              codigo_seguridad, dgii_url, xml_url, tipo_ecf, amount_paid, balance_due, due_date)
         row = cursor.fetchone()
-        invoice_id = int(row[0]) if row else None
+        invoice_id = int(row[0]) if row and row[0] is not None else None
         return invoice_id
     except Exception as e:
         print(f"Error insertando factura: {e}")

@@ -27,23 +27,28 @@ const STATE = {
 
 // Lista de síntomas y antecedentes
 const ALL_SYMPTOMS = [
-  "Tos Persistente","Dificultad Respiratoria (Disnea)","Tos con Sangre (Hemoptisis)",
-  "Dolor en el Pecho","Palpitaciones","Edema (Hinchazón)",
-  "Dolor de Cabeza Severo","Confusión / Convulsiones","Pérdida de Fuerza/Sensibilidad Unilateral",
-  "Dificultad para Hablar/Entender","Mareos / Vértigo",
-  "Fatiga / Cansancio Extremo","Dolor de Cuerpo Generalizado",
-  "Pérdida del Olfato o Gusto","Erupciones Cutáneas (Rash)",
-  "Náuseas / Vómitos","Diarrea","Dolor Abdominal Agudo",
-  "Dolor de Garganta","Dolor de Oído / Cara",
-  "Disuria (Ardor al orinar)","Polaquiuria (Orinar muy seguido)","Dolor Lumbar / Suprapúbico",
-  "Pirosis (Acidez estomacal)","Regurgitación Ácida","Congestión Nasal / Estornudos","Rinorrea (Moqueo)",
+  "Tos Seca Irritativa", "Tos Productiva / con Flema", "Tos Ferina / Accesos",
+  "Dificultad Respiratoria (Disnea)", "Tos con Sangre (Hemoptisis)",
+  "Dolor en el Pecho", "Palpitaciones", "Edema (Hinchazón)",
+  "Dolor de Cabeza Severo", "Confusión / Convulsiones", "Pérdida de Fuerza/Sensibilidad Unilateral",
+  "Dificultad para Hablar/Entender", "Mareos / Vértigo",
+  "Fiebre Alta", "Febrícula", "Fatiga / Cansancio Extremo", "Dolor de Cuerpo Generalizado",
+  "Pérdida del Olfato o Gusto", "Erupciones Cutáneas (Rash)",
+  "Náuseas / Vómitos", "Diarrea Acuosa Profusa", "Diarrea Disentérica (con Sangre/Moco)",
+  "Dolor Abdominal Cólico", "Dolor Abdominal Sordo / Difuso", "Dispepsia / Ardor Epigástrico",
+  "Dolor de Garganta", "Dolor de Oído / Cara", "Otalgia (Dolor de oído)", "Odor Fétido / Secreción Ótica",
+  "Disuria (Ardor al orinar)", "Polaquiuria (Orinar muy seguido)", "Dolor Lumbar / Suprapúbico",
+  "Pirosis (Acidez estomacal)", "Regurgitación Ácida", "Congestión Nasal / Estornudos", "Rinorrea (Moqueo)",
+  "Artralgias Severas", "Mialgias Intensas", "Dolor Retroocular", "Lesiones Vesiculares Cutáneas", "Prurito Generalizado"
 ];
 
 const ALL_ANTECEDENTES = [
-  "Asma","EPOC","Cardiopatía","Hipertensión Arterial (HTA)","Diabetes",
-  "Diabetes Mellitus","Inmunosupresión","Tabaquismo","Meningitis","Cáncer",
-  "HIV / SIDA","Obesidad","Fibrilación Auricular","ACV / Derrame Previo",
-  "Insuficiencia Renal Crónica",
+  "Asma", "EPOC", "Cardiopatía", "Hipertensión Arterial (HTA)", "Diabetes",
+  "Diabetes Mellitus", "Inmunosupresión", "Tabaquismo", "Meningitis", "Cáncer",
+  "HIV / SIDA", "Obesidad", "Fibrilación Auricular", "ACV / Derrame Previo",
+  "Insuficiencia Renal Crónica", "Viaje Reciente a Zona Endémica",
+  "Consumo de Alimentos en la Calle / Agua No Tratada", "Uso Reciente de Antibióticos",
+  "Contacto con Casos Similares", "Antecedente de Litiasis Renal"
 ];
 
 function resetDiagnose() {
@@ -102,6 +107,9 @@ function resetDiagnose() {
   // Clear tests inputs
   const testsForm = document.getElementById('tests-form');
   if (testsForm) testsForm.innerHTML = '';
+
+  const refPanel = document.getElementById('refinement-panel');
+  if (refPanel) refPanel.style.display = 'none';
 }
 
 // API helper
@@ -1340,6 +1348,7 @@ async function runPhase1() {
 
     // Lanzar análisis Gemini en paralelo (no bloquea la UI)
     runGeminiAnalysis(res.probabilities);
+    loadRefinementQuestions(res.probabilities);
   } finally {
     setButtonLoading(btn, false);
   }
@@ -5700,6 +5709,161 @@ function exportReport(format) {
     link.click();
   }
 }
+
+async function loadRefinementQuestions(probs) {
+  const panel = document.getElementById('refinement-panel');
+  const container = document.getElementById('refinement-questions-container');
+  if (!panel || !container) return;
+
+  panel.style.display = '';
+  container.innerHTML = `
+    <div class="gemini-loading" style="padding:10px; display:flex; align-items:center; gap:8px;">
+      <div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div>
+      <span>Obteniendo preguntas de depuración...</span>
+    </div>
+  `;
+
+  // Inicializar respuestas temporales
+  STATE.tempRefinementAnswers = {};
+
+  try {
+    const res = await api('POST', '/api/diagnose/refinement-questions', {
+      probabilities: probs,
+      sintomas:      STATE.diagSintomas,
+      constantes:    STATE.diagConstantes,
+      antecedentes:  STATE.diagAntecedentes,
+    });
+
+    if (!res.success || !res.preguntas || res.preguntas.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    let questionsHtml = res.preguntas.map((q, i) => `
+      <div class="refinement-q-item" id="q-item-${i}" style="padding:12px; background:rgba(255,255,255,0.02); border-radius:6px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; gap:16px;">
+        <div style="text-align:left; flex:1;">
+          <div style="font-weight:600; font-size:13.5px; color:var(--brand-light);">${q.pregunta}</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Evalúa: <strong>${q.sintoma}</strong></div>
+        </div>
+        <div style="display:flex; gap:8px;" class="q-btn-group">
+          <button type="button" class="btn-secondary btn-q-yes" style="padding:6px 12px; font-size:12px; margin:0;" onclick="selectRefinementOption(${i}, '${q.sintoma.replace(/'/g, "\\'")}', true)">Sí</button>
+          <button type="button" class="btn-secondary btn-q-no" style="padding:6px 12px; font-size:12px; margin:0;" onclick="selectRefinementOption(${i}, '${q.sintoma.replace(/'/g, "\\'")}', false)">No</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Agregar botón de aplicar al final
+    questionsHtml += `
+      <div style="display:flex; justify-content:flex-end; margin-top:16px; padding-top:12px; border-top:1px dashed var(--border-color);">
+        <button type="button" class="btn-primary" style="padding:10px 20px; font-weight:bold;" onclick="applyRefinementAnswers()">
+          💾 Aplicar Respuestas y Recalcular
+        </button>
+      </div>
+    `;
+
+    container.innerHTML = questionsHtml;
+  } catch (e) {
+    console.error("Error al obtener preguntas de depuración:", e);
+    panel.style.display = 'none';
+  }
+}
+
+function selectRefinementOption(qIndex, sintoma, val) {
+  // Guardar en las respuestas temporales
+  STATE.tempRefinementAnswers[sintoma] = val;
+
+  // Actualizar el estado visual de los botones del grupo
+  const qItem = document.getElementById(`q-item-${qIndex}`);
+  if (!qItem) return;
+
+  const btnYes = qItem.querySelector('.btn-q-yes');
+  const btnNo = qItem.querySelector('.btn-q-no');
+
+  if (val === true) {
+    btnYes.style.backgroundColor = 'var(--brand-light)';
+    btnYes.style.color = '#000';
+    btnYes.style.borderColor = 'var(--brand-light)';
+    
+    // Resetear el botón "No"
+    btnNo.style.backgroundColor = '';
+    btnNo.style.color = '';
+    btnNo.style.borderColor = '';
+  } else {
+    btnNo.style.backgroundColor = '#ef4444';
+    btnNo.style.color = '#fff';
+    btnNo.style.borderColor = '#ef4444';
+    
+    // Resetear el botón "Sí"
+    btnYes.style.backgroundColor = '';
+    btnYes.style.color = '';
+    btnYes.style.borderColor = '';
+  }
+}
+
+async function applyRefinementAnswers() {
+  const keys = Object.keys(STATE.tempRefinementAnswers || {});
+  if (keys.length === 0) {
+    toast('error', 'Debes responder al menos una pregunta antes de aplicar.');
+    return;
+  }
+
+  // 1. Aplicar cada respuesta al estado y a la UI
+  keys.forEach(sintoma => {
+    const val = STATE.tempRefinementAnswers[sintoma];
+    
+    // Marcar en la UI
+    document.querySelectorAll('#symptoms-checkboxes input[type="checkbox"], #antecedentes-checkboxes input[type="checkbox"]').forEach(cb => {
+      const labelText = cb.parentElement.innerText.trim();
+      if (labelText.toLowerCase() === sintoma.toLowerCase()) {
+        cb.checked = val;
+        if (typeof toggleSymptom === 'function') toggleSymptom(cb);
+      }
+    });
+
+    // Guardar en el estado interno
+    if (ALL_SYMPTOMS.includes(sintoma)) {
+      STATE.diagSintomas[sintoma] = val;
+    } else if (ALL_ANTECEDENTES.includes(sintoma)) {
+      STATE.diagAntecedentes[sintoma] = val;
+    } else {
+      STATE.diagSintomas[sintoma] = val;
+    }
+  });
+
+  toast('success', `Se aplicaron ${keys.length} respuestas de depuración. Recalculando...`);
+
+  // Ocultar el panel
+  const panel = document.getElementById('refinement-panel');
+  if (panel) panel.style.display = 'none';
+
+  // 2. Recalcular el diagnóstico preliminar
+  const btn = document.getElementById('btn-diag-phase1');
+  if (btn) setButtonLoading(btn, true, 'Recalculando...');
+
+  try {
+    const res = await api('POST', '/api/diagnose/preliminar', {
+      constantes:   STATE.diagConstantes,
+      sintomas:     STATE.diagSintomas,
+      antecedentes: STATE.diagAntecedentes,
+    });
+
+    if (res.success) {
+      STATE.phase1Probs = res.probabilities;
+      STATE.tests       = res.tests_sugeridos || [];
+      renderPhase1Result(res);
+      runGeminiAnalysis(res.probabilities);
+      loadRefinementQuestions(res.probabilities);
+    } else {
+      toast('error', res.error || 'Error al recalcular.');
+    }
+  } catch (err) {
+    console.error("Error al recalcular diagnóstico:", err);
+  } finally {
+    if (btn) setButtonLoading(btn, false);
+  }
+}
+
+
 
 
 

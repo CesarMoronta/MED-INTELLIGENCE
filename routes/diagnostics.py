@@ -205,6 +205,42 @@ def api_diagnose_phase2_calculate():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@diagnostics_bp.route("/api/diagnose/refinement-questions", methods=["POST"])
+@requires_login
+def api_diagnose_refinement_questions():
+    blocked = _block_secretaria()
+    if blocked:
+        return blocked
+
+    sub_blocked = _check_subscription()
+    if sub_blocked:
+        return sub_blocked
+
+    data = request.json or {}
+    probs_bayes = data.get("probabilities", {})
+    sintomas = data.get("sintomas", {})
+    constantes = data.get("constantes", {})
+    antecedentes = data.get("antecedentes", {})
+
+    if not probs_bayes:
+        return jsonify({"success": False, "error": "Se requieren probabilidades bayesianas preliminares."}), 400
+
+    try:
+        sintomas_estandar = list(engine.P_sintoma.keys())
+        sintomas_no_presentes = [s for s in sintomas_estandar if not sintomas.get(s, False)]
+
+        resultado = gemini_layer.generar_preguntas_depuracion(
+            probs_bayes=probs_bayes,
+            sintomas=sintomas,
+            constantes=constantes,
+            antecedentes=antecedentes,
+            sintomas_permitidos=sintomas_no_presentes
+        )
+        return jsonify({"success": True, **resultado})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @diagnostics_bp.route("/api/diagnose/final", methods=["POST"])
 @requires_login
 def api_diagnose_final():

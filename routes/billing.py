@@ -246,7 +246,9 @@ def api_charge_visit():
         res = requests.post(f"{DGII_API_URL}/api/v1/ecf/send", json=payload, headers=headers, timeout=15)
         res_data = res.json()
         
-        if not res.ok or not res_data.get("enviado"):
+        # Consideramos éxito si la API respondió OK y obtuvimos un eNCF o estado Aceptado/AceptadoCondicional
+        is_success = res.ok and (res_data.get("enviado") or res_data.get("encf") or res_data.get("estado") in ["Aceptado", "AceptadoCondicional"])
+        if not is_success:
             err_msg = res_data.get("errorMessage") or "Error al procesar la factura con la DGII."
             return jsonify({"success": False, "error": err_msg}), 502
 
@@ -371,7 +373,9 @@ def generate_subscription_invoice(user_id: int):
         res = requests.post(f"{DGII_API_URL}/api/v1/ecf/send", json=payload, headers=headers, timeout=15)
         res_data = res.json()
         
-        if res.ok and res_data.get("enviado"):
+        # Consideramos éxito si la API respondió OK y obtuvimos un eNCF o estado Aceptado/AceptadoCondicional
+        is_success = res.ok and (res_data.get("enviado") or res_data.get("encf") or res_data.get("estado") in ["Aceptado", "AceptadoCondicional"])
+        if is_success:
             create_invoice(
                 visit_id=None,
                 user_id=user_id,
@@ -540,7 +544,9 @@ def api_create_credit_note():
         res = requests.post(f"{DGII_API_URL}/api/v1/ecf/send", json=payload, headers=headers, timeout=15)
         res_data = res.json()
         
-        if not res.ok or not res_data.get("enviado"):
+        # Consideramos éxito si la API respondió OK y obtuvimos un eNCF o estado Aceptado/AceptadoCondicional
+        is_success = res.ok and (res_data.get("enviado") or res_data.get("encf") or res_data.get("estado") in ["Aceptado", "AceptadoCondicional"])
+        if not is_success:
             err_msg = res_data.get("errorMessage") or "Error al procesar la Nota de Crédito con la DGII."
             return jsonify({"success": False, "error": err_msg}), 502
 
