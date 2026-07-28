@@ -1774,6 +1774,7 @@ def create_invoice(visit_id: int | None, user_id: int | None, invoice_type: str,
             balance_due = 0.0
             
         cursor.execute("""
+            SET NOCOUNT ON;
             DECLARE @inserted TABLE (id INT);
             INSERT INTO dbo.invoices (visit_id, user_id, invoice_type, amount, itbis, total,
                                       payment_method, ecf_id, encf, estado, track_id,
