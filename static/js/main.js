@@ -1266,20 +1266,30 @@ function updateVitalBadge(input) {
     'v-fr':          v => v > 20 ? ['warn','TAQUIPNEA'] : ['ok','NORMAL'],
     'v-edad':        () => ['ok',''],
   };
-  const ids = input ? [input.id] : Object.keys(rules);
+  const ids = input ? [input.id] : Array.from(document.querySelectorAll('input[type="range"][id^="v-"]')).map(el => el.id);
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     const val = parseFloat(el.value) || 0;
     
     // Update visual label regardless of rules
-    const valDisplay = document.getElementById(`val-${id.replace('v-','')}`);
-    if (valDisplay) valDisplay.textContent = el.step === "0.1" ? val.toFixed(1) : Math.round(val);
+    const key = id.replace('v-', '');
+    const valDisplay = document.getElementById(`val-${key}`);
+    if (valDisplay) {
+      const formattedVal = (el.step === "0.1" || key === 'temperatura') ? val.toFixed(1) : Math.round(val);
+      if (valDisplay.tagName === 'INPUT') {
+        if (document.activeElement !== valDisplay) {
+          valDisplay.value = formattedVal;
+        }
+      } else {
+        valDisplay.textContent = formattedVal;
+      }
+    }
 
     const rule = rules[id];
     if (rule) {
         const [cls, label] = rule(val);
-        const badgeEl = document.getElementById(`badge-${id.replace('v-','')}`);
+        const badgeEl = document.getElementById(`badge-${key}`);
         if (badgeEl) { badgeEl.className = `vital-badge ${cls}`; badgeEl.textContent = label; }
     }
   });
