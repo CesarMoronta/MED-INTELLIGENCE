@@ -110,6 +110,17 @@ def get_main_menu_markup():
         "one_time_keyboard": False
     }
 
+def get_cancel_keyboard(custom_rows=None):
+    kb = []
+    if custom_rows:
+        kb.extend(custom_rows)
+    kb.append([{"text": "🔄 Cancelar / Reiniciar Proceso"}])
+    return {"keyboard": kb, "resize_keyboard": True}
+
+def calculate_age(dob_dt: datetime) -> int:
+    today = datetime.now()
+    return today.year - dob_dt.year - ((today.month, today.day) < (dob_dt.month, dob_dt.day))
+
 # Interactive Calendar Builder
 def create_calendar(year: int, month: int) -> dict:
     keyboard = []
@@ -219,16 +230,17 @@ def db_notify_secretaries_and_admins(message_text: str, from_user_id: int):
                 create_notification(
                     from_user_id=from_user_id,
                     to_user_id=to_uid,
+                    title="Bot de Citas",
                     message=message_text,
-                    notif_type="alert"
+                    category="citas"
                 )
             except Exception as e:
                 print(f"Error creating notification for user {to_uid}: {e}")
     except Exception as e:
         print(f"Error notifying secretaries: {e}")
 
-# JCE Dominican Cédula API Integration
-def jce_api_lookup(cedula: str) -> dict | None:
+# JCE Dominican Cédula API Integration with automatic retry
+def jce_api_lookup(cedula: str, max_attempts: int = 2) -> dict | None:
     cedula_clean = re.sub(r"\D", "", cedula)
     base_url = os.environ.get("DGII_JCE_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
     api_key  = os.environ.get("DGII_JCE_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
@@ -237,21 +249,27 @@ def jce_api_lookup(cedula: str) -> dict | None:
         "Content-Type": "application/json",
         "X-API-Key": api_key
     }
-    try:
-        res = requests.get(url, headers=headers, timeout=10)
-        if res.ok:
-            data = res.json()
-            if data.get("found"):
-                gender_str = "Masculino" if data.get("sexo") == "M" else "Femenino" if data.get("sexo") == "F" else "Otro"
-                dob_raw = data.get("fechaNacimiento") or ""
-                dob_clean = dob_raw[:10] if len(dob_raw) >= 10 else "1990-01-01"
-                return {
-                    "name": data.get("nombre"),
-                    "dob": dob_clean,
-                    "gender": gender_str
-                }
-    except Exception as e:
-        print(f"Error during JCE lookup for {cedula_clean}: {e}")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            if res.ok:
+                data = res.json()
+                if data.get("found"):
+                    gender_str = "Masculino" if data.get("sexo") == "M" else "Femenino" if data.get("sexo") == "F" else "Otro"
+                    dob_raw = data.get("fechaNacimiento") or ""
+                    dob_clean = dob_raw[:10] if len(dob_raw) >= 10 else "1990-01-01"
+                    return {
+                        "name": data.get("nombre"),
+                        "dob": dob_clean,
+                        "gender": gender_str
+                    }
+        except Exception as e:
+            print(f"Intento {attempt}/{max_attempts} fallido al consultar JCE ({cedula_clean}): {e}")
+        
+        if attempt < max_attempts:
+            import time
+            time.sleep(1)
+
     return None
 
 # Webhook Endpoint
@@ -285,7 +303,38 @@ def telegram_webhook():
             user_state = load_bot_state(chat_id)
             state = user_state["state"]
             
-            if state == "AGENDAR_DATE":
+            if state == "AGENDAR_DOB":
+                try:
+                    dob_dt = datetime.strptime(selected_date, "%Y-%m-%d")
+                    age = calculate_age(dob_dt)
+                    if dob_dt > datetime.now():
+                        send_message(chat_id, "⚠️ La fecha de nacimiento no puede ser una fecha futura. Por favor selecciona una fecha válida en el calendario:")
+                        return jsonify({"success": True})
+                    if age < 16:
+                        cal_markup = create_calendar(1990, 1)
+                        send_message(
+                            chat_id,
+                            f"⚠️ <b>Restricción de Edad:</b> El paciente debe ser <b>mayor de 16 años</b> para registrarse de forma independiente (edad seleccionada: <b>{age} años</b>).\n\n<i>(Si es un menor de edad, el registro debe realizarse en recepción por su tutor legal).</i>\n\nPor favor, selecciona una fecha de nacimiento válida en el calendario (mayor de 16 años):",
+                            reply_markup=cal_markup
+                        )
+                        return jsonify({"success": True})
+                    if age > 110:
+                        cal_markup = create_calendar(1990, 1)
+                        send_message(chat_id, "⚠️ La fecha seleccionada indica una edad superior a 110 años. Por favor selecciona una fecha de nacimiento válida:", reply_markup=cal_markup)
+                        return jsonify({"success": True})
+                except ValueError:
+                    pass
+                
+                user_state["dob"] = selected_date
+                user_state["state"] = "AGENDAR_GENDER"
+                save_bot_state(chat_id, user_state)
+                
+                keyboard = get_cancel_keyboard([
+                    [{"text": "Masculino"}, {"text": "Femenino"}, {"text": "Otro"}]
+                ])
+                send_message(chat_id, f"📅 Fecha de nacimiento seleccionada: <b>{selected_date}</b> (Edad: <b>{calculate_age(datetime.strptime(selected_date, '%Y-%m-%d'))} años</b>)\n\nPor favor, selecciona tu <b>Género</b>:", reply_markup=keyboard)
+
+            elif state == "AGENDAR_DATE":
                 slots = db_get_available_slots(user_state["doctor_id"], selected_date)
                 if not slots:
                     send_message(chat_id, f"⚠️ El doctor no tiene turnos disponibles el <b>{selected_date}</b>. Por favor, selecciona otra fecha en el calendario:")
@@ -295,15 +344,16 @@ def telegram_webhook():
                 user_state["state"] = "AGENDAR_TIME"
                 save_bot_state(chat_id, user_state)
                 
-                keyboard = []
+                rows = []
                 row = []
                 for idx, slot in enumerate(slots):
                     row.append({"text": slot})
                     if len(row) == 3 or idx == len(slots) - 1:
-                        keyboard.append(row)
+                        rows.append(row)
                         row = []
+                keyboard = get_cancel_keyboard(rows)
                 
-                send_message(chat_id, f"📅 Fecha seleccionada: <b>{selected_date}</b>\n\nSelecciona la hora de la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+                send_message(chat_id, f"📅 Fecha seleccionada: <b>{selected_date}</b>\n\nSelecciona la hora de la cita:", reply_markup=keyboard)
                 
             elif state == "MOVER_DATE":
                 slots = db_get_available_slots(user_state["doctor_id"], selected_date)
@@ -315,15 +365,16 @@ def telegram_webhook():
                 user_state["state"] = "MOVER_TIME"
                 save_bot_state(chat_id, user_state)
                 
-                keyboard = []
+                rows = []
                 row = []
                 for idx, slot in enumerate(slots):
                     row.append({"text": slot})
                     if len(row) == 3 or idx == len(slots) - 1:
-                        keyboard.append(row)
+                        rows.append(row)
                         row = []
+                keyboard = get_cancel_keyboard(rows)
                 
-                send_message(chat_id, f"📅 Nueva fecha seleccionada: <b>{selected_date}</b>\n\nSelecciona la nueva hora:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+                send_message(chat_id, f"📅 Nueva fecha seleccionada: <b>{selected_date}</b>\n\nSelecciona la nueva hora:", reply_markup=keyboard)
                 
             return jsonify({"success": True})
 
@@ -334,13 +385,15 @@ def telegram_webhook():
     message = update["message"]
     chat_id = message["chat"]["id"]
     text = (message.get("text") or "").strip()
+    text_lower = text.lower()
     
-    # Check if the user wants to start over
-    if text == "/start" or text == "/menu":
+    # Check if the user wants to start over or cancel at any step
+    cancel_keywords = ["/start", "/menu", "/cancel", "cancelar", "reiniciar", "🔄 reiniciar", "🔄 cancelar", "🔄 cancelar / reiniciar proceso", "🔄 cancelar / reiniciar"]
+    if text_lower in cancel_keywords:
         save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
         send_message(
             chat_id, 
-            "<b>🏥 ¡Bienvenido al Asistente Virtual de MED-INTELLIGENCE!</b>\n\n¿En qué puedo ayudarte hoy?", 
+            "<b>🏥 Asistente Virtual MED-INTELLIGENCE</b>\n\n🔄 Proceso cancelado. Has regresado al menú principal. ¿En qué te puedo ayudar?", 
             reply_markup=get_main_menu_markup()
         )
         return jsonify({"success": True})
@@ -353,26 +406,29 @@ def telegram_webhook():
     if state == "AWAITING_ACTION":
         if text == "📅 Agendar Cita":
             save_bot_state(chat_id, {"state": "AGENDAR_CEDULA"})
-            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (sin guiones):")
+            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (11 dígitos, sin guiones):", reply_markup=get_cancel_keyboard())
         elif text == "🔄 Mover Cita":
             save_bot_state(chat_id, {"state": "MOVER_CEDULA"})
-            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (sin guiones) para buscar tus citas:")
+            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (11 dígitos, sin guiones) para buscar tus citas:", reply_markup=get_cancel_keyboard())
         elif text == "❌ Cancelar Cita":
             save_bot_state(chat_id, {"state": "CANCELAR_CEDULA"})
-            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (sin guiones) para ver tus citas activas:")
+            send_message(chat_id, "Por favor, ingresa tu número de <b>Cédula</b> (11 dígitos, sin guiones) para ver tus citas activas:", reply_markup=get_cancel_keyboard())
         else:
-            send_message(chat_id, "Por favor, selecciona una opción del teclado o escribe /start para reiniciar.", reply_markup=get_main_menu_markup())
+            send_message(chat_id, "Por favor, selecciona una opción del teclado o presiona /start para reiniciar.", reply_markup=get_main_menu_markup())
 
-    # 2. FLOW: AGENDAR CITA
+    # 2. FLOW: AGENDAR CITA - CEDULA
     elif state == "AGENDAR_CEDULA":
-        cedula = re.sub(r"\D", "", text) # clean up non-digits
-        if not cedula or len(cedula) < 9:
-            send_message(chat_id, "⚠️ Cédula inválida. Por favor, ingresa una cédula válida:")
+        cedula_clean = re.sub(r"\D", "", text)
+        if len(cedula_clean) != 11:
+            send_message(
+                chat_id, 
+                "⚠️ <b>Cédula inválida.</b> Debe contener exactamente 11 dígitos (ej: <code>03100012345</code> o <code>031-0001234-5</code>).\n\nPor favor, ingresa tu Cédula nuevamente:",
+                reply_markup=get_cancel_keyboard()
+            )
             return jsonify({"success": True})
         
-        # Verify if patient exists
         from utils import format_cedula
-        formatted_cedula = format_cedula(cedula)
+        formatted_cedula = format_cedula(cedula_clean)
         patient = db_get_patient_by_cedula(formatted_cedula)
         if patient:
             new_state = {
@@ -383,25 +439,37 @@ def telegram_webhook():
             }
             save_bot_state(chat_id, new_state)
             send_message(chat_id, f"Hola de nuevo, <b>{patient['name']}</b>.")
-            # Present active doctors
+            
             doctors = db_get_active_doctors()
             if not doctors:
                 send_message(chat_id, "Lo sentimos, no hay doctores disponibles en este momento.", reply_markup=get_main_menu_markup())
                 save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
                 return jsonify({"success": True})
             
-            keyboard = []
+            rows = []
             for doc in doctors:
-                keyboard.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
             
-            send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+            send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
         else:
-            # Query JCE API to automatically fetch data!
             send_message(chat_id, "🔍 Consultando cédula en la JCE...")
             jce_data = jce_api_lookup(formatted_cedula)
             
             if jce_data:
-                # Successfully found in JCE! Register automatically in the database
+                # Check age requirement for JCE data
+                try:
+                    jce_dob_dt = datetime.strptime(jce_data["dob"], "%Y-%m-%d")
+                    if calculate_age(jce_dob_dt) < 16:
+                        send_message(
+                            chat_id,
+                            f"👤 <b>Persona encontrada en JCE:</b> {jce_data['name']}\n\n⚠️ <b>Restricción de Edad:</b> Según los registros de la JCE, eres menor de 16 años. No es posible realizar auto-registro de citas vía bot.\n\nPor favor acude a recepción con un padre o tutor legal.",
+                            reply_markup=get_main_menu_markup()
+                        )
+                        save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
+                        return jsonify({"success": True})
+                except Exception:
+                    pass
+
                 try:
                     patient_id = add_patient(
                         cedula=formatted_cedula,
@@ -427,49 +495,88 @@ def telegram_webhook():
                     save_bot_state(chat_id, new_state)
                     send_message(chat_id, f"👤 <b>Persona encontrada en JCE:</b> {jce_data['name']}\n✅ Te hemos registrado en el sistema automáticamente.")
                     
-                    # Present active doctors
                     doctors = db_get_active_doctors()
-                    keyboard = []
+                    rows = []
                     for doc in doctors:
-                        keyboard.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                        rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
                     
-                    send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+                    send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
                 except Exception as e:
                     send_message(chat_id, f"❌ Error al registrar desde la JCE: {e}", reply_markup=get_main_menu_markup())
                     save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
             else:
-                # Fallback to manual flow if not found in JCE
                 new_state = {
                     "state": "AGENDAR_NAME",
                     "cedula": formatted_cedula
                 }
                 save_bot_state(chat_id, new_state)
-                send_message(chat_id, "📝 Cédula no encontrada en la JCE. Vamos a registrarte manualmente.\n\nPor favor, escribe tu <b>Nombre Completo</b>:")
+                send_message(chat_id, "📝 Cédula no encontrada en la JCE. Vamos a registrarte manualmente.\n\nPor favor, escribe tu <b>Nombre Completo</b> (nombre y apellido):", reply_markup=get_cancel_keyboard())
 
+    # AGENDAR_NAME
     elif state == "AGENDAR_NAME":
-        if len(text) < 4:
-            send_message(chat_id, "⚠️ Por favor, ingresa un nombre válido:")
+        name_clean = text.strip()
+        words = name_clean.split()
+        is_valid_chars = bool(re.match(r"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s'-]{5,}$", name_clean))
+        if len(words) < 2 or not is_valid_chars:
+            send_message(
+                chat_id,
+                "⚠️ <b>Nombre no válido.</b> Por favor ingresa tu <b>Nombre y Apellido completos</b> (mínimo dos palabras, solo letras. Ej: <i>Wilson Pérez</i>):",
+                reply_markup=get_cancel_keyboard()
+            )
             return jsonify({"success": True})
         
-        user_state["patient_name"] = text
+        user_state["patient_name"] = name_clean
         user_state["state"] = "AGENDAR_DOB"
         save_bot_state(chat_id, user_state)
-        send_message(chat_id, "¿Cuál es tu <b>Fecha de Nacimiento</b>?\nFormato: <code>AAAA-MM-DD</code> (ej. 1990-05-15):")
+        
+        cal_markup = create_calendar(1990, 1)
+        send_message(chat_id, "Cargando calendario...", reply_markup={"remove_keyboard": True})
+        send_message(
+            chat_id, 
+            "¿Cuál es tu <b>Fecha de Nacimiento</b>? <i>(Debes ser mayor de 16 años)</i>\n\nSelecciona la fecha en el calendario (usa ◀ y ▶ para cambiar de mes/año, o escríbela en formato <code>AAAA-MM-DD</code>):", 
+            reply_markup=cal_markup
+        )
 
+    # AGENDAR_DOB
     elif state == "AGENDAR_DOB":
-        if not re.match(r"^\d{4}-\d{2}-\d{2}$", text):
-            send_message(chat_id, "⚠️ Formato de fecha incorrecto. Escríbela en formato <code>AAAA-MM-DD</code>:")
+        is_valid_date = False
+        error_msg = None
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", text):
+            try:
+                dob_dt = datetime.strptime(text, "%Y-%m-%d")
+                age = calculate_age(dob_dt)
+                if dob_dt > datetime.now():
+                    error_msg = "⚠️ La fecha de nacimiento no puede ser una fecha futura."
+                elif age < 16:
+                    error_msg = f"⚠️ <b>Restricción de Edad:</b> El paciente debe ser <b>mayor de 16 años</b> (edad indicada: {age} años).\n<i>(Si es un menor de edad, el registro debe ser realizado en recepción con su tutor legal).</i>"
+                elif age > 110:
+                    error_msg = "⚠️ La fecha ingresada indica una edad superior a 110 años."
+                else:
+                    is_valid_date = True
+            except ValueError:
+                error_msg = "⚠️ La fecha especificada no existe en el calendario (ej: febrero 30)."
+
+        if not is_valid_date:
+            cal_markup = create_calendar(1990, 1)
+            msg = error_msg or "⚠️ Formato o fecha no válida. Por favor selecciona tu fecha en el calendario o escríbela en formato <code>AAAA-MM-DD</code> (ej. 1990-05-15):"
+            send_message(chat_id, f"{msg}\n\nPor favor, inténtalo de nuevo:", reply_markup=cal_markup)
             return jsonify({"success": True})
         
         user_state["dob"] = text
         user_state["state"] = "AGENDAR_GENDER"
         save_bot_state(chat_id, user_state)
-        keyboard = [[{"text": "Masculino"}, {"text": "Femenino"}, {"text": "Otro"}]]
-        send_message(chat_id, "Por favor, selecciona tu <b>Género</b>:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+        keyboard = get_cancel_keyboard([
+            [{"text": "Masculino"}, {"text": "Femenino"}, {"text": "Otro"}]
+        ])
+        send_message(chat_id, f"📅 Fecha de nacimiento seleccionada: <b>{text}</b> (Edad: <b>{calculate_age(datetime.strptime(text, '%Y-%m-%d'))} años</b>)\n\nPor favor, selecciona tu <b>Género</b>:", reply_markup=keyboard)
 
+    # AGENDAR_GENDER
     elif state == "AGENDAR_GENDER":
         if text not in ["Masculino", "Femenino", "Otro"]:
-            send_message(chat_id, "⚠️ Selecciona un género de las opciones disponibles:")
+            keyboard = get_cancel_keyboard([
+                [{"text": "Masculino"}, {"text": "Femenino"}, {"text": "Otro"}]
+            ])
+            send_message(chat_id, "⚠️ Por favor, selecciona un género válido de las opciones disponibles:", reply_markup=keyboard)
             return jsonify({"success": True})
         
         try:
@@ -494,38 +601,54 @@ def telegram_webhook():
             send_message(chat_id, "✅ Registro de paciente completado con éxito.")
             
             doctors = db_get_active_doctors()
-            keyboard = []
+            rows = []
             for doc in doctors:
-                keyboard.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
             
-            send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+            send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
         except Exception as e:
             send_message(chat_id, f"❌ Error al registrar paciente: {e}", reply_markup=get_main_menu_markup())
             save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
 
+    # AGENDAR_DOCTOR
     elif state == "AGENDAR_DOCTOR":
         match = re.search(r"\(ID:\s*(\d+)\)", text)
-        if not match:
-            send_message(chat_id, "⚠️ Selecciona un doctor válido usando los botones:")
+        doctors = db_get_active_doctors()
+        valid_doctor = False
+        if match:
+            doc_id = int(match.group(1))
+            if any(d["id"] == doc_id for d in doctors):
+                valid_doctor = True
+                user_state["doctor_id"] = doc_id
+                user_state["doctor_name"] = text.split(" (")[0]
+                user_state["state"] = "AGENDAR_DATE"
+                save_bot_state(chat_id, user_state)
+
+        if not valid_doctor:
+            rows = []
+            for doc in doctors:
+                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+            send_message(chat_id, "⚠️ Por favor, selecciona un doctor válido usando la lista de botones:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
-        doctor_id = int(match.group(1))
-        user_state["doctor_id"] = doctor_id
-        user_state["doctor_name"] = text.split(" (")[0]
-        user_state["state"] = "AGENDAR_DATE"
-        save_bot_state(chat_id, user_state)
-        
-        # Display the interactive calendar inline keyboard!
         now = datetime.now()
         cal_markup = create_calendar(now.year, now.month)
         
-        # Remove standard keyboard first
         send_message(chat_id, "Cargando calendario...", reply_markup={"remove_keyboard": True})
         send_message(chat_id, "Selecciona la fecha para la cita en el calendario:", reply_markup=cal_markup)
 
+    # AGENDAR_TIME
     elif state == "AGENDAR_TIME":
-        if not re.match(r"^\d{2}:\d{2}$", text):
-            send_message(chat_id, "⚠️ Selecciona una hora válida usando los botones:")
+        slots = db_get_available_slots(user_state["doctor_id"], user_state["date"])
+        if text not in slots:
+            rows = []
+            row = []
+            for idx, slot in enumerate(slots):
+                row.append({"text": slot})
+                if len(row) == 3 or idx == len(slots) - 1:
+                    rows.append(row)
+                    row = []
+            send_message(chat_id, "⚠️ Por favor selecciona una hora disponible usando los botones de abajo:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
         try:
@@ -546,7 +669,6 @@ def telegram_webhook():
                 f"¡Te esperamos!",
                 reply_markup=get_main_menu_markup()
             )
-            # Notify secretaries and admins in real-time
             msg_notif = f"📅 Nueva cita vía Telegram: {user_state['patient_name']} con el {user_state['doctor_name']} para el {user_state['date']} a las {text}"
             db_notify_secretaries_and_admins(msg_notif, user_state["doctor_id"])
         except Exception as e:
@@ -556,37 +678,45 @@ def telegram_webhook():
 
     # 3. FLOW: MOVER CITA
     elif state == "MOVER_CEDULA":
-        cedula = re.sub(r"\D", "", text)
+        cedula_clean = re.sub(r"\D", "", text)
+        if len(cedula_clean) != 11:
+            send_message(
+                chat_id, 
+                "⚠️ <b>Cédula inválida.</b> Debe contener exactamente 11 dígitos (ej: <code>03100012345</code> o <code>031-0001234-5</code>).\n\nPor favor, ingresa tu Cédula nuevamente:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return jsonify({"success": True})
+
         from utils import format_cedula
-        formatted_cedula = format_cedula(cedula)
+        formatted_cedula = format_cedula(cedula_clean)
         appointments = db_get_patient_appointments(formatted_cedula)
         if not appointments:
             send_message(chat_id, "⚠️ No tienes ninguna cita activa agendada.", reply_markup=get_main_menu_markup())
             save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
             return jsonify({"success": True})
         
-        # Convert dates/times to string so they are JSON serializable
         serializable_apps = {}
+        rows = []
         for app in appointments:
             app_copy = dict(app)
             app_copy["scheduled_date"] = str(app["scheduled_date"])
             app_copy["scheduled_time"] = str(app["scheduled_time"])
             serializable_apps[str(app["id"])] = app_copy
+            rows.append([{"text": f"Cita #{app['id']} - {app['scheduled_date']} {str(app['scheduled_time'])[:5]} con {app['doctor_fullname']}"}])
             
         user_state["state"] = "MOVER_SELECTION"
         user_state["appointments"] = serializable_apps
         save_bot_state(chat_id, user_state)
         
-        keyboard = []
-        for app in appointments:
-            keyboard.append([{"text": f"Cita #{app['id']} - {app['scheduled_date']} {str(app['scheduled_time'])[:5]} con {app['doctor_fullname']}"}])
-            
-        send_message(chat_id, "Selecciona cuál de tus citas deseas reprogramar:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+        send_message(chat_id, "Selecciona cuál de tus citas deseas reprogramar:", reply_markup=get_cancel_keyboard(rows))
 
     elif state == "MOVER_SELECTION":
         match = re.match(r"^Cita\s*#\s*(\d+)", text)
-        if not match or match.group(1) not in user_state["appointments"]:
-            send_message(chat_id, "⚠️ Por favor, selecciona una cita de la lista:")
+        if not match or match.group(1) not in user_state.get("appointments", {}):
+            rows = []
+            for app_id, app in user_state.get("appointments", {}).items():
+                rows.append([{"text": f"Cita #{app_id} - {app['scheduled_date']} {str(app['scheduled_time'])[:5]} con {app['doctor_fullname']}"}])
+            send_message(chat_id, "⚠️ Por favor, selecciona una cita válida de la lista:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
         app_id = match.group(1)
@@ -596,7 +726,6 @@ def telegram_webhook():
         user_state["state"] = "MOVER_DATE"
         save_bot_state(chat_id, user_state)
         
-        # Display interactive calendar
         now = datetime.now()
         cal_markup = create_calendar(now.year, now.month)
         
@@ -604,8 +733,16 @@ def telegram_webhook():
         send_message(chat_id, "Selecciona la nueva fecha deseada en el calendario:", reply_markup=cal_markup)
 
     elif state == "MOVER_TIME":
-        if not re.match(r"^\d{2}:\d{2}$", text):
-            send_message(chat_id, "⚠️ Selecciona una hora válida de las opciones:")
+        slots = db_get_available_slots(user_state["doctor_id"], user_state["new_date"])
+        if text not in slots:
+            rows = []
+            row = []
+            for idx, slot in enumerate(slots):
+                row.append({"text": slot})
+                if len(row) == 3 or idx == len(slots) - 1:
+                    rows.append(row)
+                    row = []
+            send_message(chat_id, "⚠️ Por favor, selecciona una hora válida de las opciones de abajo:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
         try:
@@ -615,7 +752,6 @@ def telegram_webhook():
                 new_time=text
             )
             send_message(chat_id, f"✅ <b>¡Cita Reprogramada con éxito!</b>\n\nTu cita ahora quedó para el día <b>{user_state['new_date']} a las {text}</b>.", reply_markup=get_main_menu_markup())
-            # Notify secretaries and admins in real-time
             msg_notif = f"🔄 Cita #{user_state['appointment_id']} reprogramada vía Telegram para el {user_state['new_date']} a las {text}"
             db_notify_secretaries_and_admins(msg_notif, user_state["doctor_id"])
         except Exception as e:
@@ -625,37 +761,45 @@ def telegram_webhook():
 
     # 4. FLOW: CANCELAR CITA
     elif state == "CANCELAR_CEDULA":
-        cedula = re.sub(r"\D", "", text)
+        cedula_clean = re.sub(r"\D", "", text)
+        if len(cedula_clean) != 11:
+            send_message(
+                chat_id, 
+                "⚠️ <b>Cédula inválida.</b> Debe contener exactamente 11 dígitos (ej: <code>03100012345</code> o <code>031-0001234-5</code>).\n\nPor favor, ingresa tu Cédula nuevamente:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return jsonify({"success": True})
+
         from utils import format_cedula
-        formatted_cedula = format_cedula(cedula)
+        formatted_cedula = format_cedula(cedula_clean)
         appointments = db_get_patient_appointments(formatted_cedula)
         if not appointments:
             send_message(chat_id, "⚠️ No tienes ninguna cita activa para cancelar.", reply_markup=get_main_menu_markup())
             save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
             return jsonify({"success": True})
         
-        # Convert dates/times to string so they are JSON serializable
         serializable_apps = {}
+        rows = []
         for app in appointments:
             app_copy = dict(app)
             app_copy["scheduled_date"] = str(app["scheduled_date"])
             app_copy["scheduled_time"] = str(app["scheduled_time"])
             serializable_apps[str(app["id"])] = app_copy
+            rows.append([{"text": f"Cancelar Cita #{app['id']} - {app['scheduled_date']} con {app['doctor_fullname']}"}])
             
         user_state["state"] = "CANCELAR_SELECTION"
         user_state["appointments"] = serializable_apps
         save_bot_state(chat_id, user_state)
         
-        keyboard = []
-        for app in appointments:
-            keyboard.append([{"text": f"Cancelar Cita #{app['id']} - {app['scheduled_date']} con {app['doctor_fullname']}"}])
-            
-        send_message(chat_id, "Selecciona cuál de tus citas deseas cancelar:", reply_markup={"keyboard": keyboard, "resize_keyboard": True})
+        send_message(chat_id, "Selecciona cuál de tus citas deseas cancelar:", reply_markup=get_cancel_keyboard(rows))
 
     elif state == "CANCELAR_SELECTION":
         match = re.match(r"^Cancelar Cita\s*#\s*(\d+)", text)
-        if not match or match.group(1) not in user_state["appointments"]:
-            send_message(chat_id, "⚠️ Por favor, selecciona una cita de la lista:")
+        if not match or match.group(1) not in user_state.get("appointments", {}):
+            rows = []
+            for app_id, app in user_state.get("appointments", {}).items():
+                rows.append([{"text": f"Cancelar Cita #{app_id} - {app['scheduled_date']} con {app['doctor_fullname']}"}])
+            send_message(chat_id, "⚠️ Por favor, selecciona una cita válida de la lista:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
         app_id = int(match.group(1))
@@ -663,7 +807,6 @@ def telegram_webhook():
         try:
             update_appointment_status(app_id, "cancelada")
             send_message(chat_id, f"✅ La cita #{app_id} ha sido <b>Cancelada</b> exitosamente.", reply_markup=get_main_menu_markup())
-            # Notify secretaries and admins in real-time
             msg_notif = f"❌ Cita #{app_id} cancelada vía Telegram"
             db_notify_secretaries_and_admins(msg_notif, selected_app["doctor_id"])
         except Exception as e:

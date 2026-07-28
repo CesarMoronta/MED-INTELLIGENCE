@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from database import (list_patients, add_patient, get_patient, update_patient,
                       delete_patient, log_audit_action, get_patient_vitals_history,
@@ -40,6 +41,12 @@ def api_save_patient():
         return jsonify({"success": False, "error": "La cédula del paciente es obligatoria."}), 400
     if not name:
         return jsonify({"success": False, "error": "El nombre completo del paciente es requerido."}), 400
+
+    if dob:
+        try:
+            datetime.strptime(dob, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"success": False, "error": "La fecha de nacimiento no es válida. Debe estar en formato AAAA-MM-DD (ej. 1990-05-15)."}), 400
 
     u = get_current_user()
     registered_by = u.get("id")
