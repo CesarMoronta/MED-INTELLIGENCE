@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from flask import Blueprint, request, jsonify, session
 from database import (get_connection, get_visit, create_invoice,
@@ -14,7 +15,23 @@ DGII_API_URL = os.environ.get("DGII_API_URL", "https://ecf-platform-backend-5080
 DGII_API_KEY = os.environ.get("DGII_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
 
 def sanitize_dgii_url(url: str) -> str:
-    return url
+    if not url:
+        return ""
+    clean_url = str(url).strip()
+    clean_url = re.sub(r'[\r\n\t]', '', clean_url).strip()
+    
+    while clean_url.endswith('%20') or clean_url.endswith(' '):
+        if clean_url.endswith('%20'):
+            clean_url = clean_url[:-3].strip()
+        else:
+            clean_url = clean_url.strip()
+
+    clean_url = re.sub(r'([?&][a-zA-Z0-9_]+)=(?:%20|\s+)(?=&|$)', r'\1=', clean_url)
+    
+    if "fc.dgii.gov.do" in clean_url and "consultatimbrefc" not in clean_url:
+        clean_url = clean_url.replace("fc.dgii.gov.do", "ecf.dgii.gov.do")
+        
+    return clean_url
 
 def requires_billing_permission(f):
     @wraps(f)

@@ -4038,11 +4038,25 @@ async function openMyAccountModal() {
 let paypalSdkLoaded = false;
 
 function sanitize_dgii_url(url) {
-  if (!url) return url;
-  if (url.includes("fc.dgii.gov.do") && !url.includes("consultatimbrefc")) {
-    return url.replace("fc.dgii.gov.do", "ecf.dgii.gov.do");
+  if (!url) return '';
+  let cleanUrl = String(url).trim();
+  cleanUrl = cleanUrl.replace(/[\r\n\t]/g, '').trim();
+
+  while (cleanUrl.endsWith('%20') || cleanUrl.endsWith(' ')) {
+    if (cleanUrl.endsWith('%20')) {
+      cleanUrl = cleanUrl.slice(0, -3).trim();
+    } else {
+      cleanUrl = cleanUrl.trim();
+    }
   }
-  return url;
+
+  cleanUrl = cleanUrl.replace(/([?&][a-zA-Z0-9_]+)=(?:%20|\s+)(?=&|$)/g, '$1=');
+
+  if (cleanUrl.includes("fc.dgii.gov.do") && !cleanUrl.includes("consultatimbrefc")) {
+    cleanUrl = cleanUrl.replace("fc.dgii.gov.do", "ecf.dgii.gov.do");
+  }
+
+  return cleanUrl;
 }
 
 async function loadPayPalSdk(clientId) {
@@ -4411,8 +4425,9 @@ function renderBillingHistory(invoices) {
     // Links de acciones
     const pdfLink = `<a href="/api/pdf/invoice/${i.id}" target="_blank" class="btn-icon" title="Ver Factura PDF" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></a>`;
 
-    const dgiiLink = i.dgii_url 
-      ? `<a href="${i.dgii_url}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
+    const cleanDgiiUrl = sanitize_dgii_url(i.dgii_url);
+    const dgiiLink = cleanDgiiUrl 
+      ? `<a href="${cleanDgiiUrl}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
       : '';
 
     // Credit Note Button E34
@@ -4759,8 +4774,9 @@ async function submitChargeVisit() {
       }
 
       const linkEl = document.getElementById('res-invoice-dgii-link');
-      if (res.invoice.dgii_url) {
-        linkEl.href = res.invoice.dgii_url;
+      const cleanDgiiUrlRes = sanitize_dgii_url(res.invoice.dgii_url);
+      if (cleanDgiiUrlRes) {
+        linkEl.href = cleanDgiiUrlRes;
         linkEl.style.display = 'block';
       } else {
         linkEl.style.display = 'none';
@@ -5654,7 +5670,7 @@ function renderReportTable(type, res) {
   wrap.innerHTML = tableHtml;
 }
 
-function exportReport(format) {
+async function exportReport(format) {
   const tableWrap = document.getElementById('reports-table-wrap');
   const table = tableWrap ? tableWrap.querySelector('table') : null;
 
@@ -5665,6 +5681,7 @@ function exportReport(format) {
 
   const type = document.getElementById('reports-type').value;
   const typeLabel = document.getElementById('reports-type').options[document.getElementById('reports-type').selectedIndex]?.text || type;
+  const filename = `reporte_${type}_${new Date().toISOString().split('T')[0]}`;
 
   if (format === 'pdf') {
     // Imprimir la tabla como PDF usando el diálogo de impresión del navegador
@@ -5716,25 +5733,45 @@ function exportReport(format) {
     const blob = new Blob(["\uFEFF" + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `reporte_${type}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `${filename}.csv`;
     link.click();
 
   } else if (format === 'xlsx') {
-    // Para Excel, reutilizar el CSV (compatible con Excel con BOM UTF-8)
-    const headers = [];
-    table.querySelectorAll('thead th').forEach(th => headers.push(`"${th.innerText.trim()}"`));
-    const csvRows = [headers.join(',')];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cols = [];
-      tr.querySelectorAll('td').forEach(td => {
-        cols.push(`"${td.innerText.trim().replace(/"/g, "'")}"`);
-      });
-      csvRows.push(cols.join(','));
-    });
-    const blob = new Blob(["\uFEFF" + csvRows.join('\n')], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    // 1. Intentar usar SheetJS para generar un archivo .xlsx binario verdadero (OpenXML)
+    if (typeof XLSX === 'undefined') {
+      try {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      } catch (e) {
+        console.warn('No se pudo cargar SheetJS dinámicamente:', e);
+      }
+    }
+
+    if (typeof XLSX !== 'undefined') {
+      try {
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Reporte" });
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+        return;
+      } catch (err) {
+        console.error('Error generando .xlsx con SheetJS:', err);
+      }
+    }
+
+    // 2. Fallback: Excel XML Spreadsheet formato .xls para abrir directo en Excel sin error de extensión
+    const excelXml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Reporte</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+      <body>${table.outerHTML}</body>
+      </html>`;
+    const blob = new Blob(["\uFEFF" + excelXml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `reporte_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.download = `${filename}.xls`;
     link.click();
   }
 }

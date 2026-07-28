@@ -646,7 +646,8 @@ def generate_invoice_pdf(invoice: dict, clinic_info: dict) -> bytes:
 
     # --- QR Y TOTALES ---
     # Generar QR
-    dgii_url = invoice.get("dgii_url") or f"https://ecf.dgii.gov.do/ConsultaTimbre?encf={encf}"
+    raw_dgii_url = invoice.get("dgii_url") or f"https://ecf.dgii.gov.do/ConsultaTimbre?encf={encf}"
+    dgii_url = str(raw_dgii_url).strip().replace("\r", "").replace("\n", "").replace("\t", "")
     
     # Widget de QR en ReportLab
     qr_code = qr.QrCodeWidget(dgii_url)
