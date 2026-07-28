@@ -443,6 +443,14 @@ function setupUI() {
 
   // Poblar selector de usuarios para notificaciones
   loadNotifUserList();
+
+  // Auto-uppercase en los inputs de nombre completo
+  ['pt-name', 'usr-fullname', 'my-fullname'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('blur', () => { el.value = el.value.toUpperCase(); });
+    }
+  });
   // Cargar conteo de mensajes no leídos
   loadUnreadCount();
 }
@@ -759,14 +767,21 @@ function buildAntecedentesGrid(containerId, values = {}) {
 
 async function savePatient() {
   const cedula  = document.getElementById('pt-cedula').value.trim();
-  const name    = document.getElementById('pt-name').value.trim();
+  const nameInput = document.getElementById('pt-name');
+  const name    = nameInput ? nameInput.value.trim().toUpperCase() : '';
+  if (nameInput) nameInput.value = name;
   const dob     = document.getElementById('pt-dob').value;
   const gender  = document.getElementById('pt-gender').value;
   const phone   = document.getElementById('pt-phone').value.trim();
   const blood   = document.getElementById('pt-blood').value;
   const photo_url = document.getElementById('pt-photo-url') ? document.getElementById('pt-photo-url').value : null;
 
-  if (!cedula || !name) { toast('warning', 'Cédula y nombre son obligatorios.'); return; }
+  const cedulaDigits = cedula.replace(/\D/g, '');
+  if (cedulaDigits.length !== 11) {
+    toast('warning', 'La cédula debe contener exactamente 11 dígitos numéricos.');
+    return;
+  }
+  if (!name) { toast('warning', 'El nombre completo es obligatorio.'); return; }
 
   const btn = document.querySelector('#modal-new-patient .modal-footer .btn-primary');
   setButtonLoading(btn, true);
@@ -2929,7 +2944,9 @@ async function saveUser() {
   const username    = document.getElementById('usr-username').value.trim();
   const password    = document.getElementById('usr-password').value.trim();
   const role        = document.getElementById('usr-role').value;
-  const fullName    = document.getElementById('usr-fullname').value.trim() || null;
+  const fullNameInput = document.getElementById('usr-fullname');
+  const fullName    = fullNameInput ? fullNameInput.value.trim().toUpperCase() : null;
+  if (fullNameInput) fullNameInput.value = fullName || '';
   const email       = document.getElementById('usr-email').value.trim() || null;
   const matricula   = document.getElementById('usr-matricula').value.trim() || null;
   const especialidad = document.getElementById('usr-especialidad').value.trim() || null;
@@ -4177,7 +4194,9 @@ async function uploadProfilePhoto(event) {
 }
 
 async function saveMyProfile() {
-  const fullname = document.getElementById('my-fullname').value.trim();
+  const fullnameInput = document.getElementById('my-fullname');
+  const fullname = fullnameInput ? fullnameInput.value.trim().toUpperCase() : '';
+  if (fullnameInput) fullnameInput.value = fullname;
   const email = document.getElementById('my-email').value.trim();
   const password = document.getElementById('my-password').value;
 

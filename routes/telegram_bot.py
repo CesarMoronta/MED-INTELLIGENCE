@@ -525,7 +525,7 @@ def telegram_webhook():
             )
             return jsonify({"success": True})
         
-        user_state["patient_name"] = name_clean
+        user_state["patient_name"] = name_clean.upper()
         user_state["state"] = "AGENDAR_DOB"
         save_bot_state(chat_id, user_state)
         

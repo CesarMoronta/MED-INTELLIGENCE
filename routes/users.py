@@ -24,7 +24,7 @@ def api_create_user():
     username   = (data.get("username") or "").strip()
     password   = (data.get("password") or "").strip()
     role       = (data.get("role") or "doctor").strip().lower()
-    full_name  = (data.get("full_name") or "").strip() or None
+    full_name  = (data.get("full_name") or "").strip().upper() or None
     email      = (data.get("email") or "").strip() or None
     matricula  = (data.get("matricula") or "").strip() or None
     especialidad = (data.get("especialidad") or "").strip() or None
@@ -78,7 +78,7 @@ def api_update_user(user_id):
     username = (data.get("username") or "").strip() or None
     password = (data.get("password") or "").strip() or None
     role     = (data.get("role") or "").strip().lower() or None
-    full_name    = (data.get("full_name") or "").strip() or None
+    full_name    = (data.get("full_name") or "").strip().upper() or None
     email        = (data.get("email") or "").strip() or None
     is_active    = data.get("is_active")
     matricula    = (data.get("matricula") or "").strip() or None

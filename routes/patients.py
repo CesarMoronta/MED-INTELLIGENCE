@@ -27,9 +27,13 @@ def api_get_patients():
 @requires_login
 @requires_role("admin", "secretaria")  # Doctor NO puede crear pacientes
 def api_save_patient():
-    data         = request.json or {}
-    cedula       = format_cedula((data.get("cedula") or "").strip())
-    name         = (data.get("name") or "").strip()
+    import re
+    raw_cedula   = (data.get("cedula") or "").strip()
+    cedula_digits = re.sub(r"\D", "", raw_cedula)
+    if len(cedula_digits) != 11:
+        return jsonify({"success": False, "error": "La cédula debe contener exactamente 11 dígitos numéricos."}), 400
+    cedula       = format_cedula(cedula_digits)
+    name         = (data.get("name") or "").strip().upper()
     dob          = data.get("dob") or "1990-01-01"
     gender       = data.get("gender") or "Otro"
     antecedentes = data.get("antecedentes") or {}
@@ -77,9 +81,17 @@ def api_get_patient(patient_id):
 @requires_login
 @requires_role("admin", "secretaria")
 def api_update_patient(patient_id):
+    import re
     data       = request.json or {}
-    cedula     = format_cedula((data.get("cedula") or "").strip()) or None
-    name       = (data.get("name") or "").strip() or None
+    raw_cedula = (data.get("cedula") or "").strip()
+    if raw_cedula:
+        cedula_digits = re.sub(r"\D", "", raw_cedula)
+        if len(cedula_digits) != 11:
+            return jsonify({"success": False, "error": "La cédula debe contener exactamente 11 dígitos numéricos."}), 400
+        cedula = format_cedula(cedula_digits)
+    else:
+        cedula = None
+    name       = (data.get("name") or "").strip().upper() or None
     dob        = data.get("dob") or None
     gender     = (data.get("gender") or "").strip() or None
     phone      = (data.get("phone") or "").strip() or None

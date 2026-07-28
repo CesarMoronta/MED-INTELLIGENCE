@@ -439,6 +439,7 @@ def add_patient(cedula: str, name: str, dob: str, gender: str,
                 blood_type: str = None, registered_by: int = None,
                 photo_url: str = None) -> int | None:
     """Crea un nuevo paciente. Retorna el ID del paciente si tuvo éxito, None si ya existe o falla."""
+    name = (name or "").strip().upper()
     conn      = get_connection()
     cursor    = conn.cursor()
     patient_id = None
@@ -554,6 +555,8 @@ def update_patient(patient_id: int, cedula: str = None, name: str = None,
     existing = get_patient(patient_id)
     if not existing:
         return False
+    if name:
+        name = name.strip().upper()
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
