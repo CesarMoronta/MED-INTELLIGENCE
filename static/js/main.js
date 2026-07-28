@@ -4427,7 +4427,7 @@ function renderBillingHistory(invoices) {
 
     const cleanDgiiUrl = sanitize_dgii_url(i.dgii_url);
     const dgiiLink = cleanDgiiUrl 
-      ? `<a href="${cleanDgiiUrl}" target="_blank" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
+      ? `<a href="${cleanDgiiUrl}" target="_blank" rel="noreferrer noopener" class="btn-icon" title="Ver Timbre en DGII" style="color:var(--brand-light);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
       : '';
 
     // Credit Note Button E34
