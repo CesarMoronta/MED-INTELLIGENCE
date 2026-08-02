@@ -310,9 +310,9 @@ function renderSidebarNav(navId, label, order, defaultActiveTab) {
     if (item) {
       const activeClass = tabId === defaultActiveTab ? 'nav-item active' : 'nav-item';
       html += `
-        <button class="${activeClass}" data-tab="${tabId}" onclick="switchTab('${tabId}')">
+        <button class="${activeClass}" data-tab="${tabId}" onclick="switchTab('${tabId}')" title="${item.label}">
           ${item.icon}
-          ${item.label}
+          <span class="nav-item-text">${item.label}</span>
         </button>
       `;
     }
@@ -514,17 +514,20 @@ async function loadAdminDashboard() {
 
 function renderAdminCharts(s) {
   const chartDefaults = {
-    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+    animation: false,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
     scales: {
-      x: { ticks: { color: '#475569' }, grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { ticks: { color: '#475569' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      y: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } }
     }
   };
 
   // 1. Visitas por semana (barras)
   const ctxVisits = document.getElementById('chart-visits-week');
   if (ctxVisits) {
-    if (ctxVisits._chartInstance) ctxVisits._chartInstance.destroy();
+    if (ctxVisits._chartInstance) {
+      try { ctxVisits._chartInstance.destroy(); } catch(e) {}
+    }
     const visitLabels = s.visits_by_week?.labels || ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
     const visitData   = s.visits_by_week?.data   || [0,0,0,0,0,0,0];
     ctxVisits._chartInstance = new Chart(ctxVisits, {
@@ -532,28 +535,31 @@ function renderAdminCharts(s) {
       data: {
         labels: visitLabels,
         datasets: [{ label: 'Visitas', data: visitData,
-          backgroundColor: 'rgba(59,130,246,0.4)', borderColor: '#3b82f6',
-          borderWidth: 1, borderRadius: 6 }]
+          backgroundColor: 'rgba(59,130,246,0.5)', borderColor: '#3b82f6',
+          borderWidth: 1, borderRadius: 4, maxBarThickness: 28 }]
       },
-      options: { ...chartDefaults, responsive: true, maintainAspectRatio: true }
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: false }
     });
   }
 
   // 2. Top diagnósticos (dona)
   const ctxDiag = document.getElementById('chart-diag-dist');
   if (ctxDiag && s.top_diagnoses) {
-    if (ctxDiag._chartInstance) ctxDiag._chartInstance.destroy();
+    if (ctxDiag._chartInstance) {
+      try { ctxDiag._chartInstance.destroy(); } catch(e) {}
+    }
     const colors = ['#3b82f6','#06b6d4','#10b981','#f59e0b','#8b5cf6','#ef4444'];
     ctxDiag._chartInstance = new Chart(ctxDiag, {
       type: 'doughnut',
       data: {
         labels: s.top_diagnoses.map(d => d.name),
         datasets: [{ data: s.top_diagnoses.map(d => d.count),
-          backgroundColor: colors, borderColor: 'rgba(255,255,255,0.06)', borderWidth: 2 }]
+          backgroundColor: colors, borderColor: '#ffffff', borderWidth: 2 }]
       },
       options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }
+        animation: false,
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } }
       }
     });
   }
@@ -561,7 +567,9 @@ function renderAdminCharts(s) {
   // 3. Nuevos pacientes / mes (línea)
   const ctxGrowth = document.getElementById('chart-patients-growth');
   if (ctxGrowth) {
-    if (ctxGrowth._chartInstance) ctxGrowth._chartInstance.destroy();
+    if (ctxGrowth._chartInstance) {
+      try { ctxGrowth._chartInstance.destroy(); } catch(e) {}
+    }
     const labels = s.patients_by_month?.labels || [];
     const pdata  = s.patients_by_month?.data   || [];
     ctxGrowth._chartInstance = new Chart(ctxGrowth, {
@@ -570,16 +578,18 @@ function renderAdminCharts(s) {
         labels,
         datasets: [{ label: 'Nuevos Pacientes', data: pdata,
           borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)',
-          fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#10b981' }]
+          fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#10b981' }]
       },
-      options: { ...chartDefaults, responsive: true, maintainAspectRatio: true }
+      options: { ...chartDefaults, responsive: true, maintainAspectRatio: false }
     });
   }
 
   // 4. Consultas vs Emergencias (dona)
   const ctxTypes = document.getElementById('chart-visit-types');
   if (ctxTypes) {
-    if (ctxTypes._chartInstance) ctxTypes._chartInstance.destroy();
+    if (ctxTypes._chartInstance) {
+      try { ctxTypes._chartInstance.destroy(); } catch(e) {}
+    }
     const consultas   = s.total_visits   - (s.total_emergencias || 0) || 0;
     const emergencias = s.total_emergencias || 0;
     ctxTypes._chartInstance = new Chart(ctxTypes, {
@@ -588,11 +598,12 @@ function renderAdminCharts(s) {
         labels: ['Consultas', 'Emergencias'],
         datasets: [{ data: [consultas, emergencias],
           backgroundColor: ['rgba(59,130,246,0.6)', 'rgba(239,68,68,0.6)'],
-          borderColor: ['#3b82f6','#ef4444'], borderWidth: 2 }]
+          borderColor: '#ffffff', borderWidth: 2 }]
       },
       options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }
+        animation: false,
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } }
       }
     });
   }
@@ -2173,82 +2184,6 @@ function printReport() {
 }
 
 // AGENDA / CITAS
-let calendarInstance = null;
-let dashboardCalendarInstance = null;
-
-function renderDashboardCalendar(apps) {
-  const calendarEl = document.getElementById('doctor-dashboard-calendar');
-  if (!calendarEl) return;
-
-  if (!dashboardCalendarInstance) {
-    dashboardCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'timeGridWeek',
-      locale: 'es',
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay'
-      },
-      slotMinTime: '06:00:00',
-      slotMaxTime: '22:00:00',
-      contentHeight: 'auto',
-      expandRows: true,
-      allDaySlot: false,
-      editable: false,
-      eventClick: function(info) {
-        const patientName = info.event.title.split(' (')[0];
-        if (confirm(`¿Desea iniciar la consulta/atender a ${patientName}?`)) {
-          selectConsultAppointment(info.event.id, info.event.extendedProps.patient_id);
-          switchTab('diagnose');
-        }
-      }
-    });
-    dashboardCalendarInstance.render();
-  } else {
-    // Asegurar que recalcula dimensiones si estaba oculto al crearse
-    setTimeout(() => {
-      dashboardCalendarInstance.updateSize();
-    }, 100);
-  }
-
-  dashboardCalendarInstance.removeAllEvents();
-
-  const activeApps = apps.filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
-  const events = activeApps.map(a => {
-    let color = '#4f46e5'; // brand color
-    if (a.status === 'completada') color = '#10b981';
-    else if (a.status === 'cancelada') color = '#ef4444';
-    else if (a.status === 'en_curso') color = '#f59e0b';
-
-    let endStr = undefined;
-    let startStr = a.scheduled_date;
-
-    if (a.scheduled_time) {
-      const timePart = a.scheduled_time.substring(0, 8);
-      startStr = `${a.scheduled_date}T${timePart}`;
-      const d = new Date(startStr);
-      if (!isNaN(d.getTime())) {
-        d.setHours(d.getHours() + 1);
-        const pad = n => n.toString().padStart(2, '0');
-        endStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-      }
-    }
-
-    return {
-      id: a.id,
-      title: `${a.patient_name} (${a.notes || 'Consulta'})`,
-      start: startStr,
-      end: endStr,
-      color: color,
-      allDay: !a.scheduled_time,
-      extendedProps: {
-        patient_id: a.patient_id
-      }
-    };
-  });
-
-  dashboardCalendarInstance.addEventSource(events);
-}
 
 
 async function loadAppointments() {
@@ -2257,18 +2192,20 @@ async function loadAppointments() {
   const data = await api('GET', url);
   if (!data.success) { toast('error', 'Error cargando citas.'); return; }
   
-  STATE.allAppointments = data.appointments;
-  renderAppointmentsTable(STATE.allAppointments);
+  STATE.allAppointments = data.appointments || [];
+  filterAppointmentsTable();
   
   // Update calendar if it's visible
-  if (calendarInstance && document.getElementById('app-calendar-view').style.display !== 'none') {
+  if (calendarInstance && document.getElementById('app-calendar-view')?.style.display !== 'none') {
     renderCalendar();
   }
   
   // Cargar pacientes y doctores para el modal si no están cargados
   if (STATE.user.role === 'admin' || STATE.user.role === 'secretaria') {
-    document.getElementById('appointment-doctor-filter').style.display = 'block';
-    document.getElementById('app-view-toggles').style.display = 'flex';
+    const docWrap = document.getElementById('appointment-doctor-filter-wrap');
+    if (docWrap) docWrap.style.display = 'flex';
+    const toggles = document.getElementById('app-view-toggles');
+    if (toggles) toggles.style.display = 'flex';
     
     const docs = await api('GET', '/api/users');
     if (docs.success) {
@@ -2276,7 +2213,7 @@ async function loadAppointments() {
       STATE.allDoctors = doctors;
       
       const filterSelect = document.getElementById('appointment-doctor-filter');
-      if (filterSelect.options.length <= 1) {
+      if (filterSelect && filterSelect.options.length <= 1) {
           filterSelect.innerHTML = `<option value="">Todos los doctores</option>` + doctors.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
       }
     }
@@ -2285,42 +2222,59 @@ async function loadAppointments() {
       STATE.allPatients = pts.patients;
     }
   } else {
-    // Si es doctor, no mostrar el botón de agendar ni el filtro de doctores
-    document.getElementById('btn-new-appointment').style.display = 'none';
+    // Si es doctor, ocultar filtro de doctores pero mostrar toggle de vista si lo desea
+    const docWrap = document.getElementById('appointment-doctor-filter-wrap');
+    if (docWrap) docWrap.style.display = 'none';
+    const btnNew = document.getElementById('btn-new-appointment');
+    if (btnNew) btnNew.style.display = 'none';
   }
 }
 
 function switchAppointmentView(viewType) {
-  document.getElementById('btn-view-table').style.background = viewType === 'table' ? 'var(--bg-hover)' : 'transparent';
-  document.getElementById('btn-view-calendar').style.background = viewType === 'calendar' ? 'var(--bg-hover)' : 'transparent';
+  const btnTable = document.getElementById('btn-view-table');
+  const btnCal = document.getElementById('btn-view-calendar');
+  if (btnTable) btnTable.style.background = viewType === 'table' ? 'var(--bg-hover)' : 'transparent';
+  if (btnCal) btnCal.style.background = viewType === 'calendar' ? 'var(--bg-hover)' : 'transparent';
   
-  document.getElementById('app-table-view').style.display = viewType === 'table' ? 'block' : 'none';
-  document.getElementById('app-calendar-view').style.display = viewType === 'calendar' ? 'block' : 'none';
+  const tableView = document.getElementById('app-table-view');
+  const calView = document.getElementById('app-calendar-view');
+  if (tableView) tableView.style.display = viewType === 'table' ? 'block' : 'none';
+  if (calView) calView.style.display = viewType === 'calendar' ? 'block' : 'none';
   
   if (viewType === 'calendar') {
     renderCalendar();
   }
 }
 
+let calendarInstance = null;
+let dashboardCalendarInstance = null;
+
 function renderCalendar() {
   const calendarEl = document.getElementById('calendar');
+  if (!calendarEl) return;
+  const isMobile = window.innerWidth < 768;
+
   if (!calendarInstance) {
     calendarInstance = new FullCalendar.Calendar(calendarEl, {
-      initialView: 'timeGridWeek',
+      initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
       locale: 'es',
-      headerToolbar: {
+      headerToolbar: isMobile ? {
         left: 'prev,next today',
         center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        right: 'timeGridDay,timeGridWeek,listWeek'
+      } : {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
       },
-      slotMinTime: '00:00:00',
-      slotMaxTime: '24:00:00',
-      contentHeight: 'auto', // Expande el contenedor para evitar celdas apretadas
-      expandRows: true, // Expande las filas al máximo disponible
+      slotMinTime: '06:00:00',
+      slotMaxTime: '22:00:00',
+      contentHeight: 'auto',
+      expandRows: true,
       allDaySlot: false,
       editable: true,
       eventClick: function(info) {
-        if (STATE.user.role === 'secretaria' || STATE.user.role === 'admin') {
+        if (STATE.user && (STATE.user.role === 'secretaria' || STATE.user.role === 'admin')) {
             openEditAppointmentModal(info.event.id);
         }
       },
@@ -2338,7 +2292,7 @@ function renderCalendar() {
         
         if (res.success) {
           toast('success', 'Cita reprogramada correctamente.');
-          loadAppointments(); // refresh both table and state
+          loadAppointments();
         } else {
           toast('error', res.error || 'Error al reprogramar la cita.');
           info.revert();
@@ -2349,8 +2303,7 @@ function renderCalendar() {
   }
   
   calendarInstance.removeAllEvents();
-  
-  const activeApps = STATE.allAppointments.filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
+  const activeApps = (STATE.allAppointments || []).filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
   const events = activeApps.map(a => {
     let color = '#3b82f6';
     if (a.status === 'completada') color = '#10b981';
@@ -2361,7 +2314,7 @@ function renderCalendar() {
     let startStr = a.scheduled_date;
     
     if (a.scheduled_time) {
-        const timePart = a.scheduled_time.substring(0, 8); // Ensure HH:MM:SS
+        const timePart = a.scheduled_time.substring(0, 8);
         startStr = `${a.scheduled_date}T${timePart}`;
         const d = new Date(startStr);
         if (!isNaN(d.getTime())) {
@@ -2373,7 +2326,7 @@ function renderCalendar() {
     
     return {
       id: a.id,
-      title: `${a.patient_name} - ${a.doctor_fullname}`,
+      title: `${a.patient_name || 'Paciente'} (${a.doctor_fullname || ''})`,
       start: startStr,
       end: endStr,
       color: color,
@@ -2384,13 +2337,150 @@ function renderCalendar() {
   calendarInstance.addEventSource(events);
 }
 
+function renderDashboardCalendar(appointments) {
+  const calendarEl = document.getElementById('doctor-dashboard-calendar');
+  if (!calendarEl) return;
+  const isMobile = window.innerWidth < 768;
+
+  if (!dashboardCalendarInstance) {
+    dashboardCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+      initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
+      locale: 'es',
+      headerToolbar: isMobile ? {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'timeGridDay,timeGridWeek,listWeek'
+      } : {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+      },
+      slotMinTime: '06:00:00',
+      slotMaxTime: '22:00:00',
+      contentHeight: 'auto',
+      expandRows: true,
+      allDaySlot: false,
+      editable: false,
+      eventClick: function(info) {
+        const app = (STATE.allAppointments || []).find(a => a.id == info.event.id);
+        if (app && app.patient_id) {
+          viewPatient(app.patient_id);
+        }
+      }
+    });
+    dashboardCalendarInstance.render();
+  }
+
+  setTimeout(() => {
+    try { if (dashboardCalendarInstance) dashboardCalendarInstance.updateSize(); } catch(e) {}
+  }, 50);
+
+  dashboardCalendarInstance.removeAllEvents();
+  const activeApps = (appointments || STATE.allAppointments || []).filter(a => a.status !== 'cancelada' && a.status !== 'eliminada');
+  const events = activeApps.map(a => {
+    let color = '#3b82f6';
+    if (a.status === 'completada') color = '#10b981';
+    else if (a.status === 'cancelada') color = '#ef4444';
+    else if (a.status === 'en_curso') color = '#f59e0b';
+    
+    let endStr = undefined;
+    let startStr = a.scheduled_date;
+    if (a.scheduled_time) {
+        const timePart = a.scheduled_time.substring(0, 8);
+        startStr = `${a.scheduled_date}T${timePart}`;
+        const d = new Date(startStr);
+        if (!isNaN(d.getTime())) {
+            d.setHours(d.getHours() + 1);
+            const pad = n => n.toString().padStart(2, '0');
+            endStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+        }
+    }
+
+    return {
+      id: a.id,
+      title: `${a.patient_name || 'Paciente'} - ${a.notes || 'Consulta'}`,
+      start: startStr,
+      end: endStr,
+      color: color,
+      allDay: !a.scheduled_time
+    };
+  });
+
+  dashboardCalendarInstance.addEventSource(events);
+}
+
+function filterAppointmentsTable() {
+  if (!STATE.allAppointments) return;
+  const q = (document.getElementById('appointment-search')?.value || '').toLowerCase().trim();
+  const status = document.getElementById('appointment-status-filter')?.value || '';
+  const dateFrom = document.getElementById('appointment-date-from')?.value || '';
+  const dateTo = document.getElementById('appointment-date-to')?.value || '';
+  const sortVal = document.getElementById('appointment-sort-filter')?.value || 'date-desc';
+
+  let list = [...STATE.allAppointments];
+
+  // 1. Text search
+  if (q) {
+    list = list.filter(a =>
+      (a.patient_name || '').toLowerCase().includes(q) ||
+      (a.patient_cedula || '').toLowerCase().includes(q) ||
+      (a.doctor_fullname || '').toLowerCase().includes(q) ||
+      (a.notes || '').toLowerCase().includes(q)
+    );
+  }
+
+  // 2. Status filter
+  if (status) {
+    list = list.filter(a => a.status === status);
+  }
+
+  // 3. Date range filter (Desde / Hasta)
+  if (dateFrom) {
+    list = list.filter(a => a.scheduled_date >= dateFrom);
+  }
+  if (dateTo) {
+    list = list.filter(a => a.scheduled_date <= dateTo);
+  }
+
+  // 4. Sort
+  list.sort((a, b) => {
+    if (sortVal === 'date-desc') {
+      const dtA = `${a.scheduled_date} ${a.scheduled_time || ''}`;
+      const dtB = `${b.scheduled_date} ${b.scheduled_time || ''}`;
+      return dtB.localeCompare(dtA);
+    } else if (sortVal === 'date-asc') {
+      const dtA = `${a.scheduled_date} ${a.scheduled_time || ''}`;
+      const dtB = `${b.scheduled_date} ${b.scheduled_time || ''}`;
+      return dtA.localeCompare(dtB);
+    } else if (sortVal === 'patient-asc') {
+      return (a.patient_name || '').localeCompare(b.patient_name || '');
+    } else if (sortVal === 'doctor-asc') {
+      return (a.doctor_fullname || '').localeCompare(b.doctor_fullname || '');
+    } else if (sortVal === 'status') {
+      return (a.status || '').localeCompare(b.status || '');
+    }
+    return 0;
+  });
+
+  renderAppointmentsTable(list);
+}
+
+function resetAppointmentFilters() {
+  const search = document.getElementById('appointment-search');
+  const status = document.getElementById('appointment-status-filter');
+  const dFrom = document.getElementById('appointment-date-from');
+  const dTo = document.getElementById('appointment-date-to');
+  const sort = document.getElementById('appointment-sort-filter');
+  if (search) search.value = '';
+  if (status) status.value = '';
+  if (dFrom) dFrom.value = '';
+  if (dTo) dTo.value = '';
+  if (sort) sort.value = 'date-desc';
+  filterAppointmentsTable();
+}
+
 function searchAppointments() {
-  const q = (document.getElementById('appointment-search')?.value || '').toLowerCase();
-  const filtered = STATE.allAppointments.filter(a => 
-    (a.patient_name || '').toLowerCase().includes(q) ||
-    (a.patient_cedula || '').toLowerCase().includes(q)
-  );
-  renderAppointmentsTable(filtered);
+  filterAppointmentsTable();
 }
 
 function renderAppointmentsTable(apps) {
@@ -3204,19 +3294,21 @@ async function loadPatientStatement(id) {
   }).join('');
   
   el.innerHTML = `
-    <table class="vitals-history-table">
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Concepto</th>
-          <th>Total</th>
-          <th>Pagado</th>
-          <th>Pendiente</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
+    <div class="table-responsive" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;">
+      <table class="vitals-history-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Concepto</th>
+            <th>Total</th>
+            <th>Pagado</th>
+            <th>Pendiente</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -3396,7 +3488,7 @@ async function loadPatientVitals(id) {
       <td>${c.imc ?? '—'}</td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<table class="vitals-history-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+  el.innerHTML = `<div class="table-responsive" style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch;"><table class="vitals-history-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function loadPatientMeds(id) {
@@ -5928,6 +6020,80 @@ async function applyRefinementAnswers() {
     if (btn) setButtonLoading(btn, false);
   }
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* FUNCIONES DE CONTROL DE SIDEBAR RESPONSIVO Y PLEGABLE                      */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+function toggleDesktopSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const mainContent = document.getElementById('main-content');
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  if (mainContent) {
+    mainContent.classList.toggle('sidebar-collapsed', isCollapsed);
+  }
+  try {
+    localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+  } catch (e) {}
+}
+
+function toggleMobileSidebar(forceState) {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
+
+  const shouldOpen = forceState !== undefined ? forceState : !sidebar.classList.contains('mobile-open');
+
+  if (shouldOpen) {
+    sidebar.classList.remove('collapsed');
+    sidebar.classList.add('mobile-open');
+    if (backdrop) backdrop.classList.add('active');
+    document.body.classList.add('mobile-nav-open');
+  } else {
+    sidebar.classList.remove('mobile-open');
+    if (backdrop) backdrop.classList.remove('active');
+    document.body.classList.remove('mobile-nav-open');
+  }
+}
+
+function closeMobileSidebar() {
+  toggleMobileSidebar(false);
+}
+
+// Inicialización de estado guardado y eventos responsivos
+document.addEventListener('DOMContentLoaded', () => {
+  // Cargar estado de plegado guardado en desktop
+  try {
+    const saved = localStorage.getItem('sidebar_collapsed');
+    if (saved === '1' && window.innerWidth > 992) {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('main-content');
+      if (sidebar) sidebar.classList.add('collapsed');
+      if (mainContent) mainContent.classList.add('sidebar-collapsed');
+    }
+  } catch (e) {}
+
+  // Cerrar sidebar al hacer clic en un item de navegación en pantallas móviles
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 992) {
+      const navItem = e.target.closest('.nav-item');
+      if (navItem && !navItem.classList.contains('dropdown-toggle')) {
+        closeMobileSidebar();
+      }
+    }
+  });
+
+  // Limpiar clases al redimensionar la pantalla a desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 992) {
+      closeMobileSidebar();
+    }
+  });
+});
+
 
 
 

@@ -17,6 +17,8 @@ app = Flask(__name__, static_folder="static")
 
 # Seguridad: secret_key desde variables de entorno
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-key-change-in-production")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Configuración de uploads
 upload_folder = os.environ.get("UPLOAD_FOLDER", "uploads")

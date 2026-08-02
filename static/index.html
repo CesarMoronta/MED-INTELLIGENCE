@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="referrer" content="no-referrer" />
   <title>MED-INTELLIGENCE PRO — Panel Médico</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="description"
     content="Sistema de diagnóstico médico inteligente con motor bayesiano. Panel para doctores, secretarias y administradores." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,18 +20,55 @@
 
 <body>
 
+  <!-- BACKDROP OVERLAY PARA MÓVIL -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- TOPBAR MÓVIL (Visible solo en pantallas pequeñas) -->
+  <header class="mobile-topbar" id="mobile-topbar">
+    <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Abrir Menú de Navegación">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="22" height="22">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+    <div class="mobile-topbar-actions">
+      <button class="mobile-topbar-btn" onclick="openNotificationsPanel()" title="Notificaciones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        <span class="notif-count notif-count-mobile" style="display:none;">0</span>
+      </button>
+      <div class="mobile-avatar" onclick="openMyAccountModal()" title="Mi Cuenta" id="mobile-profile-avatar">A</div>
+    </div>
+  </header>
+
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      <div class="logo-brand-wrap">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+        </div>
+        <div class="logo-text-group">
+          <div class="logo-name" id="app-clinic-name">MED-INTEL</div>
+          <div class="logo-tag">PRO v3.0</div>
+        </div>
+      </div>
+      <button class="btn-toggle-sidebar" id="btn-toggle-sidebar" onclick="toggleDesktopSidebar()" title="Plegar/Desplegar menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M15 18l-6-6 6-6"/>
         </svg>
-      </div>
-      <div>
-        <div class="logo-name" id="app-clinic-name">MED-INTEL</div>
-        <div class="logo-tag">PRO v3.0</div>
-      </div>
+      </button>
+      <button class="btn-close-mobile-sidebar" onclick="closeMobileSidebar()" title="Cerrar menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Perfil del usuario -->
@@ -67,7 +105,7 @@
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        Cerrar Sesión
+        <span class="btn-logout-label">Cerrar Sesión</span>
       </button>
     </div>
   </aside>
@@ -149,37 +187,27 @@
           Agendar Cita
         </button>
       </div>
-      <div class="search-row" style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="search-wrap" style="flex:1; max-width:400px; margin-right:20px;">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input type="text" class="search-input" id="appointment-search" placeholder="Buscar citas..."
-            oninput="searchAppointments()" />
-        </div>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <label for="appointment-doctor-filter" class="form-label" style="margin:0;">Doctor:</label>
-          <select id="appointment-doctor-filter" class="form-input" style="width:200px; display:none;"
-            onchange="loadAppointments()">
-            <option value="">Todos los doctores</option>
-          </select>
+      <!-- BARRA DE FILTROS Y BÚSQUEDA RESPONSIVA MULTI-COLUMNA -->
+      <div class="appointment-filter-bar">
+        <div class="filter-row-top">
+          <div class="search-wrap" style="flex: 1;">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" class="search-input" id="appointment-search" placeholder="Buscar por paciente, cédula, doctor..." oninput="filterAppointmentsTable()" />
+          </div>
 
-          <div class="view-toggles" id="app-view-toggles"
-            style="display:none; background:var(--bg-card); border-radius:6px; border:1px solid var(--border); overflow:hidden; margin-left:10px;">
-            <button class="btn-icon" id="btn-view-table"
-              style="padding:8px 12px; border-radius:0; border-right:1px solid var(--border);"
-              onclick="switchAppointmentView('table')" title="Vista Tabla">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="view-toggles" id="app-view-toggles" style="display:none;">
+            <button class="btn-icon" id="btn-view-table" onclick="switchAppointmentView('table')" title="Vista Tabla">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
-            <button class="btn-icon" id="btn-view-calendar"
-              style="padding:8px 12px; border-radius:0; background:var(--bg-hover);"
-              onclick="switchAppointmentView('calendar')" title="Vista Calendario">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="btn-icon" id="btn-view-calendar" onclick="switchAppointmentView('calendar')" title="Vista Calendario">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -187,6 +215,51 @@
               </svg>
             </button>
           </div>
+        </div>
+
+        <div class="filter-fields-grid">
+          <div class="filter-field">
+            <label for="appointment-status-filter">Estado</label>
+            <select id="appointment-status-filter" class="form-input" onchange="filterAppointmentsTable()">
+              <option value="">Todos</option>
+              <option value="abierta">Abierta</option>
+              <option value="en_curso">En Curso</option>
+              <option value="completada">Completada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="appointment-date-from">Desde</label>
+            <input type="date" id="appointment-date-from" class="form-input" onchange="filterAppointmentsTable()" />
+          </div>
+
+          <div class="filter-field">
+            <label for="appointment-date-to">Hasta</label>
+            <input type="date" id="appointment-date-to" class="form-input" onchange="filterAppointmentsTable()" />
+          </div>
+
+          <div class="filter-field" id="appointment-doctor-filter-wrap">
+            <label for="appointment-doctor-filter">Doctor</label>
+            <select id="appointment-doctor-filter" class="form-input" onchange="loadAppointments()">
+              <option value="">Todos los doctores</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="appointment-sort-filter">Orden</label>
+            <select id="appointment-sort-filter" class="form-input" onchange="filterAppointmentsTable()">
+              <option value="date-desc">Recientes primero</option>
+              <option value="date-asc">Antiguas primero</option>
+              <option value="patient-asc">Paciente (A-Z)</option>
+              <option value="doctor-asc">Doctor (A-Z)</option>
+              <option value="status">Estado</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-actions-row">
+          <button class="btn-outline btn-clear-filters" onclick="resetAppointmentFilters()">Limpiar Filtros</button>
         </div>
       </div>
 
@@ -412,11 +485,9 @@
                     <input type="text" id="diag-patient-name" class="form-input" disabled />
                   </div>
                   <div class="form-group">
-                    <div
-                      style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                      <label class="form-label" style="margin: 0;">Motivo de Consulta / Relato del Paciente</label>
+                    <div class="form-label-header-row">
+                      <label class="form-label">Motivo de Consulta / Relato del Paciente</label>
                       <button type="button" id="btn-extract-symptoms" class="btn-primary"
-                        style="padding: 4px 10px; font-size: 0.8rem; margin: 0; background-color: var(--brand);"
                         onclick="extractSymptomsFromNarrative()">
                         ✨ Auto-detectar Síntomas con IA
                       </button>
@@ -964,13 +1035,17 @@
           <div class="section-header">
             <h2>📈 Visitas por Semana</h2>
           </div>
-          <canvas id="chart-visits-week" height="220"></canvas>
+          <div class="chart-box">
+            <canvas id="chart-visits-week"></canvas>
+          </div>
         </div>
         <div class="section-card">
           <div class="section-header">
             <h2>🍩 Top Diagnósticos</h2>
           </div>
-          <canvas id="chart-diag-dist" height="220"></canvas>
+          <div class="chart-box">
+            <canvas id="chart-diag-dist"></canvas>
+          </div>
         </div>
       </div>
       <div class="two-col-grid" style="margin-top:20px;">
@@ -978,13 +1053,17 @@
           <div class="section-header">
             <h2>👥 Nuevos Pacientes / Mes</h2>
           </div>
-          <canvas id="chart-patients-growth" height="220"></canvas>
+          <div class="chart-box">
+            <canvas id="chart-patients-growth"></canvas>
+          </div>
         </div>
         <div class="section-card">
           <div class="section-header">
             <h2>🏥 Consultas vs Emergencias</h2>
           </div>
-          <canvas id="chart-visit-types" height="220"></canvas>
+          <div class="chart-box">
+            <canvas id="chart-visit-types"></canvas>
+          </div>
         </div>
       </div>
     </div>

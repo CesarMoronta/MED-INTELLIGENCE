@@ -44,6 +44,29 @@ def api_create_appointment():
     if not all([patient_id, doctor_id, scheduled_date, scheduled_time]):
         return jsonify({"success": False, "error": "Faltan campos requeridos."}), 400
 
+    from datetime import datetime
+    try:
+        patient_id = int(patient_id)
+        doctor_id  = int(doctor_id)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "ID de paciente y doctor deben ser numéricos."}), 400
+
+    try:
+        datetime.strptime(str(scheduled_date), "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato de fecha inválido. Debe ser AAAA-MM-DD."}), 400
+
+    try:
+        time_str = str(scheduled_time).strip()
+        if len(time_str) == 5:
+            datetime.strptime(time_str, "%H:%M")
+        elif len(time_str) == 8:
+            datetime.strptime(time_str, "%H:%M:%S")
+        else:
+            raise ValueError()
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato de hora inválido. Debe ser HH:MM."}), 400
+
     # Bloquear cita si paciente fallecido
     patient = get_patient(patient_id)
     if patient and patient.get("vital_status") == "Fallecido":

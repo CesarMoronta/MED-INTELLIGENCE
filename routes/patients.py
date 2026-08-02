@@ -28,6 +28,7 @@ def api_get_patients():
 @requires_role("admin", "secretaria")  # Doctor NO puede crear pacientes
 def api_save_patient():
     import re
+    data         = request.json or {}
     raw_cedula   = (data.get("cedula") or "").strip()
     cedula_digits = re.sub(r"\D", "", raw_cedula)
     if len(cedula_digits) != 11:

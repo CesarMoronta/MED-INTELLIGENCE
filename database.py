@@ -18,6 +18,8 @@ SQLSERVER_CONN = os.environ.get(
 MAX_LOGIN_ATTEMPTS = 5    # Intentos antes del bloqueo
 LOCKOUT_MINUTES    = 15   # Minutos de bloqueo
 
+from contextlib import contextmanager
+
 _local_data = threading.local()
 
 def get_connection() -> pyodbc.Connection:
@@ -29,6 +31,26 @@ def get_connection() -> pyodbc.Connection:
         _local_data.connections = []
     _local_data.connections.append(conn)
     return conn
+
+@contextmanager
+def get_db_cursor():
+    """
+    Context manager para operaciones de base de datos seguras.
+    Garantiza el cierre del cursor y la conexión al finalizar.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        yield cursor
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 def close_all_thread_connections():
     """
@@ -1051,7 +1073,7 @@ def list_appointments(doctor_id: int = None, date_filter: str = None) -> list:
 
     if where_clauses:
         query += " WHERE " + " AND ".join(where_clauses)
-    query += " ORDER BY a.scheduled_date ASC, a.scheduled_time ASC"
+    query += " ORDER BY a.scheduled_date DESC, a.scheduled_time DESC"
 
     cursor.execute(query, *params)
     rows = rows_to_dicts(cursor)

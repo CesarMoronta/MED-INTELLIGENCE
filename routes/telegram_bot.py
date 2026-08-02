@@ -209,6 +209,13 @@ def db_get_available_slots(doctor_id: int, date_str: str) -> list:
     
     all_slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"]
     available = [s for s in all_slots if s not in taken_times and (s + ":00") not in taken_times]
+    
+    # Filtrar horas pasadas si la fecha seleccionada es hoy
+    now = datetime.now()
+    if date_str == now.strftime("%Y-%m-%d"):
+        current_time = now.strftime("%H:%M")
+        available = [s for s in available if s > current_time]
+
     return available
 
 def db_get_active_doctors() -> list:
@@ -243,7 +250,10 @@ def db_notify_secretaries_and_admins(message_text: str, from_user_id: int):
 def jce_api_lookup(cedula: str, max_attempts: int = 2) -> dict | None:
     cedula_clean = re.sub(r"\D", "", cedula)
     base_url = os.environ.get("DGII_JCE_BASE_URL", "https://ecf-platform-backend-50801509587.us-central1.run.app")
-    api_key  = os.environ.get("DGII_JCE_API_KEY", "ecf_live_5ad0ef2626e32d8967e13f655cee0c45f54d8509b1ef793149b881cbb52f25fe")
+    api_key  = os.environ.get("DGII_JCE_API_KEY", "")
+    if not api_key:
+        print("Warning: DGII_JCE_API_KEY is not configured in environment.")
+        return None
     url = f"{base_url}/api/v1/dgii/jce?cedula={cedula_clean}"
     headers = {
         "Content-Type": "application/json",
@@ -335,6 +345,14 @@ def telegram_webhook():
                 send_message(chat_id, f"📅 Fecha de nacimiento seleccionada: <b>{selected_date}</b> (Edad: <b>{calculate_age(datetime.strptime(selected_date, '%Y-%m-%d'))} años</b>)\n\nPor favor, selecciona tu <b>Género</b>:", reply_markup=keyboard)
 
             elif state == "AGENDAR_DATE":
+                try:
+                    sel_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+                    if sel_date < datetime.now().date():
+                        send_message(chat_id, "⚠️ No puedes seleccionar una fecha pasada. Por favor, elige hoy o una fecha futura en el calendario:")
+                        return jsonify({"success": True})
+                except ValueError:
+                    pass
+
                 slots = db_get_available_slots(user_state["doctor_id"], selected_date)
                 if not slots:
                     send_message(chat_id, f"⚠️ El doctor no tiene turnos disponibles el <b>{selected_date}</b>. Por favor, selecciona otra fecha en el calendario:")
@@ -356,6 +374,14 @@ def telegram_webhook():
                 send_message(chat_id, f"📅 Fecha seleccionada: <b>{selected_date}</b>\n\nSelecciona la hora de la cita:", reply_markup=keyboard)
                 
             elif state == "MOVER_DATE":
+                try:
+                    sel_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+                    if sel_date < datetime.now().date():
+                        send_message(chat_id, "⚠️ No puedes seleccionar una fecha pasada. Por favor, elige hoy o una fecha futura en el calendario:")
+                        return jsonify({"success": True})
+                except ValueError:
+                    pass
+
                 slots = db_get_available_slots(user_state["doctor_id"], selected_date)
                 if not slots:
                     send_message(chat_id, f"⚠️ El doctor no tiene turnos disponibles el <b>{selected_date}</b>. Selecciona otra fecha:")
@@ -390,10 +416,18 @@ def telegram_webhook():
     # Check if the user wants to start over or cancel at any step
     cancel_keywords = ["/start", "/menu", "/cancel", "cancelar", "reiniciar", "🔄 reiniciar", "🔄 cancelar", "🔄 cancelar / reiniciar proceso", "🔄 cancelar / reiniciar"]
     if text_lower in cancel_keywords:
+        prev_user_state = load_bot_state(chat_id)
+        prev_state = prev_user_state.get("state", "AWAITING_ACTION")
         save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
+        
+        if text_lower in ["/start", "/menu"] or prev_state == "AWAITING_ACTION":
+            msg_text = "<b>🏥 Asistente Virtual MED-INTELLIGENCE</b>\n\n¡Bienvenido al sistema de agendamiento de citas! ¿En qué te puedo ayudar hoy?"
+        else:
+            msg_text = "<b>🏥 Asistente Virtual MED-INTELLIGENCE</b>\n\n🔄 Proceso cancelado. Has regresado al menú principal. ¿En qué te puedo ayudar?"
+
         send_message(
             chat_id, 
-            "<b>🏥 Asistente Virtual MED-INTELLIGENCE</b>\n\n🔄 Proceso cancelado. Has regresado al menú principal. ¿En qué te puedo ayudar?", 
+            msg_text, 
             reply_markup=get_main_menu_markup()
         )
         return jsonify({"success": True})
