@@ -425,6 +425,13 @@ body {
   transition: var(--transition); outline: none;
   -webkit-appearance: none; appearance: none;
 }
+.form-input:disabled {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--text-muted) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  cursor: not-allowed !important;
+  opacity: 0.8 !important;
+}
 .form-input::placeholder { color: var(--text-muted); }
 /* Autofill override for dark bg */
 .form-input:-webkit-autofill,
@@ -478,44 +485,149 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* BOTONES                                                                     */
 /* ─────────────────────────────────────────────────────────────────────────── */
-.btn-primary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 20px;
-  background: var(--brand);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-top-color: rgba(255,255,255,0.28);
-  border-radius: var(--radius-sm);
-  color: white; font-family: var(--font); font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: var(--transition); white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+/* ── Botón Principal — Liquid Glass (Diseño del Botón de Login) ── */
+.btn-primary,
+.btn-liquid-glass {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px;
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-family: var(--font); font-size: 14px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+  
+  /* Mismo border-radius que el botón de login */
+  border-radius: 13px !important;
+  
+  /* Tintado con el color de marca programado administrativamente */
+  background: color-mix(in srgb, var(--brand) 28%, transparent) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.18) !important;
+  border-top-color: rgba(255, 255, 255, 0.40) !important; /* Brillo superior */
+  
+  /* Sombras y reflejos del botón de login */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+    0 4px 20px color-mix(in srgb, var(--brand) 30%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.30) !important;
+    
+  transition: background 0.22s, box-shadow 0.22s, transform 0.15s !important;
 }
-.btn-primary svg { width: 16px; height: 16px; }
-.btn-primary:hover:not(:disabled) { background: var(--brand-light); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.40); }
-.btn-primary:disabled { opacity: 0.40; cursor: not-allowed; transform: none; }
-.btn-primary.btn-large { padding: 14px 28px; font-size: 15px; border-radius: var(--radius); }
 
+.btn-primary svg,
+.btn-liquid-glass svg { width: 16px; height: 16px; }
+
+.btn-primary:hover:not(:disabled),
+.btn-liquid-glass:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 42%, transparent) !important;
+  border-top-color: rgba(255, 255, 255, 0.55) !important;
+  transform: translateY(-1px) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    0 6px 28px color-mix(in srgb, var(--brand) 45%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+.btn-primary:active:not(:disabled),
+.btn-liquid-glass:active:not(:disabled) {
+  transform: translateY(0) !important;
+  background: color-mix(in srgb, var(--brand) 35%, transparent) !important;
+}
+
+.btn-primary:disabled,
+.btn-liquid-glass:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.btn-primary.btn-large,
+.btn-liquid-glass.btn-large {
+  padding: 14px 28px;
+  font-size: 15px;
+  border-radius: 13px !important; /* Mantener la consistencia con el login */
+}
+
+/* ── Botón de Contorno (Outline) Secundario ── */
 .btn-outline {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 20px;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 13px !important; /* Mismo radio */
   background: rgba(255,255,255,0.05); color: var(--text-secondary);
   font-family: var(--font); font-size: 14px; font-weight: 500;
   cursor: pointer; transition: var(--transition);
 }
-.btn-outline:hover { background: rgba(255,255,255,0.10); color: var(--text-primary); border-color: rgba(255,255,255,0.18); }
+.btn-outline:hover { background: rgba(255,255,255,0.10); color: var(--text-primary); border-color: rgba(255,255,255,0.18) !important; }
 
+/* ── Botón Secundario ── */
 .btn-secondary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 18px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 20px;
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10); border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 13px !important; /* Mismo radio */
   color: var(--text-primary); font-family: var(--font); font-size: 13px; font-weight: 600;
   cursor: pointer; transition: var(--transition); white-space: nowrap;
 }
 .btn-secondary svg { stroke: var(--brand-light); transition: var(--transition); }
-.btn-secondary:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.btn-secondary:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px) !important; box-shadow: var(--shadow-sm); }
 .btn-secondary:hover svg { stroke: var(--brand-light); }
+
+/* ── Botones de Cancelar / Cerrar en Modales (Color Rojo Esmerilado iOS) ── */
+.modal-footer .btn-outline,
+.modal-footer .btn-cancel,
+button.btn-cancel,
+button.btn-close-modal {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px;
+  color: #ff8b8b !important;
+  font-family: var(--font); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: var(--transition);
+  border-radius: 13px !important; /* Mismo radio */
+  
+  /* Esmerilado rojo iOS */
+  background: rgba(239, 68, 68, 0.10) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  border-top-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 14px rgba(239, 68, 68, 0.10),
+    0 1px 2px rgba(0, 0, 0, 0.20) !important;
+}
+
+.modal-footer .btn-outline:hover,
+.modal-footer .btn-cancel:hover,
+button.btn-cancel:hover,
+button.btn-close-modal:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.40) !important;
+  border-top-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffb3b3 !important;
+  transform: translateY(-1px) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 6px 20px rgba(239, 68, 68, 0.20),
+    0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.modal-footer .btn-outline:active,
+.modal-footer .btn-cancel:active,
+button.btn-cancel:active,
+button.btn-close-modal:active {
+  transform: translateY(0) !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
 
 .btn-icon {
   width: 32px; height: 32px; border-radius: var(--radius-sm);
@@ -817,7 +929,11 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   transition: var(--transition);
   display: flex; align-items: center; justify-content: center;
 }
-.modal-close:hover { background: rgba(255,255,255,0.10); color: var(--text-primary); }
+.modal-close:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
 .modal-body {
   padding: 20px 24px;
   flex: 1 1 auto !important;
@@ -1451,11 +1567,11 @@ textarea.form-input { resize: vertical; min-height: 80px; }
     margin-top: auto !important;
     position: sticky !important;
     bottom: 0 !important;
-    background: #ffffff !important;
+    background: rgba(8, 10, 28, 0.95) !important;
     z-index: 20 !important;
     padding: 14px 12px !important;
     padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
-    border-top: 1px solid var(--border) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
   .btn-toggle-sidebar {
     display: none !important;
