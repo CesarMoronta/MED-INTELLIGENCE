@@ -2534,21 +2534,21 @@ function renderAppointmentsTable(apps) {
       <td>${a.doctor_fullname || '—'}</td>
       <td>${a.notes || '—'}</td>
       <td>${statusBadge}</td>
-      <td style="display:flex; gap:6px;">
+      <td style="display:flex; gap:6px; align-items:center; min-height:36px;">
         ${(STATE.user.role === 'secretaria' || STATE.user.role === 'admin') ? 
           `<button class="btn-icon" title="Editar Cita" style="color:var(--brand);" onclick="openEditAppointmentModal(${a.id})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
            </button>
-           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--red);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--red);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : '<span style="display:inline-block;width:32px;"></span>'}
           ` : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) ?
           `<button class="btn-icon" title="Atender Consulta" style="color:var(--brand);" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-           </button>` : ''
+           </button>` : '<span style="display:inline-block;width:32px;height:32px;"></span>'
         }
       </td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<table class="data-table"><thead><tr><th>Paciente</th><th>Fecha y Hora</th><th>Doctor</th><th>Notas</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.innerHTML = `<table class="data-table"><thead><tr><th>Paciente</th><th>Fecha y Hora</th><th>Doctor</th><th>Notas</th><th>Estado</th><th style="min-width:80px;">Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function openNewAppointmentModal() {
