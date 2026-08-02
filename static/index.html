@@ -495,7 +495,12 @@
                       <label class="form-label">Motivo de Consulta / Relato del Paciente</label>
                       <button type="button" id="btn-extract-symptoms" class="btn-primary"
                         onclick="extractSymptomsFromNarrative()">
-                        ✨ Auto-detectar Síntomas con IA
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                          <path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 5.2l-1.4 1.4M7.2 15.8l-1.4 1.4" />
+                          <path d="M19 13l-4 4M21 15l-4 4" />
+                          <path d="M2 22l10-10" />
+                        </svg>
+                        Auto-detectar Síntomas con IA
                       </button>
                     </div>
                     <textarea id="diag-motivo" class="form-input" rows="3"
@@ -1607,13 +1612,15 @@
         <button class="modal-close" onclick="closeModal('modal-select-patient')">✕</button>
       </div>
       <div class="modal-body">
-        <div class="search-bar" style="margin-bottom: 16px;">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input type="text" id="search-select-patient" placeholder="Buscar por nombre o cédula..." class="search-input"
-            onkeyup="filterSelectPatients()" />
+        <div style="margin-bottom: 16px;">
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="search-select-patient" placeholder="Buscar por nombre o cédula..." class="search-input"
+              onkeyup="filterSelectAppointments()" />
+          </div>
         </div>
         <div id="select-patient-list" style="max-height: 400px; overflow-y: auto;">
           <!-- Se llena con JS -->

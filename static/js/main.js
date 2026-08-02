@@ -216,32 +216,54 @@ const SIDEBAR_ITEMS = {
 
 function applyPrimaryColor(hex) {
   if (!hex || !/^#[0-9A-F]{6}$/i.test(hex)) return;
-  document.documentElement.style.setProperty('--brand', hex);
-  
-  let r = parseInt(hex.slice(1, 3), 16);
-  let g = parseInt(hex.slice(3, 5), 16);
-  let b = parseInt(hex.slice(5, 7), 16);
-  
-  let rDark = Math.max(0, Math.floor(r * 0.8));
-  let gDark = Math.max(0, Math.floor(g * 0.8));
-  let bDark = Math.max(0, Math.floor(b * 0.8));
-  let hexDark = "#" + ((1 << 24) + (rDark << 16) + (gDark << 8) + bDark).toString(16).slice(1);
-  document.documentElement.style.setProperty('--brand-dark', hexDark);
+  const root = document.documentElement;
 
-  let rLight = Math.min(255, Math.floor(r + (255 - r) * 0.2));
-  let gLight = Math.min(255, Math.floor(g + (255 - g) * 0.2));
-  let bLight = Math.min(255, Math.floor(b + (255 - b) * 0.2));
-  let hexLight = "#" + ((1 << 24) + (rLight << 16) + (gLight << 8) + bLight).toString(16).slice(1);
-  document.documentElement.style.setProperty('--brand-light', hexLight);
+  // Parse hex to RGB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
 
-  let rFocus = Math.min(255, Math.floor(r + (255 - r) * 0.1));
-  let gFocus = Math.min(255, Math.floor(g + (255 - g) * 0.1));
-  let bFocus = Math.min(255, Math.floor(b + (255 - b) * 0.1));
-  let hexFocus = "#" + ((1 << 24) + (rFocus << 16) + (gFocus << 8) + bFocus).toString(16).slice(1);
-  document.documentElement.style.setProperty('--border-focus', hexFocus);
+  // Compute dark shade (80%)
+  const rDark = Math.max(0, Math.floor(r * 0.8));
+  const gDark = Math.max(0, Math.floor(g * 0.8));
+  const bDark = Math.max(0, Math.floor(b * 0.8));
+  const hexDark = '#' + ((1 << 24) + (rDark << 16) + (gDark << 8) + bDark).toString(16).slice(1);
 
-  document.documentElement.style.setProperty('--shadow-glow', `0 0 40px rgba(${r}, ${g}, ${b}, 0.08)`);
+  // Compute light shade (120%)
+  const rLight = Math.min(255, Math.floor(r + (255 - r) * 0.2));
+  const gLight = Math.min(255, Math.floor(g + (255 - g) * 0.2));
+  const bLight = Math.min(255, Math.floor(b + (255 - b) * 0.2));
+  const hexLight = '#' + ((1 << 24) + (rLight << 16) + (gLight << 8) + bLight).toString(16).slice(1);
+
+  // Compute focus ring shade (110%)
+  const rFocus = Math.min(255, Math.floor(r + (255 - r) * 0.1));
+  const gFocus = Math.min(255, Math.floor(g + (255 - g) * 0.1));
+  const bFocus = Math.min(255, Math.floor(b + (255 - b) * 0.1));
+  const hexFocus = '#' + ((1 << 24) + (rFocus << 16) + (gFocus << 8) + bFocus).toString(16).slice(1);
+
+  // Apply base brand variables
+  root.style.setProperty('--brand', hex);
+  root.style.setProperty('--brand-dark', hexDark);
+  root.style.setProperty('--brand-light', hexLight);
+  root.style.setProperty('--border-focus', hexFocus);
+  root.style.setProperty('--shadow-glow', `0 0 40px rgba(${r}, ${g}, ${b}, 0.10)`);
+
+  // Apply RGBA-based nav & logo variables (both modes share same base, opacity differs)
+  const isDark = root.classList.contains('dark');
+  root.style.setProperty('--bg-nav-active', `rgba(${r}, ${g}, ${b}, ${isDark ? '0.14' : '0.10'})`);
+  root.style.setProperty('--color-nav-active', isDark ? hexLight : hex);
+  root.style.setProperty('--bg-logo', `rgba(${r}, ${g}, ${b}, ${isDark ? '0.10' : '0.08'})`);
+  root.style.setProperty('--border-logo', `rgba(${r}, ${g}, ${b}, ${isDark ? '0.28' : '0.25'})`);
+  root.style.setProperty('--color-logo-tag', isDark ? hexLight : hex);
+
+  // Apply icon stroke variable used by buttons and nav icons
+  root.style.setProperty('--brand-icon', hexLight);
+
+  // FullCalendar accent
+  root.style.setProperty('--fc-daygrid-event-dot-color', hexLight);
+  root.style.setProperty('--fc-today-bg-color', `rgba(${r}, ${g}, ${b}, 0.08)`);
 }
+
 
 function renderSidebars() {
   const settings = STATE.systemSettings || {};
@@ -1115,12 +1137,10 @@ function filterSelectPatients() {
   }
   
   listEl.innerHTML = pts.map(p => `
-    <div class="patient-select-item" style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <div style="font-weight: 600; color: var(--text-primary);">${p.name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Cédula: ${p.cedula} | Edad: ${p.age ?? calcAge(p.dob)} años</div>
-      </div>
-      <button class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="selectConsultPatient(${p.id})">Seleccionar</button>
+    <div class="patient-select-item" onclick="selectConsultPatient(${p.id})"
+      style="padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s;">
+      <div style="font-weight: 600; color: var(--text-primary);">${p.name}</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Cédula: ${p.cedula} | Edad: ${p.age ?? calcAge(p.dob)} años</div>
     </div>
   `).join('');
 }
@@ -1200,12 +1220,10 @@ function filterSelectAppointments() {
   }
   
   listEl.innerHTML = apps.map(a => `
-    <div class="patient-select-item" style="padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <div style="font-weight: 600; color: var(--text-primary);">${a.patient_name}</div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Cita: ${a.scheduled_date} ${a.scheduled_time || ''} | Motivo: ${a.notes || '—'}</div>
-      </div>
-      <button class="btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">Atender</button>
+    <div class="patient-select-item" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})"
+      style="padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s;">
+      <div style="font-weight: 600; color: var(--text-primary);">${a.patient_name}</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Cita: ${a.scheduled_date} ${a.scheduled_time || ''} | Motivo: ${a.notes || '—'}</div>
     </div>
   `).join('');
 }
@@ -6113,7 +6131,11 @@ function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
   updateThemeUI(isDark);
-  
+
+  // Re-apply brand color so RGBA-based nav variables update for the new mode
+  const color = STATE?.systemSettings?.ui_primary_color;
+  if (color) applyPrimaryColor(color);
+
   // Re-renderizar gráficas si estamos en la pestaña del dashboard
   if (typeof STATE !== 'undefined' && STATE.currentTab === 'dashboard') {
     loadAdminDashboard();

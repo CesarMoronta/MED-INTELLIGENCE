@@ -43,12 +43,12 @@
 
   --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 
-  /* Variables de interfaz */
-  --bg-nav-active: #e0e7ff;
+  /* Variables de interfaz — siguen el color de marca del admin */
+  --bg-nav-active: rgba(79, 70, 229, 0.10);
   --bg-nav-hover: #e2e8f0;
   --color-nav-active: var(--brand);
-  --bg-logo: #eff6ff;
-  --border-logo: #c7d2fe;
+  --bg-logo: rgba(79, 70, 229, 0.08);
+  --border-logo: rgba(79, 70, 229, 0.25);
   --color-logo-tag: var(--brand);
   
   --bg-stat-blue: #f0f4ff;   --border-stat-blue: #c7d2fe;
@@ -72,6 +72,17 @@
   --border-notif-sent: rgba(79, 70, 229, 0.15);
   --bg-notif-received: rgba(0, 0, 0, 0.03);
   --border-notif-received: var(--border);
+  --bg-btn-secondary: rgba(0, 0, 0, 0.04);
+  --border-btn-secondary: rgba(15, 23, 42, 0.16);
+  --bg-btn-secondary-hover: rgba(0, 0, 0, 0.08);
+  --border-btn-secondary-hover: rgba(15, 23, 42, 0.28);
+
+  --bg-btn-primary: linear-gradient(135deg, rgba(99, 102, 241, 0.90) 0%, rgba(79, 70, 229, 0.92) 100%);
+  --border-btn-primary: 1.5px solid rgba(79, 70, 229, 0.35);
+  --border-top-btn-primary: rgba(255, 255, 255, 0.40);
+  --shadow-btn-primary: inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(0,0,0,0.15), 0 4px 15px rgba(79,70,229,0.25);
+  --bg-btn-primary-hover: linear-gradient(135deg, rgba(99, 102, 241, 0.98) 0%, rgba(79, 70, 229, 1) 100%);
+  --shadow-btn-primary-hover: inset 0 1px 0 rgba(255,255,255,0.40), inset 0 -1px 0 rgba(0,0,0,0.10), 0 6px 20px rgba(79,70,229,0.35);
 }
 
 /* ── Variables de Modo Oscuro ── */
@@ -84,7 +95,7 @@
   --bg-glass:     rgba(12, 16, 36, 0.78);
 
   --border:       rgba(255, 255, 255, 0.12);
-  --border-focus: #818cf8;
+  --border-focus: var(--cyan);
 
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
@@ -93,15 +104,15 @@
   --shadow-sm:  0 1px 3px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20);
   --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.40), 0 2px 4px -1px rgba(0,0,0,0.30);
   --shadow-lg:  0 20px 25px -5px rgba(0,0,0,0.50), 0 10px 10px -5px rgba(0,0,0,0.40);
-  --shadow-glow: 0 0 40px rgba(129,140,248,0.08);
+  --shadow-glow: 0 0 40px rgba(14,165,233,0.10);
 
-  /* Estilo login glassmorphic variables */
-  --bg-nav-active: rgba(129, 140, 248, 0.15);
+  /* Estilo login glassmorphic variables — siguen el color de marca del admin */
+  --bg-nav-active: rgba(79, 70, 229, 0.12);
   --bg-nav-hover: rgba(255, 255, 255, 0.04);
-  --color-nav-active: #818cf8;
-  --bg-logo: rgba(129, 140, 248, 0.12);
-  --border-logo: rgba(129, 140, 248, 0.30);
-  --color-logo-tag: #818cf8;
+  --color-nav-active: var(--brand-light);
+  --bg-logo: rgba(79, 70, 229, 0.10);
+  --border-logo: rgba(79, 70, 229, 0.28);
+  --color-logo-tag: var(--brand-light);
 
   --bg-stat-blue: rgba(129, 140, 248, 0.08);   --border-stat-blue: rgba(129, 140, 248, 0.18);
   --bg-stat-cyan: rgba(14, 165, 233, 0.08);    --border-stat-cyan: rgba(14, 165, 233, 0.18);
@@ -124,11 +135,22 @@
   --border-notif-sent: rgba(129, 140, 248, 0.30);
   --bg-notif-received: rgba(255, 255, 255, 0.05);
   --border-notif-received: rgba(255, 255, 255, 0.10);
+  --bg-btn-secondary: rgba(255, 255, 255, 0.04);
+  --border-btn-secondary: rgba(255, 255, 255, 0.08);
+  --bg-btn-secondary-hover: rgba(255, 255, 255, 0.08);
+  --border-btn-secondary-hover: rgba(255, 255, 255, 0.15);
+
+  --bg-btn-primary: rgba(99, 102, 241, 0.28);
+  --border-btn-primary: 1.5px solid rgba(255, 255, 255, 0.18);
+  --border-top-btn-primary: rgba(255, 255, 255, 0.40);
+  --shadow-btn-primary: inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 0 rgba(0,0,0,0.20), 0 4px 20px rgba(99,102,241,0.30), 0 1px 3px rgba(0,0,0,0.30);
+  --bg-btn-primary-hover: rgba(99, 102, 241, 0.42);
+  --shadow-btn-primary-hover: inset 0 1px 0 rgba(255,255,255,0.40), inset 0 -1px 0 rgba(0,0,0,0.15), 0 6px 28px rgba(99,102,241,0.45), 0 1px 3px rgba(0,0,0,0.25);
 
   /* Variables FullCalendar */
   --fc-border-color: rgba(255, 255, 255, 0.08);
-  --fc-daygrid-event-dot-color: #818cf8;
-  --fc-today-bg-color: rgba(129, 140, 248, 0.08);
+  --fc-daygrid-event-dot-color: var(--cyan);
+  --fc-today-bg-color: rgba(14, 165, 233, 0.08);
   --fc-page-bg-color: transparent;
   --fc-neutral-bg-color: rgba(12, 16, 36, 0.40);
   --fc-list-event-hover-bg-color: rgba(255, 255, 255, 0.04);
@@ -602,40 +624,44 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* BOTONES                                                                     */
 /* ─────────────────────────────────────────────────────────────────────────── */
-.btn-primary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 20px;
-  background: var(--brand);
-  border: none; border-radius: var(--radius-sm);
-  color: white; font-family: var(--font); font-size: 14px; font-weight: 600;
+.btn-primary, .btn-secondary, .btn-outline {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 18px;
+  background: var(--bg-btn-secondary) !important;
+  border: 1px solid var(--border-btn-secondary) !important; border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important; font-family: var(--font) !important; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: var(--transition); white-space: nowrap;
+  box-shadow: none !important;
 }
-.btn-primary svg { width: 16px; height: 16px; }
-.btn-primary:hover:not(:disabled) { background: var(--brand-dark); transform: translateY(-1px); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primary svg, .btn-secondary svg, .btn-outline svg { stroke: var(--brand-light) !important; fill: none !important; transition: var(--transition); width: 16px; height: 16px; }
+.btn-primary:hover, .btn-secondary:hover, .btn-outline:hover {
+  background: var(--bg-btn-secondary-hover) !important;
+  border-color: var(--border-btn-secondary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm) !important;
+  color: var(--text-primary) !important;
+}
+.btn-primary:hover svg, .btn-secondary:hover svg, .btn-outline:hover svg { stroke: var(--brand) !important; }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 .btn-primary.btn-large { padding: 14px 28px; font-size: 15px; border-radius: var(--radius); }
 
-.btn-outline {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 20px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: transparent; color: var(--text-secondary);
-  font-family: var(--font); font-size: 14px; font-weight: 500;
-  cursor: pointer; transition: var(--transition);
+/* Excepción para botones de cancelar/cerrar que deben ser rojos */
+.btn-outline.danger,
+.btn-outline.btn-danger,
+.btn-outline[style*="#ef4444"] {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
 }
-.btn-outline:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-
-.btn-secondary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 18px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius-sm);
-  color: var(--text-primary); font-family: var(--font); font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: var(--transition); white-space: nowrap;
+.btn-outline.danger svg,
+.btn-outline.btn-danger svg {
+  stroke: #ef4444 !important;
 }
-.btn-secondary svg { stroke: var(--brand-light); transition: var(--transition); }
-.btn-secondary:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-.btn-secondary:hover svg { stroke: var(--brand); }
+.btn-outline.danger:hover,
+.btn-outline.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: #ef4444 !important;
+}
 
 .btn-icon {
   width: 32px; height: 32px; border-radius: var(--radius-sm);
@@ -666,6 +692,12 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 }
 .search-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 .search-input::placeholder { color: var(--text-muted); }
+
+/* Clickable rows in patient selection modal */
+.patient-select-item:hover {
+  background: var(--bg-btn-secondary-hover) !important;
+}
+.patient-select-item:last-child { border-bottom: none; }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* TABLAS                                                                      */
@@ -1949,8 +1981,6 @@ canvas.dashboard-chart {
   padding: 5px 12px !important;
   font-size: 12px !important;
   margin: 0 !important;
-  background-color: var(--brand) !important;
-  border-radius: var(--radius-sm) !important;
   white-space: nowrap !important;
 }
 
