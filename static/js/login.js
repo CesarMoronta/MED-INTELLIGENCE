@@ -109,4 +109,34 @@
         showAlert('danger', 'Error de conexión con el servidor.', 'Verifica que el servidor esté activo.');
       }
     });
+
+    /* ── Liquid Glass: Mouse 3D Card Tilt ── */
+    (function initLiquidGlass() {
+      const card = document.querySelector('.login-card');
+      if (!card) return;
+
+      let targetX = 0, targetY = 0;
+      let currentX = 0, currentY = 0;
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      document.addEventListener('mousemove', (e) => {
+        const cx = window.innerWidth  / 2;
+        const cy = window.innerHeight / 2;
+        targetX = ((e.clientY - cy) / cy) * -5;
+        targetY = ((e.clientX - cx) / cx) *  5;
+      });
+
+      document.addEventListener('mouseleave', () => {
+        targetX = 0; targetY = 0;
+      });
+
+      (function animate() {
+        currentX = lerp(currentX, targetX, 0.055);
+        currentY = lerp(currentY, targetY, 0.055);
+        card.style.transform =
+          `perspective(900px) rotateX(${currentX}deg) rotateY(${currentY}deg)`;
+        requestAnimationFrame(animate);
+      })();
+    })();
 
