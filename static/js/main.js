@@ -513,12 +513,16 @@ async function loadAdminDashboard() {
 }
 
 function renderAdminCharts(s) {
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#cbd5e1' : '#475569';
+  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)';
+
   const chartDefaults = {
     animation: false,
-    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+    plugins: { legend: { labels: { color: textColor, font: { size: 10 } } } },
     scales: {
-      x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
-      y: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.04)' } }
+      x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+      y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
     }
   };
 
@@ -643,7 +647,7 @@ function renderPatientsTable(containerId, patients, canEdit) {
     const deleteBtn = (canEdit && STATE.user && STATE.user.role === 'admin')
       ? `<button class="btn-icon" title="Eliminar" onclick="deletePatient(${p.id}, '${p.name.replace(/'/g, "\\'")}')" style="color: var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>`
       : '';
-    return `<tr>
+    return `<tr ondblclick="viewPatient(${p.id})" style="cursor: pointer;">
       <td><strong style="color:var(--text-primary)">${p.name}</strong></td>
       <td><code style="font-family:var(--mono);font-size:12px;">${p.cedula}</code></td>
       <td>${p.gender}</td>
@@ -1262,6 +1266,7 @@ async function selectConsultAppointment(appId, ptId) {
       }
     });
   }
+  switchTab('diagnose');
 }
 
 function calculateIMC() {
@@ -2496,7 +2501,13 @@ function renderAppointmentsTable(apps) {
     else if (a.status === 'cancelada') statusBadge = '<span class="badge badge-rojo">Cancelada</span>';
     else statusBadge = `<span class="badge badge-amarillo">${a.status}</span>`;
     
-    return `<tr>
+    const clickAction = (STATE.user.role === 'secretaria' || STATE.user.role === 'admin') 
+      ? `openEditAppointmentModal(${a.id})` 
+      : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) 
+        ? `selectConsultAppointment(${a.id}, ${a.patient_id})` 
+        : '';
+
+    return `<tr ${clickAction ? `ondblclick="${clickAction}" style="cursor: pointer;"` : ''}>
       <td>
         <strong style="color:var(--text-primary)">${a.patient_name}</strong>
         ${a.parent_appointment_id ? '<span class="badge badge-amarillo" style="font-size:10px; margin-left:8px;">Seguimiento</span>' : ''}
@@ -2507,11 +2518,14 @@ function renderAppointmentsTable(apps) {
       <td>${statusBadge}</td>
       <td style="display:flex; gap:6px;">
         ${(STATE.user.role === 'secretaria' || STATE.user.role === 'admin') ? 
-          `<button class="btn-icon" title="Editar Cita" style="color:var(--brand-primary);" onclick="openEditAppointmentModal(${a.id})">
+          `<button class="btn-icon" title="Editar Cita" style="color:var(--brand);" onclick="openEditAppointmentModal(${a.id})">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
            </button>
-           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--danger);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
-          ` : ''
+           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--red);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+          ` : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) ?
+          `<button class="btn-icon" title="Atender Consulta" style="color:var(--brand);" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+           </button>` : ''
         }
       </td>
     </tr>`;
@@ -2841,7 +2855,7 @@ function renderHistoryTable(containerId, records, showDoctor = false) {
     const alertClass = { Verde: 'verde', Amarillo: 'amarillo', Rojo: 'rojo' }[r.alert_level] || 'verde';
     const visitType  = r.visit_type === 'emergencia' ? `<span class="badge badge-emergencia">EMERGENCIA</span>` : `<span class="badge badge-consulta">CONSULTA</span>`;
     const doctorCol  = showDoctor ? `<td style="font-size:12px;color:var(--text-muted)">${r.doctor_fullname || r.doctor_username || '—'}</td>` : '';
-    return `<tr>
+    return `<tr ondblclick="viewFullHistoryReport(${r.diagnosis_id})" style="cursor: pointer;">
       <td style="color:var(--text-primary);font-weight:600;">${r.patient_name || '—'}</td>
       <td><strong>${r.diagnosis_primary || '—'}</strong></td>
       <td>${visitType}</td>
@@ -2998,7 +3012,7 @@ function renderDoctorsTable(doctors) {
   if (!doctors.length) { el.innerHTML = `<div class="empty-state"><span>No hay doctores registrados.</span></div>`; return; }
   const rows = doctors.map(d => {
     const activeBadge = d.is_active ? `<span class="badge badge-active">Activo</span>` : `<span class="badge badge-inactive">Inactivo</span>`;
-    return `<tr>
+    return `<tr ondblclick="editUser(${d.id})" style="cursor: pointer;">
       <td><strong style="color:var(--text-primary)">${d.username}</strong></td>
       <td>${d.full_name || '—'}</td>
       <td>${d.especialidad || '—'}</td>
@@ -4541,7 +4555,7 @@ function renderBillingHistory(invoices) {
     const statusBadgeClass = i.is_cancelled ? 'badge-rojo' : 'badge-verde';
 
     return `
-      <tr style="${i.is_cancelled ? 'opacity: 0.65; background-color: rgba(0,0,0,0.02);' : ''}">
+      <tr ondblclick="window.open('/api/pdf/invoice/${i.id}', '_blank')" style="cursor: pointer; ${i.is_cancelled ? 'opacity: 0.65; background-color: rgba(0,0,0,0.02);' : ''}">
         <td>${date}</td>
         <td><span class="badge ${badgeClass}" style="font-size:10px;">${i.invoice_type.toUpperCase()} ${i.tipo_ecf || ''}</span></td>
         <td style="font-weight:500; ${i.is_cancelled ? 'text-decoration: line-through;' : ''}">${escHtml(client)}</td>
@@ -6093,6 +6107,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ── Lógica de Alternancia de Tema (Modo Oscuro / Claro) ──
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeUI(isDark);
+  
+  // Re-renderizar gráficas si estamos en la pestaña del dashboard
+  if (typeof STATE !== 'undefined' && STATE.currentTab === 'dashboard') {
+    loadAdminDashboard();
+  }
+}
+
+function updateThemeUI(isDark) {
+  const icon = document.getElementById('theme-toggle-icon');
+  const label = document.getElementById('theme-toggle-label');
+  
+  if (isDark) {
+    if (label) label.textContent = 'Modo Claro';
+    if (icon) {
+      // Icono de Sol ☀️ (para volver a modo claro)
+      icon.innerHTML = `
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      `;
+    }
+  } else {
+    if (label) label.textContent = 'Modo Oscuro';
+    if (icon) {
+      // Icono de Luna 🌙 (para cambiar a modo oscuro)
+      icon.innerHTML = `
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      `;
+    }
+  }
+}
+
+// Auto-inicializar tema
+(function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+  
+  if (isDark) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => updateThemeUI(isDark));
+  } else {
+    updateThemeUI(isDark);
+  }
+})();
 
 
 
