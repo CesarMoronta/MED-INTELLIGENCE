@@ -2519,7 +2519,7 @@ function renderAppointmentsTable(apps) {
     else if (a.status === 'cancelada') statusBadge = '<span class="badge badge-rojo">Cancelada</span>';
     else statusBadge = `<span class="badge badge-amarillo">${a.status}</span>`;
     
-    const clickAction = (STATE.user.role === 'secretaria' || STATE.user.role === 'admin') 
+    const clickAction = ((STATE.user.role === 'secretaria' || STATE.user.role === 'admin') && a.status !== 'completada' && a.status !== 'cancelada') 
       ? `openEditAppointmentModal(${a.id})` 
       : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) 
         ? `selectConsultAppointment(${a.id}, ${a.patient_id})` 
@@ -2534,17 +2534,31 @@ function renderAppointmentsTable(apps) {
       <td>${a.doctor_fullname || '—'}</td>
       <td>${a.notes || '—'}</td>
       <td>${statusBadge}</td>
-      <td style="display:flex; gap:6px; align-items:center; min-height:36px;">
-        ${(STATE.user.role === 'secretaria' || STATE.user.role === 'admin') ? 
-          `<button class="btn-icon" title="Editar Cita" style="color:var(--brand);" onclick="openEditAppointmentModal(${a.id})">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-           </button>
-           ${a.status === 'abierta' ? `<button class="btn-icon" title="Cancelar Cita" style="color:var(--red);" onclick="cancelAppointment(${a.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : '<span style="display:inline-block;width:32px;"></span>'}
-          ` : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) ?
-          `<button class="btn-icon" title="Atender Consulta" style="color:var(--brand);" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-           </button>` : '<span style="display:inline-block;width:32px;height:32px;"></span>'
-        }
+      <td>
+        <div style="display:flex; gap:6px; align-items:center; min-height:32px;">
+          ${(STATE.user.role === 'secretaria' || STATE.user.role === 'admin') ? 
+            `
+             ${a.status !== 'completada' && a.status !== 'cancelada' ? 
+               `<button class="btn-icon" title="Editar Cita" style="color:var(--brand);" onclick="openEditAppointmentModal(${a.id})">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>` : ''
+             }
+             ${a.status === 'abierta' ? 
+               `<button class="btn-icon" title="Cancelar Cita" style="color:var(--red);" onclick="cancelAppointment(${a.id})">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>` : ''
+             }
+             ${a.status === 'cancelada' ? 
+               `<button class="btn-icon" title="Activar Cita" style="color:var(--green);" onclick="activateAppointment(${a.id})">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </button>` : ''
+             }
+            ` : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) ?
+            `<button class="btn-icon" title="Atender Consulta" style="color:var(--brand);" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+             </button>` : ''
+          }
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -2575,6 +2589,14 @@ function openNewAppointmentModal() {
 function openEditAppointmentModal(id) {
   const app = STATE.allAppointments.find(a => a.id == id);
   if (!app) return;
+  if (app.status === 'completada') {
+    toast('warning', 'Las citas completadas no se pueden editar.');
+    return;
+  }
+  if (app.status === 'cancelada') {
+    toast('warning', 'Las citas canceladas deben ser activadas antes de editar.');
+    return;
+  }
   document.getElementById('app-id').value = app.id;
   document.getElementById('app-patient').value = app.patient_id;
   document.getElementById('app-doctor').value = app.doctor_id;
@@ -2656,6 +2678,17 @@ async function cancelAppointment(id) {
     loadAppointments();
   } else {
     toast('error', 'Error al cancelar');
+  }
+}
+
+async function activateAppointment(id) {
+  if (!confirm('¿Desea activar esta cita cancelada?')) return;
+  const res = await api('POST', `/api/appointments/${id}/status`, { status: 'abierta' });
+  if (res.success) {
+    toast('success', 'Cita activada correctamente');
+    loadAppointments();
+  } else {
+    toast('error', res.error || 'Error al activar cita');
   }
 }
 

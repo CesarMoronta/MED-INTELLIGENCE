@@ -2036,6 +2036,13 @@ canvas.dashboard-chart {
   border-right: 1px solid rgba(255, 255, 255, 0.10) !important;
 }
 
+:root.dark .mobile-topbar {
+  background: rgba(12, 16, 36, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(180%) brightness(1.05) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
 :root.dark .sidebar-footer {
   background: transparent !important;
   border-top: 1px solid rgba(255, 255, 255, 0.10) !important;
@@ -2104,4 +2111,17 @@ canvas.dashboard-chart {
 :root.dark .fc .fc-list-event:hover td {
   background: rgba(255, 255, 255, 0.04) !important;
 }
+
+/* ── Responsividad de tablas para pantallas móviles ── */
+@media (max-width: 768px) {
+  .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-wrap .data-table {
+    min-width: 750px;
+  }
+}
+
 

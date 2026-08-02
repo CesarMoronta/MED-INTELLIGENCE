@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from database import (list_appointments, create_appointment, update_appointment_status,
                       reschedule_appointment, update_appointment, get_waiting_room,
-                      mark_patient_arrived, confirm_appointment, get_patient)
+                      mark_patient_arrived, confirm_appointment, get_patient,
+                      get_appointment, check_appointment_clash)
 from utils import requires_login, requires_role, get_current_user
 
 appointments_bp = Blueprint("appointments_bp", __name__)
@@ -83,6 +84,15 @@ def api_update_appointment(app_id):
     if user["role"] not in ["admin", "secretaria", "doctor"]:
         return jsonify({"success": False, "error": "No autorizado."}), 403
 
+    current_app = get_appointment(app_id)
+    if not current_app:
+        return jsonify({"success": False, "error": "Cita no encontrada."}), 404
+
+    if current_app["status"] == "completada":
+        return jsonify({"success": False, "error": "No se pueden editar citas completadas."}), 400
+    if current_app["status"] == "cancelada":
+        return jsonify({"success": False, "error": "No se pueden editar citas canceladas."}), 400
+
     data           = request.json or {}
     doctor_id      = data.get("doctor_id")
     scheduled_date = data.get("scheduled_date")
@@ -116,6 +126,21 @@ def api_update_appointment_status(app_id):
     if status not in ["abierta", "en_curso", "completada", "cancelada"]:
         return jsonify({"success": False, "error": "Estado inválido."}), 400
 
+    user = get_current_user()
+    if status == "abierta":
+        if user["role"] not in ["admin", "secretaria"]:
+            return jsonify({"success": False, "error": "Solo administradores o secretarias pueden activar citas."}), 403
+        
+        current_app = get_appointment(app_id)
+        if not current_app:
+            return jsonify({"success": False, "error": "Cita no encontrada."}), 404
+        
+        if check_appointment_clash(app_id):
+            return jsonify({
+                "success": False, 
+                "error": "No se puede activar la cita porque choca con otra cita activa programada para el mismo doctor a esa hora."
+            }), 409
+
     updated = update_appointment_status(app_id, status)
     if updated:
         return jsonify({"success": True, "message": "Estado actualizado."})
@@ -126,6 +151,15 @@ def api_update_appointment_status(app_id):
 @requires_login
 @requires_role("admin", "secretaria")
 def api_reschedule_appointment(app_id):
+    current_app = get_appointment(app_id)
+    if not current_app:
+        return jsonify({"success": False, "error": "Cita no encontrada."}), 404
+
+    if current_app["status"] == "completada":
+        return jsonify({"success": False, "error": "No se pueden reprogramar citas completadas."}), 400
+    if current_app["status"] == "cancelada":
+        return jsonify({"success": False, "error": "No se pueden reprogramar citas canceladas."}), 400
+
     data     = request.json or {}
     new_date = data.get("scheduled_date")
     new_time = data.get("scheduled_time")

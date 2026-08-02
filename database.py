@@ -1130,6 +1130,57 @@ def reschedule_appointment(appointment_id: int, new_date: str, new_time: str) ->
     conn.close()
     return rows > 0
 
+def get_appointment(appointment_id: int) -> dict:
+    """Obtiene los detalles de una cita por su ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, patient_id, doctor_id, scheduled_date, scheduled_time, status, notes, confirmed, parent_appointment_id FROM dbo.appointments WHERE id = ?",
+        appointment_id
+    )
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if row:
+        return {
+            "id": row[0],
+            "patient_id": row[1],
+            "doctor_id": row[2],
+            "scheduled_date": _fmt_date(row[3]),
+            "scheduled_time": str(row[4]) if row[4] else None,
+            "status": row[5],
+            "notes": row[6],
+            "confirmed": bool(row[7]),
+            "parent_appointment_id": row[8]
+        }
+    return None
+
+def check_appointment_clash(appointment_id: int) -> bool:
+    """
+    Verifica si los datos de la cita (doctor, fecha, hora) chocan con otra cita activa.
+    Se usa al reactivar una cita cancelada.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT doctor_id, scheduled_date, scheduled_time FROM dbo.appointments WHERE id = ?", appointment_id)
+    row = cursor.fetchone()
+    if not row:
+        cursor.close()
+        conn.close()
+        return False
+    doctor_id, scheduled_date, scheduled_time = row
+    
+    # Buscamos si hay otra cita activa para el mismo doctor, fecha y hora
+    cursor.execute(
+        "SELECT COUNT(*) FROM dbo.appointments WHERE doctor_id = ? AND scheduled_date = ? AND scheduled_time = ? AND status IN ('abierta', 'en_curso', 'completada') AND id <> ?",
+        doctor_id, scheduled_date, scheduled_time, appointment_id
+    )
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return count > 0
+
+
 # PRESCRIPTIONS
 
 def add_prescription(visit_id: int, medication: str, dosage: str, frequency: str,

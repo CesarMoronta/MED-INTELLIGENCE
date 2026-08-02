@@ -527,6 +527,77 @@
 
     /* ── Responsive ── */
     @media (max-width: 480px) {
-      .login-card { padding: 34px 22px 28px; }
-      .login-title { font-size: 20px; }
+      .login-wrapper {
+        padding: 12px 10px;
+      }
+      .login-card {
+        padding: 24px 20px 20px;
+        border-radius: 20px;
+      }
+      .logo-ring {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 12px;
+      }
+      .logo-ring svg {
+        width: 24px;
+        height: 24px;
+      }
+      .login-header {
+        margin-bottom: 20px;
+      }
+      .login-title {
+        font-size: 18px;
+      }
+      .login-subtitle {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+      }
+      .login-desc {
+        font-size: 11px;
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+      .form-group {
+        margin-bottom: 12px;
+      }
+      .form-label {
+        font-size: 10px;
+        margin-bottom: 4px;
+      }
+      .form-input {
+        padding: 10px 12px 10px 38px;
+        font-size: 14px;
+        border-radius: 10px;
+      }
+      .input-wrap svg {
+        left: 12px;
+        width: 15px;
+        height: 15px;
+      }
+      .btn-login {
+        padding: 11px;
+        font-size: 14px;
+        border-radius: 10px;
+      }
+      .patient-portal-divider {
+        margin: 14px 0;
+        font-size: 10px;
+      }
+      .btn-patient-portal {
+        padding: 10px;
+        font-size: 13px;
+        border-radius: 10px;
+      }
+      .login-footer {
+        margin-top: 16px;
+      }
+      .security-badges {
+        margin-top: 10px;
+        gap: 6px;
+      }
+      .badge {
+        padding: 3px 8px;
+        font-size: 9px;
+      }
     }
