@@ -1383,7 +1383,7 @@
         </div>
       </div>
       
-      <div class="grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+      <div class="two-col-grid" style="margin-bottom: 24px;">
         <!-- Card 1: Horario Semanal de la Clínica -->
         <div class="section-card">
           <h2 class="card-title" style="margin-top:0; margin-bottom:16px; font-size:18px; display:flex; align-items:center; gap:8px;">
@@ -1413,11 +1413,11 @@
                 <option value="">Seleccione un doctor...</option>
               </select>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <label style="font-weight:600; font-size:13px;">Fecha</label>
-              <input type="date" id="block-date" class="search-input" style="width:100%;" required />
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-weight:600; font-size:13px;">Fecha</label>
+                <input type="date" id="block-date" class="search-input" style="width:100%;" required />
+              </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
                 <label style="font-weight:600; font-size:13px;">Hora Inicio</label>
                 <input type="time" id="block-start-time" class="search-input" style="width:100%;" required />
@@ -1475,7 +1475,7 @@
         </div>
       </div>
 
-      <div class="grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+      <div class="two-col-grid" style="margin-bottom: 24px;">
         <!-- Card 1: Horario General del Consultorio (Solo Lectura) -->
         <div class="section-card">
           <h2 class="card-title" style="margin-top:0; margin-bottom:16px; font-size:18px; display:flex; align-items:center; gap:8px;">
@@ -1496,11 +1496,11 @@
             Bloquear Mi Agenda
           </h2>
           <form id="form-doctor-block-schedule" onsubmit="handleDoctorBlockSchedule(event)" style="display:flex; flex-direction:column; gap:12px;">
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <label style="font-weight:600; font-size:13px;">Fecha</label>
-              <input type="date" id="doc-block-date" class="search-input" style="width:100%;" required />
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-weight:600; font-size:13px;">Fecha</label>
+                <input type="date" id="doc-block-date" class="search-input" style="width:100%;" required />
+              </div>
               <div style="display:flex; flex-direction:column; gap:6px;">
                 <label style="font-weight:600; font-size:13px;">Hora Inicio</label>
                 <input type="time" id="doc-block-start-time" class="search-input" style="width:100%;" required />

@@ -5938,11 +5938,12 @@ async function loadAdminSchedulesTab() {
   }
 
   // 2. Cargar listado de doctores para el selector de bloqueos
-  const resDocs = await api('GET', '/api/users?role=doctor');
+  const resDocs = await api('GET', '/api/users');
   const select = document.getElementById('block-doctor-id');
   if (select && resDocs.success && resDocs.users) {
+    const doctors = resDocs.users.filter(u => u.role === 'doctor');
     select.innerHTML = '<option value="">Seleccione un doctor...</option>' + 
-      resDocs.users.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
+      doctors.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
   }
   
   // Limpiar tabla de bloqueos al inicio
