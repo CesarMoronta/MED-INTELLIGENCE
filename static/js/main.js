@@ -5960,15 +5960,15 @@ function renderClinicHoursEditor(hours) {
   container.innerHTML = hours.map(h => {
     const checked = h.is_active ? 'checked' : '';
     return `
-      <div class="clinic-day-row" data-day="${h.day_of_week}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border-color);">
-        <div style="display:flex; align-items:center; gap:10px; width:120px;">
-          <input type="checkbox" class="day-active-checkbox" id="clinic-day-chk-${h.day_of_week}" ${checked} style="cursor:pointer;" />
+      <div class="clinic-day-row" data-day="${h.day_of_week}" style="display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" class="day-active-checkbox" id="clinic-day-chk-${h.day_of_week}" ${checked} style="cursor:pointer; flex-shrink:0;" />
           <label for="clinic-day-chk-${h.day_of_week}" style="font-weight:600; cursor:pointer;">${DAY_NAMES[h.day_of_week]}</label>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <input type="time" class="day-start-time search-input" value="${h.start_time}" style="padding:4px 8px; width:100px;" />
-          <span>a</span>
-          <input type="time" class="day-end-time search-input" value="${h.end_time}" style="padding:4px 8px; width:100px;" />
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <input type="time" class="day-start-time search-input" value="${h.start_time}" style="padding:4px 6px; width:82px;" />
+          <span style="color:var(--text-secondary); font-size:12px;">–</span>
+          <input type="time" class="day-end-time search-input" value="${h.end_time}" style="padding:4px 6px; width:82px;" />
         </div>
       </div>
     `;
