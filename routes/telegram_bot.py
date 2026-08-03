@@ -289,9 +289,8 @@ def db_notify_secretaries_and_admins(message_text: str, from_user_id: int):
                 create_notification(
                     from_user_id=from_user_id,
                     to_user_id=to_uid,
-                    title="Bot de Citas",
                     message=message_text,
-                    category="citas"
+                    notif_type="citas"
                 )
             except Exception as e:
                 print(f"Error creating notification for user {to_uid}: {e}")
