@@ -1209,36 +1209,38 @@
           Guardar Cambios
         </button>
       </div>
-      <div class="two-col-grid">
-        <div class="section-card">
-          <div class="section-header">
-            <h2>🏥 Información General</h2>
+      <!-- Card única: Información General + Datos Legales -->
+      <div class="section-card">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+          <div>
+            <div class="section-header" style="margin-bottom:12px;">
+              <h2>🏥 Información General</h2>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nombre del Consultorio <span class="badge-required">*</span></label>
+              <input type="text" id="cfg-clinic-name" class="form-input" placeholder="Consultorio Dr. García" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dirección</label>
+              <input type="text" id="cfg-clinic-address" class="form-input" placeholder="Calle Principal #100, Santo Domingo" />
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Teléfono</label>
+              <input type="text" id="cfg-clinic-phone" class="form-input" placeholder="809-555-0000" />
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Nombre del Consultorio <span class="badge-required">*</span></label>
-            <input type="text" id="cfg-clinic-name" class="form-input" placeholder="Consultorio Dr. García" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Dirección</label>
-            <input type="text" id="cfg-clinic-address" class="form-input"
-              placeholder="Calle Principal #100, Santo Domingo" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Teléfono</label>
-            <input type="text" id="cfg-clinic-phone" class="form-input" placeholder="809-555-0000" />
-          </div>
-        </div>
-        <div class="section-card">
-          <div class="section-header">
-            <h2>📄 Datos Legales y Contacto</h2>
-          </div>
-          <div class="form-group">
-            <label class="form-label">RNC / RIF</label>
-            <input type="text" id="cfg-clinic-rnc" class="form-input" placeholder="1-23456789-0" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email del Consultorio</label>
-            <input type="email" id="cfg-clinic-email" class="form-input" placeholder="info@consultorio.com" />
+          <div>
+            <div class="section-header" style="margin-bottom:12px;">
+              <h2>📄 Datos Legales y Contacto</h2>
+            </div>
+            <div class="form-group">
+              <label class="form-label">RNC / RIF</label>
+              <input type="text" id="cfg-clinic-rnc" class="form-input" placeholder="1-23456789-0" />
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Email del Consultorio</label>
+              <input type="email" id="cfg-clinic-email" class="form-input" placeholder="info@consultorio.com" />
+            </div>
           </div>
         </div>
       </div>
@@ -1249,7 +1251,7 @@
           <div class="section-header">
             <h2>🎨 Apariencia de la Interfaz</h2>
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Color Principal de la Interfaz</label>
             <div style="display:flex; gap:12px; align-items:center;">
               <input type="color" id="cfg-ui-primary-color" class="form-input"
@@ -1266,37 +1268,35 @@
           <div class="section-header">
             <h2>🔑 Permisos y Seguridad</h2>
           </div>
-          <div class="form-group">
-            <label class="form-label"
-              style="display:flex; align-items:center; gap:8px; cursor: pointer; font-weight: 600;">
-              <input type="checkbox" id="cfg-allow-doctor-billing" style="width:16px; height:16px; cursor:pointer;" />
-              Habilitar módulo de "Cobros y Facturación" para Doctores
-            </label>
-            <span
-              style="font-size:12px; color:var(--text-muted); display:block; margin-left:24px; margin-bottom: 12px;">Permite
-              que el rol Doctor acceda a la pestaña de Cobros y emita facturas e-CF.</span>
+          <!-- Checkboxes lado a lado -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div>
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-weight:600; font-size:13px;">
+                <input type="checkbox" id="cfg-allow-doctor-billing" style="width:15px; height:15px; cursor:pointer; margin-top:2px; flex-shrink:0;" />
+                Cobros y Facturación para Doctores
+              </label>
+              <span style="font-size:11px; color:var(--text-muted); display:block; margin-left:23px; margin-top:4px;">Permite emitir facturas e-CF.</span>
+            </div>
+            <div>
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; font-weight:600; font-size:13px;">
+                <input type="checkbox" id="cfg-enable-secretaria-reports" style="width:15px; height:15px; cursor:pointer; margin-top:2px; flex-shrink:0;" />
+                Reportes para Secretaría
+              </label>
+              <span style="font-size:11px; color:var(--text-muted); display:block; margin-left:23px; margin-top:4px;">Acceso a reportes de doctores.</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label"
-              style="display:flex; align-items:center; gap:8px; cursor: pointer; font-weight: 600;">
-              <input type="checkbox" id="cfg-enable-secretaria-reports" style="width:16px; height:16px; cursor:pointer;" />
-              Habilitar módulo de "Reportes" para Secretaría
-            </label>
-            <span
-              style="font-size:12px; color:var(--text-muted); display:block; margin-left:24px; margin-bottom: 12px;">Permite
-              que el rol Secretaría acceda a visualizar los reportes de los doctores.</span>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Intentos de Login</label>
+          <!-- Campos numéricos en una sola fila -->
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">Intentos de Login</label>
               <input type="number" id="cfg-max-login-attempts" class="form-input" min="3" max="20" placeholder="5" />
             </div>
-            <div class="form-group">
-              <label class="form-label">Bloqueo (Minutos)</label>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">Bloqueo (Min.)</label>
               <input type="number" id="cfg-lockout-minutes" class="form-input" min="1" max="120" placeholder="15" />
             </div>
-            <div class="form-group">
-              <label class="form-label">Sesión (Horas)</label>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:12px;">Sesión (Horas)</label>
               <input type="number" id="cfg-session-timeout-hours" class="form-input" min="1" max="72" placeholder="8" />
             </div>
           </div>
