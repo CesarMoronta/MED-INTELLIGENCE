@@ -1,0 +1,171 @@
+/* =============================================================================
+   gemini_chat.js — Extracted from main.js
+   ============================================================================= */
+
+async function sendGeminiMessage() {
+  const input   = document.getElementById('gemini-chat-input');
+  const sendBtn = document.getElementById('gemini-send-btn');
+  const message = input?.value.trim();
+  if (!message || !STATE.finalDiagnosisRes) return;
+
+  const res = STATE.finalDiagnosisRes;
+  input.value = '';
+  sendBtn.disabled = true;
+
+  // Mostrar mensaje del usuario
+  appendGeminiMessage('user', message);
+
+  // Mostrar indicador de escritura
+  const typingId = 'gemini-typing-' + Date.now();
+  appendGeminiTyping(typingId);
+
+  // Añadir al historial
+  STATE.geminiChatHistory.push({ role: 'user', text: message });
+
+  try {
+    const chatRes = await api('POST', '/api/diagnose/chat-gemini', {
+      diagnostico:        res.diagnosis,
+      probabilidad:       res.probability,
+      sintomas_activos:   Object.keys(STATE.diagSintomas).filter(k => STATE.diagSintomas[k]),
+      antecedentes_activos: Object.keys(STATE.diagAntecedentes).filter(k => STATE.diagAntecedentes[k]),
+      constantes:         STATE.diagConstantes,
+      message:            message,
+      history:            STATE.geminiChatHistory.slice(-10), // últimos 10 turnos
+    });
+
+    removeGeminiTyping(typingId);
+
+    const responseText = chatRes.success
+      ? chatRes.response
+      : 'Lo siento, el asistente no está disponible en este momento. Consulte el informe clínico.';
+
+    appendGeminiMessage('model', responseText);
+    STATE.geminiChatHistory.push({ role: 'model', text: responseText });
+  } catch(e) {
+    removeGeminiTyping(typingId);
+    appendGeminiMessage('model', 'Error de conexión con el asistente médico. Intente nuevamente.');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendGeminiMessage(role, text) {
+  const container = document.getElementById('gemini-chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `gemini-chat-msg ${role}`;
+  // Simple markdown parsing for bold
+  const formatted = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>');
+  div.innerHTML = `<div class="gemini-chat-bubble">${formatted}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendGeminiTyping(id) {
+  const container = document.getElementById('gemini-chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'gemini-chat-msg model';
+  div.innerHTML = `<div class="gemini-chat-bubble gemini-typing-bubble">
+    <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+  </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeGeminiTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
+async function runGeminiAnalysis(probs) {
+  const sortedBayes = Object.entries(probs).sort(([,a],[,b]) => b - a);
+  const topBayesDiag = sortedBayes[0]?.[0];
+  const panel = document.getElementById('gemini-analisis-panel');
+  if (!panel) return;
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div class="gemini-panel">
+      <div class="gemini-panel-header">
+        <span class="gemini-badge">✨ Gemini AI</span>
+        <span>Analizando con IA clínica...</span>
+      </div>
+      <div class="gemini-loading">
+        <div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div>
+        <span>El motor de IA está procesando el contexto bayesiano...</span>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await api('POST', '/api/diagnose/gemini-analisis', {
+      probabilities: probs,
+      sintomas:      STATE.diagSintomas,
+      constantes:    STATE.diagConstantes,
+      antecedentes:  STATE.diagAntecedentes,
+      motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
+    });
+
+    if (!res.success) {
+      panel.innerHTML = '';
+      return;
+    }
+
+    const alertas = (res.alertas_gemini || []).map(a =>
+      `<div class="gemini-alerta">⚠️ ${a}</div>`
+    ).join('');
+
+    const sugeridos = (res.sintomas_sugeridos || []).map(s =>
+      `<span class="gemini-tag">${s}</span>`
+    ).join('');
+
+    panel.innerHTML = `
+      <div class="gemini-panel">
+        <div class="gemini-panel-header">
+          <span class="gemini-badge">✨ Gemini AI</span>
+          <span style="color:var(--text-muted);font-size:12px;">${res.fallback ? 'Modo offline' : 'Análisis en tiempo real'}</span>
+        </div>
+
+        <div class="gemini-validacion">
+          <p>${res.validacion || ''}</p>
+        </div>
+
+        ${alertas ? `<div class="gemini-alertas-section">${alertas}</div>` : ''}
+
+        ${sugeridos ? `
+          <div class="gemini-sugeridos-section">
+            <div class="gemini-sugeridos-label">🔎 Explorar también:</div>
+            <div class="gemini-tags">${sugeridos}</div>
+          </div>
+        ` : ''}
+
+        ${res.confianza_gemini ? `
+          <div class="gemini-confianza">
+            <strong>Valoración Gemini:</strong> ${res.confianza_gemini}
+          </div>
+        ` : ''}
+
+        ${res.diagnostico_propuesto && res.diagnostico_propuesto !== topBayesDiag ? `
+          <div class="gemini-correction-banner" style="margin-top:16px; padding:16px; background: rgba(239, 68, 68, 0.15); border: 1px dashed #ef4444; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
+              <span style="color:#ef4444; font-weight:bold; font-size:14px; display: flex; align-items: center; gap: 6px;">
+                ⚠️ Discrepancia Clínica Detectada
+              </span>
+              <span style="font-size:13px; color: var(--text);">
+                La IA sugiere cambiar el diagnóstico a: <strong style="color:var(--brand-light);">${res.diagnostico_propuesto}</strong>.
+              </span>
+            </div>
+            <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin: 0; background-color: #ef4444; border-color: #ef4444;" onclick="applyAIDiagnosis('${res.diagnostico_propuesto.replace(/'/g, "\\'")}')">
+              Aplicar Corrección de IA
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  } catch(e) {
+    panel.innerHTML = '';
+  }
+}

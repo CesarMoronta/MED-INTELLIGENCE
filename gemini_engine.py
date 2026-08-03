@@ -89,6 +89,7 @@ class GeminiDiagnosticLayer:
     def __init__(self):
         self.client = None
         self.available = False
+        self.symptom_cache = {}
         
         api_key = os.environ.get("GEMINI_API_KEY")
         if api_key:
@@ -177,12 +178,12 @@ class GeminiDiagnosticLayer:
         Llama a la API de Gemini utilizando un pool de modelos alternativos y
         un mecanismo de reintentos con retroceso exponencial.
         """
-        models_pool = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-pro"]
+        models_pool = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"]
         last_exception = None
 
         for model in models_pool:
-            retries = 3
-            backoff = 1.5
+            retries = 2
+            backoff = 1.0
             for attempt in range(retries):
                 try:
                     response = self.client.models.generate_content(
@@ -216,6 +217,12 @@ class GeminiDiagnosticLayer:
         """
         if not self.available or not narrativa:
             return {s: False for s in lista_sintomas_estandar}
+
+        # Comprobar si la respuesta ya está en caché
+        cache_key = narrativa.strip().lower()
+        if cache_key in self.symptom_cache:
+            print("[GeminiLayer] Retornando síntomas desde caché en memoria (0ms)")
+            return self.symptom_cache[cache_key]
 
         sintomas_str = ", ".join(lista_sintomas_estandar)
         prompt = f"""Analiza la siguiente historia narrativa del paciente y determina cuáles de estos síntomas estándar están presentes:
@@ -262,6 +269,7 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
                         val = True
                         break
                 final_map[s] = val
+            self.symptom_cache[cache_key] = final_map
             return final_map
         except Exception as e:
             print(f"[GeminiLayer] Error crítico en extracción de síntomas tras reintentos: {e}")

@@ -2,7 +2,7 @@ import os
 import sys
 
 # Forzar la codificación estándar (necesario en Windows)
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+if getattr(sys.stdout, 'encoding', None) and sys.stdout.encoding.lower() != 'utf-8':
     import codecs
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
@@ -44,6 +44,7 @@ from routes.notifications import notifications_bp
 from routes.billing import billing_bp
 from routes.reports import reports_bp
 from routes.telegram_bot import telegram_bp
+from routes.schedules import schedules_bp
 
 # Registrar blueprints
 app.register_blueprint(static_bp)
@@ -63,6 +64,7 @@ app.register_blueprint(notifications_bp)
 app.register_blueprint(billing_bp)
 app.register_blueprint(reports_bp)
 app.register_blueprint(telegram_bp)
+app.register_blueprint(schedules_bp)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):

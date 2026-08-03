@@ -28,6 +28,10 @@ def api_create_visit():
 
     if not patient_id:
         return jsonify({"success": False, "error": "El ID del paciente es obligatorio."}), 400
+    try:
+        patient_id = int(patient_id)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "El ID del paciente debe ser numérico."}), 400
     if visit_type not in ["emergencia", "consulta"]:
         return jsonify({"success": False, "error": "Tipo de visita inválido."}), 400
     if visit_type == "emergencia" and not motivo_emergencia:

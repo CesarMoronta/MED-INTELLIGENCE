@@ -49,7 +49,9 @@ def api_save_patient():
 
     if dob:
         try:
-            datetime.strptime(dob, "%Y-%m-%d")
+            dob_dt = datetime.strptime(dob, "%Y-%m-%d").date()
+            if dob_dt > datetime.now().date():
+                return jsonify({"success": False, "error": "La fecha de nacimiento no puede estar en el futuro."}), 400
         except ValueError:
             return jsonify({"success": False, "error": "La fecha de nacimiento no es válida. Debe estar en formato AAAA-MM-DD (ej. 1990-05-15)."}), 400
 
@@ -94,6 +96,13 @@ def api_update_patient(patient_id):
         cedula = None
     name       = (data.get("name") or "").strip().upper() or None
     dob        = data.get("dob") or None
+    if dob:
+        try:
+            dob_dt = datetime.strptime(dob, "%Y-%m-%d").date()
+            if dob_dt > datetime.now().date():
+                return jsonify({"success": False, "error": "La fecha de nacimiento no puede estar en el futuro."}), 400
+        except ValueError:
+            return jsonify({"success": False, "error": "La fecha de nacimiento no es válida. Debe estar en formato AAAA-MM-DD (ej. 1990-05-15)."}), 400
     gender     = (data.get("gender") or "").strip() or None
     phone      = (data.get("phone") or "").strip() or None
     blood_type = (data.get("blood_type") or "").strip() or None

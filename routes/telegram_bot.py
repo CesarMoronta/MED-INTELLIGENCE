@@ -196,26 +196,78 @@ def db_get_patient_appointments(cedula: str) -> list:
     return rows
 
 def db_get_available_slots(doctor_id: int, date_str: str) -> list:
+    from datetime import datetime
+    
+    # 1. Determinar día de la semana (1 = Lunes, ..., 7 = Domingo)
+    try:
+        day_num = datetime.strptime(date_str, "%Y-%m-%d").isoweekday()
+    except ValueError:
+        return []
+
+    # 2. Consultar jornada laboral de la clínica
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT start_time, end_time, is_active FROM dbo.clinic_working_hours WHERE day_of_week = ?", day_num)
+    clinic_row = cursor.fetchone()
+    
+    if not clinic_row or not clinic_row[2]:
+        cursor.close()
+        conn.close()
+        return [] # Cerrado
+        
+    c_start = str(clinic_row[0])[:5]
+    c_end = str(clinic_row[1])[:5]
+
+    # 3. Consultar citas ocupadas
     cursor.execute("""
         SELECT scheduled_time 
         FROM dbo.appointments 
         WHERE doctor_id = ? AND CAST(scheduled_date AS DATE) = CAST(? AS DATE) AND status = 'abierta'
     """, doctor_id, date_str)
     taken_times = [str(r[0])[:5] for r in cursor.fetchall()]
+    
+    # 4. Consultar bloqueos de horario del doctor
+    cursor.execute("""
+        SELECT start_time, end_time 
+        FROM dbo.doctor_blocked_slots
+        WHERE doctor_id = ? AND CAST(blocked_date AS DATE) = CAST(? AS DATE)
+    """, doctor_id, date_str)
+    blocked_rows = cursor.fetchall()
+    blocked_ranges = [(str(r[0])[:5], str(r[1])[:5]) for r in blocked_rows]
+    
     cursor.close()
     conn.close()
     
+    # Horarios estándar propuestos en el bot
     all_slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00"]
-    available = [s for s in all_slots if s not in taken_times and (s + ":00") not in taken_times]
+    
+    available = []
+    for s in all_slots:
+        # A. Dentro de la jornada de la clínica?
+        if not (c_start <= s <= c_end):
+            continue
+            
+        # B. Ya ocupado por una cita activa?
+        if s in taken_times or (s + ":00") in taken_times:
+            continue
+            
+        # C. Coincide con algún bloqueo del doctor?
+        is_blocked = False
+        for b_start, b_end in blocked_ranges:
+            if b_start <= s <= b_end:
+                is_blocked = True
+                break
+        if is_blocked:
+            continue
+            
+        available.append(s)
     
     # Filtrar horas pasadas si la fecha seleccionada es hoy
     now = datetime.now()
     if date_str == now.strftime("%Y-%m-%d"):
         current_time = now.strftime("%H:%M")
         available = [s for s in available if s > current_time]
-
+ 
     return available
 
 def db_get_active_doctors() -> list:
@@ -482,7 +534,7 @@ def telegram_webhook():
             
             rows = []
             for doc in doctors:
-                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                rows.append([{"text": f"Dr. {doc['full_name']}"}])
             
             send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
         else:
@@ -532,7 +584,7 @@ def telegram_webhook():
                     doctors = db_get_active_doctors()
                     rows = []
                     for doc in doctors:
-                        rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                        rows.append([{"text": f"Dr. {doc['full_name']}"}])
                     
                     send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
                 except Exception as e:
@@ -637,7 +689,7 @@ def telegram_webhook():
             doctors = db_get_active_doctors()
             rows = []
             for doc in doctors:
-                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                rows.append([{"text": f"Dr. {doc['full_name']}"}])
             
             send_message(chat_id, "Selecciona el doctor con el que deseas agendar la cita:", reply_markup=get_cancel_keyboard(rows))
         except Exception as e:
@@ -646,22 +698,39 @@ def telegram_webhook():
 
     # AGENDAR_DOCTOR
     elif state == "AGENDAR_DOCTOR":
-        match = re.search(r"\(ID:\s*(\d+)\)", text)
         doctors = db_get_active_doctors()
         valid_doctor = False
+        
+        # 1. Intentar por ID si estuviera en el formato (para retrocompatibilidad)
+        match = re.search(r"\(ID:\s*(\d+)\)", text)
         if match:
             doc_id = int(match.group(1))
-            if any(d["id"] == doc_id for d in doctors):
-                valid_doctor = True
-                user_state["doctor_id"] = doc_id
-                user_state["doctor_name"] = text.split(" (")[0]
-                user_state["state"] = "AGENDAR_DATE"
-                save_bot_state(chat_id, user_state)
+            for d in doctors:
+                if d["id"] == doc_id:
+                    valid_doctor = True
+                    user_state["doctor_id"] = doc_id
+                    user_state["doctor_name"] = text.split(" (")[0]
+                    user_state["state"] = "AGENDAR_DATE"
+                    save_bot_state(chat_id, user_state)
+                    break
+        else:
+            # 2. Buscar por coincidencia de nombre (nuevo formato sin ID visible)
+            clean_input = text.replace("Dr.", "").replace("dr.", "").replace("Dr", "").replace("dr", "").strip().lower()
+            for d in doctors:
+                doc_name = d.get("full_name", "").strip().lower()
+                doc_username = d.get("username", "").strip().lower()
+                if doc_name == clean_input or doc_username == clean_input or clean_input in doc_name or doc_name in clean_input:
+                    valid_doctor = True
+                    user_state["doctor_id"] = d["id"]
+                    user_state["doctor_name"] = f"Dr. {d['full_name']}"
+                    user_state["state"] = "AGENDAR_DATE"
+                    save_bot_state(chat_id, user_state)
+                    break
 
         if not valid_doctor:
             rows = []
             for doc in doctors:
-                rows.append([{"text": f"Dr. {doc['full_name']} (ID: {doc['id']})"}])
+                rows.append([{"text": f"Dr. {doc['full_name']}"}])
             send_message(chat_id, "⚠️ Por favor, selecciona un doctor válido usando la lista de botones:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
@@ -685,13 +754,34 @@ def telegram_webhook():
             send_message(chat_id, "⚠️ Por favor selecciona una hora disponible usando los botones de abajo:", reply_markup=get_cancel_keyboard(rows))
             return jsonify({"success": True})
         
+        user_state["time"] = text
+        user_state["state"] = "AGENDAR_MOTIVO"
+        save_bot_state(chat_id, user_state)
+        
+        send_message(
+            chat_id,
+            "📝 Por favor, escribe brevemente el <b>motivo o síntoma principal</b> de tu visita (ej: Dolor de cabeza, chequeo general):",
+            reply_markup=get_cancel_keyboard()
+        )
+
+    # AGENDAR_MOTIVO
+    elif state == "AGENDAR_MOTIVO":
+        motivo = text.strip()
+        if not motivo:
+            send_message(
+                chat_id,
+                "⚠️ El motivo no puede estar vacío. Por favor, escribe el motivo o síntoma de tu visita:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return jsonify({"success": True})
+        
         try:
             create_appointment(
                 patient_id=user_state["patient_id"],
                 doctor_id=user_state["doctor_id"],
                 scheduled_date=user_state["date"],
-                scheduled_time=text,
-                notes="Agendada vía Bot de Telegram"
+                scheduled_time=user_state["time"],
+                notes=motivo
             )
             send_message(
                 chat_id,
@@ -699,11 +789,12 @@ def telegram_webhook():
                 f"👤 <b>Paciente:</b> {user_state['patient_name']}\n"
                 f"👨‍⚕️ <b>Médico:</b> {user_state['doctor_name']}\n"
                 f"📅 <b>Fecha:</b> {user_state['date']}\n"
-                f"⏰ <b>Hora:</b> {text}\n\n"
+                f"⏰ <b>Hora:</b> {user_state['time']}\n"
+                f"📝 <b>Motivo:</b> {motivo}\n\n"
                 f"¡Te esperamos!",
                 reply_markup=get_main_menu_markup()
             )
-            msg_notif = f"📅 Nueva cita vía Telegram: {user_state['patient_name']} con el {user_state['doctor_name']} para el {user_state['date']} a las {text}"
+            msg_notif = f"📅 Nueva cita vía Telegram: {user_state['patient_name']} con el {user_state['doctor_name']} para el {user_state['date']} a las {user_state['time']} - Motivo: {motivo}"
             db_notify_secretaries_and_admins(msg_notif, user_state["doctor_id"])
         except Exception as e:
             send_message(chat_id, f"❌ Error al crear la cita: {e}", reply_markup=get_main_menu_markup())

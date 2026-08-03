@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from database import (list_appointments, create_appointment, update_appointment_status,
                       reschedule_appointment, update_appointment, get_waiting_room,
                       mark_patient_arrived, confirm_appointment, get_patient,
-                      get_appointment, check_appointment_clash)
+                      get_appointment, check_appointment_clash, get_clinic_working_hours,
+                      get_connection)
 from utils import requires_login, requires_role, get_current_user
 
 appointments_bp = Blueprint("appointments_bp", __name__)
@@ -29,6 +30,52 @@ def api_list_appointments():
     apps = list_appointments(doctor_id=doctor_id, date_filter=date_filter)
     return jsonify({"success": True, "appointments": apps})
 
+
+def validate_appointment_availability(doctor_id, scheduled_date, scheduled_time):
+    from datetime import datetime
+    
+    # 1. Validar jornada laboral de la clínica
+    try:
+        day_num = datetime.strptime(str(scheduled_date), "%Y-%m-%d").isoweekday()
+    except ValueError:
+        return "Fecha inválida."
+        
+    clinic_hours = get_clinic_working_hours()
+    day_config = next((h for h in clinic_hours if h["day_of_week"] == day_num), None)
+    if not day_config or not day_config["is_active"]:
+        return "El consultorio está cerrado el día de la semana seleccionado."
+        
+    start_time_str = day_config["start_time"]
+    end_time_str = day_config["end_time"]
+    
+    # Normalizar hora de la cita a HH:MM
+    app_time_str = str(scheduled_time)[:5]
+    
+    if not (start_time_str <= app_time_str <= end_time_str):
+        return f"La hora seleccionada ({app_time_str}) está fuera de la jornada laboral del consultorio para este día ({start_time_str} - {end_time_str})."
+        
+    # 2. Validar bloqueos específicos del doctor
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        s_time = app_time_str + ":00"
+        cursor.execute("""
+            SELECT id, reason, start_time, end_time 
+            FROM dbo.doctor_blocked_slots
+            WHERE doctor_id = ? 
+              AND CAST(blocked_date AS DATE) = CAST(? AS DATE)
+              AND CAST(? AS TIME) >= start_time 
+              AND CAST(? AS TIME) <= end_time
+        """, doctor_id, scheduled_date, s_time, s_time)
+        block = cursor.fetchone()
+        if block:
+            reason = block[1] or "No especificada"
+            return f"El doctor no está disponible en este horario. Motivo: {reason} (Bloqueado de {str(block[2])[:5]} a {str(block[3])[:5]})."
+    finally:
+        cursor.close()
+        conn.close()
+        
+    return None
 
 @appointments_bp.route("/api/appointments", methods=["POST"])
 @requires_login
@@ -68,10 +115,24 @@ def api_create_appointment():
     except ValueError:
         return jsonify({"success": False, "error": "Formato de hora inválido. Debe ser HH:MM."}), 400
 
+    # Evitar agendar en el pasado
+    from datetime import date
+    try:
+        app_date = datetime.strptime(str(scheduled_date), "%Y-%m-%d").date()
+        if app_date < date.today():
+            return jsonify({"success": False, "error": "No se puede agendar una cita para una fecha en el pasado."}), 400
+    except ValueError:
+        pass
+
     # Bloquear cita si paciente fallecido
     patient = get_patient(patient_id)
     if patient and patient.get("vital_status") == "Fallecido":
         return jsonify({"success": False, "error": "No se puede agendar una cita para un paciente fallecido."}), 409
+
+    # Validar disponibilidad
+    err = validate_appointment_availability(doctor_id, scheduled_date, scheduled_time)
+    if err:
+        return jsonify({"success": False, "error": err}), 400
 
     app_id = create_appointment(patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_app_id)
     return jsonify({"success": True, "appointment_id": app_id, "message": "Cita agendada."})
@@ -101,8 +162,38 @@ def api_update_appointment(app_id):
     notes          = data.get("notes")
     confirmed      = data.get("confirmed")  # para sala de espera
 
+    if scheduled_date:
+        from datetime import datetime, date
+        try:
+            datetime.strptime(str(scheduled_date), "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"success": False, "error": "Formato de fecha inválido. Debe ser AAAA-MM-DD."}), 400
+        
+        try:
+            app_date = datetime.strptime(str(scheduled_date), "%Y-%m-%d").date()
+            if app_date < date.today():
+                return jsonify({"success": False, "error": "No se puede reprogramar una cita para una fecha en el pasado."}), 400
+        except ValueError:
+            pass
+
+    if scheduled_time:
+        from datetime import datetime
+        try:
+            time_str = str(scheduled_time).strip()
+            if len(time_str) == 5:
+                datetime.strptime(time_str, "%H:%M")
+            elif len(time_str) == 8:
+                datetime.strptime(time_str, "%H:%M:%S")
+            else:
+                raise ValueError()
+        except ValueError:
+            return jsonify({"success": False, "error": "Formato de hora inválido. Debe ser HH:MM."}), 400
+
     # Actualización completa (agenda) vs parcial (sala de espera / solo estado)
     if doctor_id and scheduled_date and scheduled_time and status:
+        err = validate_appointment_availability(doctor_id, scheduled_date, scheduled_time)
+        if err:
+            return jsonify({"success": False, "error": err}), 400
         updated = update_appointment(app_id, doctor_id, scheduled_date, scheduled_time, status, notes)
     elif status or confirmed is not None:
         # Actualización parcial: solo estado / confirmación
@@ -166,6 +257,10 @@ def api_reschedule_appointment(app_id):
 
     if not new_date or not new_time:
         return jsonify({"success": False, "error": "Fecha y hora son requeridas."}), 400
+
+    err = validate_appointment_availability(current_app["doctor_id"], new_date, new_time)
+    if err:
+        return jsonify({"success": False, "error": err}), 400
 
     updated = reschedule_appointment(app_id, new_date, new_time)
     if updated:

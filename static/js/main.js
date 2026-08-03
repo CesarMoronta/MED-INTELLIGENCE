@@ -113,53 +113,18 @@ function resetDiagnose() {
 }
 
 // API helper
-async function api(method, path, body = null) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  const res  = await fetch(path, opts);
-  const data = await res.json().catch(() => ({ success: false, error: 'Error de respuesta del servidor' }));
-  return data;
-}
+// Extracted api to utils.js
 
 // Toast
-function toast(type, msg, duration = 4000) {
-  const icons = {
-    success: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-    error:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-    warning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    info:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-  };
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
-  el.innerHTML = `${icons[type] || icons.info} <span>${msg}</span>`;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => {
-    el.classList.add('removing');
-    setTimeout(() => el.remove(), 350);
-  }, duration);
-}
+// Extracted toast to utils.js
 
 // Button loading helper
-function setButtonLoading(btn, isLoading, loadingText = 'Procesando...') {
-  if (!btn) return;
-  if (isLoading) {
-    if (btn.disabled) return;
-    btn.disabled = true;
-    btn.dataset.oldHtml = btn.innerHTML;
-    btn.innerHTML = `<span>${loadingText}</span> <span class="spinner-ring" style="width:14px; height:14px; border-width:1.5px; display:inline-block; vertical-align:middle; margin-left:6px; border-top-color: currentColor;"></span>`;
-  } else {
-    btn.disabled = false;
-    if (btn.dataset.oldHtml) {
-      btn.innerHTML = btn.dataset.oldHtml;
-      delete btn.dataset.oldHtml;
-    }
-  }
-}
+// Extracted setButtonLoading to utils.js
 
 // Modal helpers
-function openModal(id) { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
-function closeModalOnBg(e, id) { if (e.target.id === id) closeModal(id); }
+// Extracted openModal to utils.js
+// Extracted closeModal to utils.js
+// Extracted closeModalOnBg to utils.js
 
 // Tab switching
 function switchTab(tab) {
@@ -190,6 +155,8 @@ function switchTab(tab) {
     'appointments':  loadAppointments,
     'billing':       loadBillingTab,
     'reports':       loadReportsTab,
+    'admin-schedules': loadAdminSchedulesTab,
+    'doctor-schedules': loadDoctorSchedulesTab,
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -211,7 +178,9 @@ const SIDEBAR_ITEMS = {
   'admin-users': { label: 'Usuarios y Admins', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M16 16v2M8 16v2M4 20a8 8 0 0 1 16 0"/></svg>' },
   'admin-settings': { label: 'Ajustes Consultorio', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' },
   'admin-audit': { label: 'Logs de Auditoría', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
-  'reports': { label: 'Consultas y Reportes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' }
+  'reports': { label: 'Consultas y Reportes', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
+  'admin-schedules': { label: 'Horarios Consultorio', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+  'doctor-schedules': { label: 'Mi Disponibilidad', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' }
 };
 
 function applyPrimaryColor(hex) {
@@ -270,9 +239,9 @@ function renderSidebars() {
   const allowDoctorBilling = settings.allow_doctor_billing === 'true';
 
   const defaultOrders = {
-    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'billing', 'reports', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
-    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'simulator', 'reports'],
-    secretaria: ['waiting-room', 'appointments', 'patients', 'billing']
+    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'admin-schedules', 'billing', 'reports', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'doctor-schedules', 'simulator', 'reports'],
+    secretaria: ['waiting-room', 'appointments', 'patients', 'admin-schedules', 'billing']
   };
 
   if (allowDoctorBilling && !defaultOrders.doctor.includes('billing')) {
@@ -294,22 +263,40 @@ function renderSidebars() {
     orderDoctor = orderDoctor.filter(x => x !== 'billing');
   }
 
-  // Garantizar que 'reports' siempre aparezca en el sidebar de doctor,
-  // aunque tenga guardado un orden anterior sin él.
+  // Garantizar que 'admin-schedules' aparezca en admin
+  if (!orderAdmin.includes('admin-schedules')) {
+    const settingsIdx = orderAdmin.indexOf('admin-settings');
+    if (settingsIdx >= 0) orderAdmin.splice(settingsIdx, 0, 'admin-schedules');
+    else orderAdmin.push('admin-schedules');
+  }
+
+  // Garantizar que 'admin-schedules' aparezca en secretaria
+  if (!orderSecretaria.includes('admin-schedules')) {
+    const billIdx = orderSecretaria.indexOf('billing');
+    if (billIdx >= 0) orderSecretaria.splice(billIdx, 0, 'admin-schedules');
+    else orderSecretaria.push('admin-schedules');
+  }
+
+  // Garantizar que 'doctor-schedules' aparezca en doctor
+  if (!orderDoctor.includes('doctor-schedules')) {
+    const simIdx = orderDoctor.indexOf('simulator');
+    if (simIdx >= 0) orderDoctor.splice(simIdx, 0, 'doctor-schedules');
+    else orderDoctor.push('doctor-schedules');
+  }
+
+  // Garantizar que 'reports' siempre aparezca en el sidebar de doctor
   if (!orderDoctor.includes('reports')) {
     orderDoctor.push('reports');
   }
 
   // Garantizar que 'reports' aparezca/desaparezca en el sidebar de secretaria
-  // según el toggle enable_secretaria_reports, ignorando el orden guardado.
   if (enableSecretariaReports && !orderSecretaria.includes('reports')) {
     orderSecretaria.push('reports');
   } else if (!enableSecretariaReports && orderSecretaria.includes('reports')) {
     orderSecretaria = orderSecretaria.filter(x => x !== 'reports');
   }
 
-  // Garantizar que 'reports' siempre aparezca en el sidebar de admin,
-  // aunque tenga guardado un orden anterior sin él.
+  // Garantizar que 'reports' siempre aparezca en el sidebar de admin
   if (!orderAdmin.includes('reports')) {
     const auditIdx = orderAdmin.indexOf('admin-audit');
     if (auditIdx >= 0) orderAdmin.splice(auditIdx, 0, 'reports');
@@ -488,10 +475,17 @@ async function loadDashboard() {
   const s = data.stats;
   
   if (s.is_doctor) {
-    document.getElementById('stat-citas-hoy-val').textContent = s.citas_hoy ?? '0';
-    document.getElementById('stat-citas-pendientes-val').textContent = s.citas_pendientes ?? '0';
-    document.getElementById('stat-citas-hechas-val').textContent = s.citas_hechas ?? '0';
+    document.getElementById('stat-citas-hoy-val').textContent = s.citas_pendientes ?? '0';
+    document.querySelector('#stat-citas-hoy .stat-label').textContent = "Citas Pendientes";
+
+    document.getElementById('stat-citas-pendientes-val').textContent = s.citas_hoy ?? '0';
+    document.querySelector('#stat-citas-pendientes .stat-label').textContent = "Citas de Hoy";
+
     document.getElementById('stat-citas-manana-val').textContent = s.citas_manana ?? '0';
+    document.querySelector('#stat-citas-manana .stat-label').textContent = "Citas de Mañana";
+
+    document.getElementById('stat-citas-hechas-val').textContent = s.citas_mes ?? '0';
+    document.querySelector('#stat-citas-hechas .stat-label').textContent = "Completadas este Mes";
 
     // Cargar citas para renderizar el calendario de la agenda del doctor en su dashboard
     api('GET', '/api/appointments').then(appData => {
@@ -819,6 +813,8 @@ async function savePatient() {
     return;
   }
   if (!name) { toast('warning', 'El nombre completo es obligatorio.'); return; }
+  if (!dob) { toast('warning', 'La fecha de nacimiento es obligatoria.'); return; }
+  if (new Date(dob) > new Date()) { toast('warning', 'La fecha de nacimiento no puede ser en el futuro.'); return; }
 
   const btn = document.querySelector('#modal-new-patient .modal-footer .btn-primary');
   setButtonLoading(btn, true);
@@ -926,21 +922,13 @@ function goToVisitStep(step) {
   });
 }
 
-function onVisitTypeChange() {
-  const type = document.querySelector('input[name="visit_type"]:checked')?.value;
-  document.getElementById('visit-motivo-emergencia-group').style.display =
-    type === 'emergencia' ? '' : 'none';
-}
-
 async function createVisit() {
   if (!STATE.visitPatient) { toast('warning', 'Selecciona un paciente primero.'); return; }
 
-  const visitType        = document.querySelector('input[name="visit_type"]:checked')?.value || 'consulta';
-  const motivoConsulta   = document.getElementById('visit-motivo-consulta')?.value.trim() || null;
-  const motivoEmergencia = document.getElementById('visit-motivo-emergencia')?.value.trim() || null;
+  const motivo = document.getElementById('visit-motivo-consulta')?.value.trim() || null;
 
-  if (visitType === 'emergencia' && !motivoEmergencia) {
-    toast('warning', 'El motivo de emergencia es obligatorio.'); return;
+  if (!motivo) {
+    toast('warning', 'El motivo de la visita es obligatorio.'); return;
   }
 
   const btn = document.querySelector('button[onclick="createVisit()"]');
@@ -949,15 +937,15 @@ async function createVisit() {
   try {
     const res = await api('POST', '/api/visits', {
       patient_id: STATE.visitPatient.id,
-      visit_type: visitType,
-      motivo_consulta: motivoConsulta,
-      motivo_emergencia: motivoEmergencia,
+      visit_type: 'consulta',
+      motivo_consulta: motivo,
+      motivo_emergencia: null,
     });
 
     if (res.success) {
       STATE.currentVisitId = res.visit_id;
       document.getElementById('visit-created-msg').textContent =
-        `Visita #${res.visit_id} creada para ${STATE.visitPatient.name} — ${visitType.toUpperCase()}`;
+        `Visita #${res.visit_id} creada para ${STATE.visitPatient.name}`;
       goToVisitStep(3);
       toast('success', '¡Visita creada correctamente!');
     } else {
@@ -967,6 +955,7 @@ async function createVisit() {
     setButtonLoading(btn, false);
   }
 }
+
 
 function goToDiagnose() {
   switchTab('diagnose');
@@ -1413,94 +1402,7 @@ async function runPhase1() {
   }
 }
 
-async function runGeminiAnalysis(probs) {
-  const sortedBayes = Object.entries(probs).sort(([,a],[,b]) => b - a);
-  const topBayesDiag = sortedBayes[0]?.[0];
-  const panel = document.getElementById('gemini-analisis-panel');
-  if (!panel) return;
-  panel.style.display = '';
-  panel.innerHTML = `
-    <div class="gemini-panel">
-      <div class="gemini-panel-header">
-        <span class="gemini-badge">✨ Gemini AI</span>
-        <span>Analizando con IA clínica...</span>
-      </div>
-      <div class="gemini-loading">
-        <div class="spinner-ring" style="width:20px;height:20px;border-width:2px;"></div>
-        <span>El motor de IA está procesando el contexto bayesiano...</span>
-      </div>
-    </div>
-  `;
-
-  try {
-    const res = await api('POST', '/api/diagnose/gemini-analisis', {
-      probabilities: probs,
-      sintomas:      STATE.diagSintomas,
-      constantes:    STATE.diagConstantes,
-      antecedentes:  STATE.diagAntecedentes,
-      motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
-    });
-
-    if (!res.success) {
-      panel.innerHTML = '';
-      return;
-    }
-
-    const alertas = (res.alertas_gemini || []).map(a =>
-      `<div class="gemini-alerta">⚠️ ${a}</div>`
-    ).join('');
-
-    const sugeridos = (res.sintomas_sugeridos || []).map(s =>
-      `<span class="gemini-tag">${s}</span>`
-    ).join('');
-
-    panel.innerHTML = `
-      <div class="gemini-panel">
-        <div class="gemini-panel-header">
-          <span class="gemini-badge">✨ Gemini AI</span>
-          <span style="color:var(--text-muted);font-size:12px;">${res.fallback ? 'Modo offline' : 'Análisis en tiempo real'}</span>
-        </div>
-
-        <div class="gemini-validacion">
-          <p>${res.validacion || ''}</p>
-        </div>
-
-        ${alertas ? `<div class="gemini-alertas-section">${alertas}</div>` : ''}
-
-        ${sugeridos ? `
-          <div class="gemini-sugeridos-section">
-            <div class="gemini-sugeridos-label">🔎 Explorar también:</div>
-            <div class="gemini-tags">${sugeridos}</div>
-          </div>
-        ` : ''}
-
-        ${res.confianza_gemini ? `
-          <div class="gemini-confianza">
-            <strong>Valoración Gemini:</strong> ${res.confianza_gemini}
-          </div>
-        ` : ''}
-
-        ${res.diagnostico_propuesto && res.diagnostico_propuesto !== topBayesDiag ? `
-          <div class="gemini-correction-banner" style="margin-top:16px; padding:16px; background: rgba(239, 68, 68, 0.15); border: 1px dashed #ef4444; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
-              <span style="color:#ef4444; font-weight:bold; font-size:14px; display: flex; align-items: center; gap: 6px;">
-                ⚠️ Discrepancia Clínica Detectada
-              </span>
-              <span style="font-size:13px; color: var(--text);">
-                La IA sugiere cambiar el diagnóstico a: <strong style="color:var(--brand-light);">${res.diagnostico_propuesto}</strong>.
-              </span>
-            </div>
-            <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin: 0; background-color: #ef4444; border-color: #ef4444;" onclick="applyAIDiagnosis('${res.diagnostico_propuesto.replace(/'/g, "\\'")}')">
-              Aplicar Corrección de IA
-            </button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  } catch(e) {
-    panel.innerHTML = '';
-  }
-}
+// Extracted runGeminiAnalysis to gemini_chat.js
 
 function applyAIDiagnosis(newDiag) {
   if (!newDiag) return;
@@ -2110,84 +2012,13 @@ function renderFinalResult(res) {
   STATE.lastReport = res.explanation || '';
 }
 
-async function sendGeminiMessage() {
-  const input   = document.getElementById('gemini-chat-input');
-  const sendBtn = document.getElementById('gemini-send-btn');
-  const message = input?.value.trim();
-  if (!message || !STATE.finalDiagnosisRes) return;
+// Extracted sendGeminiMessage to gemini_chat.js
 
-  const res = STATE.finalDiagnosisRes;
-  input.value = '';
-  sendBtn.disabled = true;
+// Extracted appendGeminiMessage to gemini_chat.js
 
-  // Mostrar mensaje del usuario
-  appendGeminiMessage('user', message);
+// Extracted appendGeminiTyping to gemini_chat.js
 
-  // Mostrar indicador de escritura
-  const typingId = 'gemini-typing-' + Date.now();
-  appendGeminiTyping(typingId);
-
-  // Añadir al historial
-  STATE.geminiChatHistory.push({ role: 'user', text: message });
-
-  try {
-    const chatRes = await api('POST', '/api/diagnose/chat-gemini', {
-      diagnostico:        res.diagnosis,
-      probabilidad:       res.probability,
-      sintomas_activos:   Object.keys(STATE.diagSintomas).filter(k => STATE.diagSintomas[k]),
-      antecedentes_activos: Object.keys(STATE.diagAntecedentes).filter(k => STATE.diagAntecedentes[k]),
-      constantes:         STATE.diagConstantes,
-      message:            message,
-      history:            STATE.geminiChatHistory.slice(-10), // últimos 10 turnos
-    });
-
-    removeGeminiTyping(typingId);
-
-    const responseText = chatRes.success
-      ? chatRes.response
-      : 'Lo siento, el asistente no está disponible en este momento. Consulte el informe clínico.';
-
-    appendGeminiMessage('model', responseText);
-    STATE.geminiChatHistory.push({ role: 'model', text: responseText });
-  } catch(e) {
-    removeGeminiTyping(typingId);
-    appendGeminiMessage('model', 'Error de conexión con el asistente médico. Intente nuevamente.');
-  }
-
-  sendBtn.disabled = false;
-  input.focus();
-}
-
-function appendGeminiMessage(role, text) {
-  const container = document.getElementById('gemini-chat-messages');
-  if (!container) return;
-  const div = document.createElement('div');
-  div.className = `gemini-chat-msg ${role}`;
-  // Simple markdown parsing for bold
-  const formatted = text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br/>');
-  div.innerHTML = `<div class="gemini-chat-bubble">${formatted}</div>`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function appendGeminiTyping(id) {
-  const container = document.getElementById('gemini-chat-messages');
-  if (!container) return;
-  const div = document.createElement('div');
-  div.id = id;
-  div.className = 'gemini-chat-msg model';
-  div.innerHTML = `<div class="gemini-chat-bubble gemini-typing-bubble">
-    <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
-  </div>`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function removeGeminiTyping(id) {
-  document.getElementById(id)?.remove();
-}
+// Extracted removeGeminiTyping to gemini_chat.js
 
 
 function openFullReport() {
@@ -2948,43 +2779,11 @@ function filterAdminHistory() {
 }
 
 // SIMULADOR BAYES
-function initSimulator() {
-  // ya está construido en buildSymptomToggles
-}
+// Extracted initSimulator to simulator.js
 
-async function runSimulation() {
-  const sintomas = getCheckedFrom('sim-symptoms-grid');
-  const activeSintomas = Object.keys(sintomas).filter(k => sintomas[k]);
-  if (!activeSintomas.length) { toast('warning', 'Selecciona al menos un síntoma.'); return; }
+// Extracted runSimulation to simulator.js
 
-  const res = await api('POST', '/api/diagnose/preliminar', {
-    constantes: { edad: 40, temperatura: 37.0, spo2: 98, pas: 120, pad: 80, fc: 80, fr: 16 },
-    sintomas,
-    antecedentes: {},
-  });
-  if (!res.success) { toast('error', res.error || 'Error.'); return; }
-
-  const sorted = Object.entries(res.probabilities).sort(([,a],[,b]) => b - a).slice(0, 12);
-  const max    = sorted[0][1];
-  document.getElementById('sim-chart').innerHTML = sorted.map(([d, p]) => {
-    const pct = ((p / max) * 100).toFixed(1);
-    const col = p > 0.3 ? '#ef4444' : p > 0.1 ? '#f59e0b' : '#3b82f6';
-    return `<div class="prob-row">
-      <div class="prob-name" title="${d}">${d}</div>
-      <div class="prob-track"><div class="prob-fill" style="width:${pct}%;background:${col};"></div></div>
-      <div class="prob-pct">${(p*100).toFixed(2)}%</div>
-    </div>`;
-  }).join('');
-}
-
-function resetSimulation() {
-  document.querySelectorAll('#sim-symptoms-grid .symptom-toggle').forEach(el => {
-    el.classList.remove('checked');
-    const cb = el.querySelector('input[type=checkbox]');
-    if (cb) cb.checked = false;
-  });
-  document.getElementById('sim-chart').innerHTML = '';
-}
+// Extracted resetSimulation to simulator.js
 
 // USUARIOS (ADMIN)
 async function loadUsersTab() {
@@ -3254,37 +3053,9 @@ function fmtDate(iso) {
   } catch { return iso; }
 }
 
-function escHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-}
+// Extracted escHtml to utils.js
 
-function markdownToHtml(md) {
-  if (!md) return '';
-  return md
-    .replace(/^### (.+)$/gm,    '<h3>$1</h3>')
-    .replace(/^#### (.+)$/gm,   '<h4>$1</h4>')
-    .replace(/^##### (.+)$/gm,  '<h5>$1</h5>')
-    .replace(/\*\*(.+?)\*\*/g,  '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,      '<em>$1</em>')
-    .replace(/`(.+?)`/g,        '<code>$1</code>')
-    .replace(/^---$/gm,         '<hr/>')
-    .replace(/^\*   (.+)$/gm,   '<li>$1</li>')
-    .replace(/^1\.  (.+)$/gm,   '<li>$1</li>')
-    .replace(/(<li>[\s\S]*?<\/li>)+/g, s => `<ul>${s}</ul>`)
-    .replace(/\|(.+)\|/g, row => {
-      const cells = row.split('|').filter(c => c.trim());
-      return `<tr>${cells.map(c => `<td>${c.trim()}</td>`).join('')}</tr>`;
-    })
-    .replace(/<tr>(.+)<\/tr>/g, t => {
-      if (t.includes('---')) return '';
-      return t;
-    })
-    .replace(/(?:<tr>[\s\S]*?<\/tr>\s*)+/g, s => `<table>${s.replace(/\n/g, '')}</table>`)
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/\n/g,     '<br/>');
-}
+// Extracted markdownToHtml to utils.js
 
 // Re-inicializar grid de antecedentes cuando se abre el modal
 const openModalOrig = openModal;
@@ -4299,25 +4070,7 @@ async function renderPayPalButton() {
   }
 }
 
-async function simulatePayPalPayment() {
-  if (!confirm('¿Desea simular una suscripción VIP exitosa de $20 USD para desarrollo?')) return;
-  const mockSubId = 'SIM-SUB-' + Math.floor(Math.random() * 10000000);
-  
-  toast('info', 'Procesando pago simulado...');
-  const res = await api('POST', '/api/subscription/paypal-approved', {
-    subscription_id: mockSubId,
-    plan_id: 'VIP (Simulado)'
-  });
-  
-  if (res.success) {
-    toast('success', '¡Suscripción VIP Simulada activada correctamente!');
-    STATE.user = res.user;
-    setupUI();
-    closeModal('modal-profile');
-  } else {
-    toast('error', res.error || 'Error al activar suscripción simulada.');
-  }
-}
+// Extracted simulatePayPalPayment to simulator.js
 
 async function cancelSubscription() {
   if (!confirm('¿Está seguro de que desea cancelar su suscripción VIP? Mantendrá su acceso VIP hasta la fecha de vencimiento de su periodo facturado actual.')) return;
@@ -5029,12 +4782,10 @@ function filterPatientAppList() {
   );
 
   listEl.innerHTML = filtered.map(p => `
-    <div class="patient-picker-item" onclick="selectPatientForAppointment(${p.id}, '${p.name.replace(/'/g, "\\'")}')">
-      <div>
-        <div class="picker-name">${p.name}</div>
-        <div class="picker-cedula">Cédula: ${p.cedula || '—'}</div>
-      </div>
-      <div class="picker-btn">Seleccionar</div>
+    <div class="patient-select-item" ondblclick="selectPatientForAppointment(${p.id}, '${p.name.replace(/'/g, "\\'")}')"
+      style="padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s;">
+      <div style="font-weight: 600; color: var(--text-primary);">${p.name}</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Cédula: ${p.cedula || '—'}</div>
     </div>
   `).join('');
 }
@@ -5059,12 +4810,10 @@ function filterDoctorAppList() {
   );
 
   listEl.innerHTML = filtered.map(d => `
-    <div class="patient-picker-item" onclick="selectDoctorForAppointment(${d.id}, '${(d.full_name || d.username).replace(/'/g, "\\'")}')">
-      <div>
-        <div class="picker-name">${d.full_name || d.username}</div>
-        <div class="picker-cedula">${d.especialidad || 'Sin especialidad'} - Matrícula: ${d.matricula || '—'}</div>
-      </div>
-      <div class="picker-btn">Seleccionar</div>
+    <div class="patient-select-item" ondblclick="selectDoctorForAppointment(${d.id}, '${(d.full_name || d.username).replace(/'/g, "\\'")}')"
+      style="padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s;">
+      <div style="font-weight: 600; color: var(--text-primary);">${d.full_name || d.username}</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">${d.especialidad || 'Sin especialidad'} | Matrícula: ${d.matricula || '—'}</div>
     </div>
   `).join('');
 }
@@ -6003,23 +5752,23 @@ function selectRefinementOption(qIndex, sintoma, val) {
   const btnNo = qItem.querySelector('.btn-q-no');
 
   if (val === true) {
-    btnYes.style.backgroundColor = 'var(--brand-light)';
-    btnYes.style.color = '#000';
-    btnYes.style.borderColor = 'var(--brand-light)';
+    btnYes.style.setProperty('background-color', 'var(--brand-light)', 'important');
+    btnYes.style.setProperty('color', '#000', 'important');
+    btnYes.style.setProperty('border-color', 'var(--brand-light)', 'important');
     
     // Resetear el botón "No"
-    btnNo.style.backgroundColor = '';
-    btnNo.style.color = '';
-    btnNo.style.borderColor = '';
+    btnNo.style.removeProperty('background-color');
+    btnNo.style.removeProperty('color');
+    btnNo.style.removeProperty('border-color');
   } else {
-    btnNo.style.backgroundColor = '#ef4444';
-    btnNo.style.color = '#fff';
-    btnNo.style.borderColor = '#ef4444';
+    btnNo.style.setProperty('background-color', '#ef4444', 'important');
+    btnNo.style.setProperty('color', '#fff', 'important');
+    btnNo.style.setProperty('border-color', '#ef4444', 'important');
     
     // Resetear el botón "Sí"
-    btnYes.style.backgroundColor = '';
-    btnYes.style.color = '';
-    btnYes.style.borderColor = '';
+    btnYes.style.removeProperty('background-color');
+    btnYes.style.removeProperty('color');
+    btnYes.style.removeProperty('border-color');
   }
 }
 
@@ -6160,70 +5909,275 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Lógica de Alternancia de Tema (Modo Oscuro / Claro) ──
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  updateThemeUI(isDark);
+// Extracted toggleTheme to theme.js
 
-  // Re-apply brand color so RGBA-based nav variables update for the new mode
-  const color = STATE?.systemSettings?.ui_primary_color;
-  if (color) applyPrimaryColor(color);
-
-  // Re-renderizar gráficas si estamos en la pestaña del dashboard
-  if (typeof STATE !== 'undefined' && STATE.currentTab === 'dashboard') {
-    loadAdminDashboard();
-  }
-}
-
-function updateThemeUI(isDark) {
-  const icon = document.getElementById('theme-toggle-icon');
-  const label = document.getElementById('theme-toggle-label');
-  
-  if (isDark) {
-    if (label) label.textContent = 'Modo Claro';
-    if (icon) {
-      // Icono de Sol ☀️ (para volver a modo claro)
-      icon.innerHTML = `
-        <circle cx="12" cy="12" r="5"></circle>
-        <line x1="12" y1="1" x2="12" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="23"></line>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-        <line x1="1" y1="12" x2="3" y2="12"></line>
-        <line x1="21" y1="12" x2="23" y2="12"></line>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-      `;
-    }
-  } else {
-    if (label) label.textContent = 'Modo Oscuro';
-    if (icon) {
-      // Icono de Luna 🌙 (para cambiar a modo oscuro)
-      icon.innerHTML = `
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-      `;
-    }
-  }
-}
+// Extracted updateThemeUI to theme.js
 
 // Auto-inicializar tema
-(function initTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-  
-  if (isDark) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+// Extracted initTheme to theme.js
+
+// ==========================================
+// MÓDULO DE HORARIOS Y DISPONIBILIDAD
+// ==========================================
+
+const DAY_NAMES = {
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado',
+  7: 'Domingo'
+};
+
+async function loadAdminSchedulesTab() {
+  // 1. Cargar horario de la clínica
+  const resClinic = await api('GET', '/api/schedules/clinic');
+  if (resClinic.success && resClinic.hours) {
+    renderClinicHoursEditor(resClinic.hours);
+  }
+
+  // 2. Cargar listado de doctores para el selector de bloqueos
+  const resDocs = await api('GET', '/api/users?role=doctor');
+  const select = document.getElementById('block-doctor-id');
+  if (select && resDocs.success && resDocs.users) {
+    select.innerHTML = '<option value="">Seleccione un doctor...</option>' + 
+      resDocs.users.map(d => `<option value="${d.id}">${d.full_name || d.username}</option>`).join('');
   }
   
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => updateThemeUI(isDark));
-  } else {
-    updateThemeUI(isDark);
+  // Limpiar tabla de bloqueos al inicio
+  const tbody = document.getElementById('blocked-slots-table-body');
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--text-secondary);">Seleccione un doctor para ver sus horarios bloqueados.</td></tr>`;
   }
-})();
+}
+
+function renderClinicHoursEditor(hours) {
+  const container = document.getElementById('clinic-hours-container');
+  if (!container) return;
+
+  container.innerHTML = hours.map(h => {
+    const checked = h.is_active ? 'checked' : '';
+    return `
+      <div class="clinic-day-row" data-day="${h.day_of_week}" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; gap:10px; width:120px;">
+          <input type="checkbox" class="day-active-checkbox" id="clinic-day-chk-${h.day_of_week}" ${checked} style="cursor:pointer;" />
+          <label for="clinic-day-chk-${h.day_of_week}" style="font-weight:600; cursor:pointer;">${DAY_NAMES[h.day_of_week]}</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="time" class="day-start-time search-input" value="${h.start_time}" style="padding:4px 8px; width:100px;" />
+          <span>a</span>
+          <input type="time" class="day-end-time search-input" value="${h.end_time}" style="padding:4px 8px; width:100px;" />
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function saveClinicWorkingHoursSettings() {
+  const rows = document.querySelectorAll('#clinic-hours-container .clinic-day-row');
+  const hours = [];
+  rows.forEach(r => {
+    const day = parseInt(r.getAttribute('data-day'));
+    const is_active = r.querySelector('.day-active-checkbox').checked;
+    const start_time = r.querySelector('.day-start-time').value;
+    const end_time = r.querySelector('.day-end-time').value;
+    hours.push({ day_of_week: day, is_active, start_time, end_time });
+  });
+
+  const res = await api('POST', '/api/schedules/clinic', { hours });
+  if (res.success) {
+    toast('success', 'Horario de la clínica actualizado correctamente.');
+  } else {
+    toast('error', res.error || 'Error al guardar horario.');
+  }
+}
+
+async function loadBlockedSlotsForAdmin() {
+  const doctorId = document.getElementById('block-doctor-id').value;
+  const tbody = document.getElementById('blocked-slots-table-body');
+  if (!tbody) return;
+
+  if (!doctorId) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--text-secondary);">Seleccione un doctor para ver sus horarios bloqueados.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center;"><div class="spinner-ring"></div> Cargando...</td></tr>`;
+
+  const res = await api('GET', `/api/schedules/doctor/${doctorId}/blocked`);
+  if (res.success && res.slots) {
+    if (res.slots.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--text-secondary);">Este doctor no tiene horarios bloqueados registrados.</td></tr>`;
+      return;
+    }
+    
+    // Obtener nombre del doctor seleccionado
+    const select = document.getElementById('block-doctor-id');
+    const doctorName = select.options[select.selectedIndex].text;
+
+    tbody.innerHTML = res.slots.map(s => `
+      <tr style="border-bottom:1px solid var(--border-color);">
+        <td style="padding:12px;">${doctorName}</td>
+        <td style="padding:12px;">${s.blocked_date}</td>
+        <td style="padding:12px;">${s.start_time} - ${s.end_time}</td>
+        <td style="padding:12px; color:var(--text-secondary);">${s.reason || '—'}</td>
+        <td style="padding:12px;">
+          <button class="btn-outline" onclick="deleteBlockedSlotAdmin(${s.id})" style="color:var(--status-danger-color); padding:4px 8px; font-size:12px;">
+            Eliminar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } else {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--status-danger-color);">Error al cargar horarios bloqueados.</td></tr>`;
+  }
+}
+
+async function handleBlockSchedule(e) {
+  e.preventDefault();
+  const doctorId = document.getElementById('block-doctor-id').value;
+  const date = document.getElementById('block-date').value;
+  const startTime = document.getElementById('block-start-time').value;
+  const endTime = document.getElementById('block-end-time').value;
+  const reason = document.getElementById('block-reason').value;
+
+  if (!doctorId || !date || !startTime || !endTime) {
+    toast('warning', 'Por favor complete todos los campos obligatorios.');
+    return;
+  }
+
+  const res = await api('POST', '/api/schedules/doctor/blocked', {
+    doctor_id: parseInt(doctorId),
+    blocked_date: date,
+    start_time: startTime,
+    end_time: endTime,
+    reason: reason
+  });
+
+  if (res.success) {
+    toast('success', 'Horario bloqueado con éxito.');
+    document.getElementById('form-block-schedule').reset();
+    document.getElementById('block-doctor-id').value = doctorId;
+    loadBlockedSlotsForAdmin();
+  } else {
+    toast('error', res.error || 'Error al bloquear horario.');
+  }
+}
+
+async function deleteBlockedSlotAdmin(slotId) {
+  if (!confirm('¿Está seguro de que desea eliminar este bloqueo de horario?')) return;
+  const res = await api('DELETE', `/api/schedules/doctor/blocked/${slotId}`);
+  if (res.success) {
+    toast('success', 'Bloqueo eliminado.');
+    loadBlockedSlotsForAdmin();
+  } else {
+    toast('error', res.error || 'Error al eliminar bloqueo.');
+  }
+}
+
+// --- VISTA DOCTOR ---
+
+async function loadDoctorSchedulesTab() {
+  const user = STATE.user || {};
+  if (!user.id) return;
+
+  // 1. Cargar horario de la clínica (Solo Lectura)
+  const resClinic = await api('GET', '/api/schedules/clinic');
+  const viewContainer = document.getElementById('doctor-clinic-hours-view');
+  if (viewContainer && resClinic.success && resClinic.hours) {
+    viewContainer.innerHTML = resClinic.hours.map(h => {
+      const statusText = h.is_active 
+        ? `<span class="badge badge-success" style="background-color:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.2); padding:2px 8px; font-size:11px; border-radius:12px;">Activo</span>`
+        : `<span class="badge badge-danger" style="background-color:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2); padding:2px 8px; font-size:11px; border-radius:12px;">Cerrado</span>`;
+      const timeText = h.is_active ? `${h.start_time} - ${h.end_time}` : '—';
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-color);">
+          <span style="font-weight:600; width:120px;">${DAY_NAMES[h.day_of_week]}</span>
+          <span style="color:var(--text-secondary);">${timeText}</span>
+          ${statusText}
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Cargar mis horarios bloqueados
+  loadBlockedSlotsForDoctor();
+}
+
+async function loadBlockedSlotsForDoctor() {
+  const user = STATE.user || {};
+  const tbody = document.getElementById('doctor-blocked-slots-table-body');
+  if (!tbody || !user.id) return;
+
+  tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center;"><div class="spinner-ring"></div> Cargando...</td></tr>`;
+
+  const res = await api('GET', `/api/schedules/doctor/${user.id}/blocked`);
+  if (res.success && res.slots) {
+    if (res.slots.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--text-secondary);">No tienes horarios bloqueados registrados.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = res.slots.map(s => `
+      <tr style="border-bottom:1px solid var(--border-color);">
+        <td style="padding:12px;">${s.blocked_date}</td>
+        <td style="padding:12px;">${s.start_time} - ${s.end_time}</td>
+        <td style="padding:12px; color:var(--text-secondary);">${s.reason || '—'}</td>
+        <td style="padding:12px;">
+          <button class="btn-outline" onclick="deleteBlockedSlotDoctor(${s.id})" style="color:var(--status-danger-color); padding:4px 8px; font-size:12px;">
+            Eliminar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } else {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--status-danger-color);">Error al cargar tus bloqueos.</td></tr>`;
+  }
+}
+
+async function handleDoctorBlockSchedule(e) {
+  e.preventDefault();
+  const user = STATE.user || {};
+  if (!user.id) return;
+
+  const date = document.getElementById('doc-block-date').value;
+  const startTime = document.getElementById('doc-block-start-time').value;
+  const endTime = document.getElementById('doc-block-end-time').value;
+  const reason = document.getElementById('doc-block-reason').value;
+
+  if (!date || !startTime || !endTime) {
+    toast('warning', 'Por favor complete todos los campos obligatorios.');
+    return;
+  }
+
+  const res = await api('POST', '/api/schedules/doctor/blocked', {
+    doctor_id: user.id,
+    blocked_date: date,
+    start_time: startTime,
+    end_time: endTime,
+    reason: reason
+  });
+
+  if (res.success) {
+    toast('success', 'Agenda bloqueada con éxito.');
+    document.getElementById('form-doctor-block-schedule').reset();
+    loadBlockedSlotsForDoctor();
+  } else {
+    toast('error', res.error || 'Error al bloquear horario.');
+  }
+}
+
+async function deleteBlockedSlotDoctor(slotId) {
+  if (!confirm('¿Está seguro de que desea eliminar este bloqueo de horario?')) return;
+  const res = await api('DELETE', `/api/schedules/doctor/blocked/${slotId}`);
+  if (res.success) {
+    toast('success', 'Bloqueo eliminado.');
+    loadBlockedSlotsForDoctor();
+  } else {
+    toast('error', res.error || 'Error al eliminar bloqueo.');
+  }
+}
 
 
 
