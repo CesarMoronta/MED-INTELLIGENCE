@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 CLINICAL_METADATA = {
     "Gripe Común / Influenza": {
         "alert_level": "Verde",
@@ -5,8 +6,8 @@ CLINICAL_METADATA = {
         "specialist": "Medicina General / Familiar",
         "summary": "Infección viral aguda de las vías respiratorias. Altamente contagiosa, generalmente autolimitada en pacientes sanos.",
         "clinical_tests": [
-            "**Panel Viral Respiratorio (PCR)**: Positivo para virus de Influenza A o B.",
-            "**Hemograma Completo**: Leucocitos en rango normal o leve linfocitosis reactiva."
+            "**Panel Viral Respiratorio (PCR)**: Positivo.",
+            "**Hemograma Completo**: Normal."
         ],
         "habits": [
             "Reposo absoluto en cama por al menos 48 a 72 horas.",
@@ -30,8 +31,8 @@ CLINICAL_METADATA = {
         "specialist": "Neumología / Medicina Interna",
         "summary": "Infección pulmonar aguda que inflama los alvéolos, los cuales pueden llenarse de secreciones purulentas.",
         "clinical_tests": [
-            "**Radiografía de Tórax (AP y Lateral)**: Consolidación lobar o alveolar densa.",
-            "**Hemograma Completo**: Leucocitosis marcada con neutrofilia severa.",
+            "**Radiografía de Tórax**: Consolidación lobar / alveolar.",
+            "**Hemograma Completo**: Leucocitosis con neutrofilia.",
             "**Proteína C Reactiva (PCR)**: Elevada, indica inflamación activa."
         ],
         "habits": [
@@ -57,7 +58,7 @@ CLINICAL_METADATA = {
         "summary": "Inflamación aguda de los conductos bronquiales, frecuentemente de etiología viral secundaria a un cuadro respiratorio superior previo.",
         "clinical_tests": [
             "**Radiografía de Tórax**: Campos pulmonares limpios, descarta consolidación neumónica.",
-            "**Auscultación**: Roncus y sibilancias bilaterales dispersas."
+            "**Auscultación Pulmonar**: Roncus y sibilancias bilaterales dispersas."
         ],
         "habits": [
             "Evitar exposición al humo del tabaco y vapores químicos.",
@@ -82,7 +83,7 @@ CLINICAL_METADATA = {
         "summary": "Estrechamiento agudo de las vías respiratorias bajas por espasmo muscular, edema e inflamación bronquial.",
         "clinical_tests": [
             "**Flujometría (Peak Flow)**: PEF <60% del valor teórico habitual.",
-            "**Auscultación**: Sibilancias espiratorias agudas bilaterales difusas."
+            "**Auscultación Pulmonar**: Sibilancias espiratorias agudas bilaterales difusas."
         ],
         "habits": [
             "Sentarse en posición erguida apoyando los brazos.",
@@ -131,8 +132,8 @@ CLINICAL_METADATA = {
         "specialist": "Cardiología / Urgencias",
         "summary": "Necrosis de una parte del músculo cardíaco debida a la obstrucción aguda de una arteria coronaria. Emergencia de vida.",
         "clinical_tests": [
-            "**Electrocardiograma (ECG)**: Elevación o descenso del segmento ST o bloqueo de rama izquierda nuevo.",
-            "**Troponinas Cardíacas (I o T)**: Elevación significativa en muestras seriadas."
+            "**ECG de 12 Derivaciones**: Elevación ST / Ondas Q agudas.",
+            "**Troponina I**: Elevada."
         ],
         "habits": [
             "Reposo absoluto acostado con el torso semielevado.",
@@ -157,7 +158,7 @@ CLINICAL_METADATA = {
         "summary": "Incapacidad estructural del corazón para bombear suficiente sangre, acumulando fluidos en pulmones y extremidades.",
         "clinical_tests": [
             "**Ecocardiograma**: Determina la fracción de eyección del ventrículo izquierdo (FEVI).",
-            "**Péptido Natriurético (NT-proBNP)**: Elevado significativamente.",
+            "**NT-proBNP**: Elevado.",
             "**Radiografía de Tórax**: Cardiomegalia y signos de congestión venosa pulmonar."
         ],
         "habits": [
@@ -183,8 +184,8 @@ CLINICAL_METADATA = {
         "summary": "Inflamación del músculo cardíaco, comúnmente secundaria a infecciones virales. Puede simular un infarto.",
         "clinical_tests": [
             "**Resonancia Magnética Cardíaca**: Criterios de Lake Louise positivos.",
-            "**Troponinas**: Moderadamente elevadas.",
-            "**ECG**: Cambios inespecíficos del segmento ST u ondas T."
+            "**Troponina I**: Elevada.",
+            "**ECG de 12 Derivaciones**: Inversión de onda T / Descenso ST."
         ],
         "habits": [
             "Reposo físico estricto, prohibido realizar deportes por al menos 3 a 6 meses.",
@@ -208,7 +209,7 @@ CLINICAL_METADATA = {
         "specialist": "Neurología / Infectología / Urgencias",
         "summary": "Inflamación aguda del parénquima cerebral, frecuentemente causada por virus, que causa alteración neurológica.",
         "clinical_tests": [
-            "**Punción Lumbar**: Pleocitosis linfocitaria en líquido cefalorraquídeo.",
+            "**Punción Lumbar (LCR)**: Pleocitosis linfocitaria / Proteínas elevadas.",
             "**Resonancia Magnética de Cerebro**: Señales hiperintensas en lóbulos temporales.",
             "**Electroencefalograma (EEG)**: Actividad lenta o descargas periódicas."
         ],
@@ -234,8 +235,8 @@ CLINICAL_METADATA = {
         "specialist": "Neurología / Urgencias",
         "summary": "Pérdida de flujo sanguíneo a una parte del cerebro (isquémico) o ruptura de un vaso sanguíneo cerebral (hemorrágico). Tiempo-dependiente.",
         "clinical_tests": [
-            "**Tomografía Computada de Cráneo (TC Simple)**: Permite diferenciar isquemia de hemorragia.",
-            "**Resonancia Magnética**: Altamente sensible en las primeras horas."
+            "**TC de Cráneo**: Isquemia cerebral aguda / Infarto hiperagudo.",
+            "**Resonancia Magnética de Cerebro**: Lesión isquémica o hemorrágica aguda."
         ],
         "habits": [
             "Mantener al paciente acostado con la cabeza a 30 grados.",
@@ -259,8 +260,8 @@ CLINICAL_METADATA = {
         "specialist": "Neurología / Medicina General",
         "summary": "Cefalea primaria recurrente, intensa, de carácter pulsátil, usualmente unilateral, que se acompaña de náuseas o fotofobia.",
         "clinical_tests": [
-            "**Examen Neurológico**: Completamente normal durante e inter crisis.",
-            "**TC de Cráneo**: Normal, indicada solo ante signos de alarma."
+            "**Examen Neurológico**: Normal.",
+            "**TC de Cráneo**: Normal."
         ],
         "habits": [
             "Reposo en habitación oscura, fresca y sin ruidos.",
@@ -284,8 +285,8 @@ CLINICAL_METADATA = {
         "specialist": "Medicina General / Infectología",
         "summary": "Infección viral transmitida por el mosquito Aedes aegypti. Caracterizada por fiebre alta repentina y dolores corporales intensos.",
         "clinical_tests": [
-            "**Prueba Rápida de Dengue (Antígeno NS1 / IgM-IgG)**: Positiva.",
-            "**Hemograma Completo**: Trombocitopenia (plaquetas bajas) y leucopenia."
+            "**Prueba rápida de Dengue (Antígeno NS1 / IgM-IgG)**: Positiva.",
+            "**Hemograma Completo**: Hemoconcentración y trombocitopenia."
         ],
         "habits": [
             "Reposo absoluto en cama bajo mosquitero para evitar propagación.",
@@ -308,7 +309,7 @@ CLINICAL_METADATA = {
         "specialist": "Infectología / Medicina Interna / Urgencias",
         "summary": "Forma severa del dengue caracterizada por choque por fuga de plasma, hemorragias graves o falla orgánica múltiple.",
         "clinical_tests": [
-            "**Hemograma**: Hemoconcentración marcada (aumento rápido del hematocrito) y plaquetas <100,000/mm³.",
+            "**Hemograma Completo**: Hemoconcentración y trombocitopenia.",
             "**Ecografía Abdominal**: Presencia de ascitis o derrame pleural."
         ],
         "habits": [
@@ -332,8 +333,8 @@ CLINICAL_METADATA = {
         "specialist": "Medicina General / Ginecología (embarazadas)",
         "summary": "Enfermedad viral transmitida por mosquitos, a menudo muy leve, pero con alta importancia por riesgo de malformaciones fetales (microcefalia).",
         "clinical_tests": [
-            "**Prueba de PCR en Sangre u Orina (Zika)**: Positiva en la fase aguda.",
-            "**Hemograma**: Generalmente normal o con alteraciones muy leves."
+            "**Prueba de PCR en Sangre u Orina (Zika)**: Positiva.",
+            "**Hemograma Completo**: Normal."
         ],
         "habits": [
             "Abundante hidratación y reposo relativo.",
@@ -358,7 +359,7 @@ CLINICAL_METADATA = {
         "summary": "Infección viral caracterizada por la aparición súbita de fiebre alta y dolores articulares bilaterales severos y debilitantes.",
         "clinical_tests": [
             "**Serología (Chikungunya IgM)**: Positiva.",
-            "**PCR específico**: Detectable en los primeros 5 días."
+            "**PCR específico (Chikungunya)**: Positiva."
         ],
         "habits": [
             "Reposo absoluto por la severidad del dolor articular.",
@@ -383,7 +384,7 @@ CLINICAL_METADATA = {
         "summary": "Infección bacteriana o viral del oído medio, común tras resfriados. Se caracteriza por dolor de oído intenso y sordera temporal.",
         "clinical_tests": [
             "**Otoscopia**: Membrana timpánica abombada, eritematosa (roja) y con movilidad disminuida.",
-            "**Examen Clínico**: Dolor a la palpación de la mastoides o tracción leve."
+            "**Palpación de la Mastoides**: Dolor a la palpación / Tracción leve."
         ],
         "habits": [
             "Evitar la entrada de agua en el oído afectado al bañarse.",
@@ -408,7 +409,7 @@ CLINICAL_METADATA = {
         "summary": "Infección del conducto auditivo externo, comúnmente llamada 'oído de nadador', debido a retención de humedad.",
         "clinical_tests": [
             "**Otoscopia**: Conducto auditivo externo eritematoso, edematoso, con detritos celulares.",
-            "**Signo del Trago**: Dolor intenso al presionar el trago de la oreja."
+            "**Signo del Trago**: Positivo (Dolor intenso)."
         ],
         "habits": [
             "Mantener el oído completamente seco (usar tapones o algodón con vaselina al ducharse).",
@@ -432,7 +433,7 @@ CLINICAL_METADATA = {
         "specialist": "Otorrinolaringología / Medicina General",
         "summary": "Inflamación de la mucosa de los senos paranasales, caracterizada por congestión nasal, secreción purulenta y dolor facial.",
         "clinical_tests": [
-            "**Examen Clínico**: Dolor a la presión sobre los senos maxilares o frontales.",
+            "**Presión sobre Senos Paranasales**: Dolor a la presión.",
             "**TC de Senos Paranasales**: Oclusión y niveles hidroaéreos (indicado solo en casos recurrentes)."
         ],
         "habits": [
@@ -458,7 +459,7 @@ CLINICAL_METADATA = {
         "summary": "Infección respiratoria viral por SARS-CoV-2. Cursa con síntomas gripales y malestar general en casos leves o moderados.",
         "clinical_tests": [
             "**Prueba rápida de Antígeno SARS-CoV-2**: Positiva.",
-            "**PCR Nasofaríngeo**: Detecta ARN viral."
+            "**PCR Nasofaríngeo**: Positivo."
         ],
         "habits": [
             "Aislamiento preventivo en habitación ventilada durante el periodo activo.",
@@ -482,9 +483,9 @@ CLINICAL_METADATA = {
         "specialist": "Neumología / Medicina Crítica",
         "summary": "Infección sistémica por SARS-CoV-2 que progresa a neumonía bilateral grave, insuficiencia respiratoria y SDRA.",
         "clinical_tests": [
-            "**Radiografía/TC de Tórax**: Infiltrados bilaterales en vidrio deslustrado extensos.",
-            "**Gasometría Arterial**: Hipoxia severa con índice de Kirby (PaO2/FiO2) disminuido.",
-            "**Dímero D / PCR / Ferritina**: Elevados significativamente."
+            "**Radiografía de Tórax**: Infiltrados bilaterales en vidrio deslustrado.",
+            "**Gasometría Arterial**: Hipoxia severa (PaO2 <60).",
+            "**Dímero D**: Elevado."
         ],
         "habits": [
             "Hospitalización inmediata en sala de aislamiento COVID de alta complejidad.",
@@ -534,7 +535,7 @@ CLINICAL_METADATA = {
         "summary": "Infección bacteriana aguda de la faringe por Streptococcus pyogenes, caracterizada por placas purulentas y adenopatías dolorosas.",
         "clinical_tests": [
             "**Criterios de Centor**: >=3 puntos (alta sospecha bacteriana).",
-            "**Prueba rápida de estreptococo / Cultivo faríngeo**: Positivo."
+            "**Prueba rápida de estreptococo**: Positiva."
         ],
         "habits": [
             "Evitar compartir vasos o utensilios de comida para prevenir el contagio.",
@@ -559,7 +560,7 @@ CLINICAL_METADATA = {
         "summary": "Obstrucción de una arteria pulmonar por un coágulo desprendido (usualmente de las piernas). Cuadro agudo potencialmente mortal.",
         "clinical_tests": [
             "**Angio-TC Pulmonar**: Defecto de llenado arterial en el árbol pulmonar.",
-            "**Dímero D**: Elevado (alta sensibilidad, baja especificidad).",
+            "**Dímero D**: Elevado.",
             "**Ecocardiograma**: Signos de sobrecarga del ventrículo derecho."
         ],
         "habits": [
@@ -584,9 +585,9 @@ CLINICAL_METADATA = {
         "specialist": "Endocrinología / Medicina Interna",
         "summary": "Trastorno metabólico crónico caracterizado por resistencia a la insulina e hiperglucemia. Requiere control estricto a largo plazo.",
         "clinical_tests": [
-            "**Glucemia en Ayunas**: >=126 mg/dL en dos ocasiones.",
+            "**Glucosa en Ayunas**: Alto (>=126 mg/dL).",
             "**Hemoglobina Glicosilada (HbA1c)**: >=6.5% confirma diagnóstico.",
-            "**Examen de Orina**: Evalúa glucosuria o microalbuminuria."
+            "**Examen General de Orina (EGO)**: Patológico (Leucocituria / Nitritos + / Glucosuria)."
         ],
         "habits": [
             "Dieta baja en azúcares refinados y carbohidratos simples.",
@@ -635,7 +636,7 @@ CLINICAL_METADATA = {
         "specialist": "Gastroenterología / Infectología",
         "summary": "Infección intestinal bacteriana (ej. Salmonella, Shigella, Campylobacter) adquirida por alimentos contaminados. Frecuentemente causa diarrea con moco o sangre.",
         "clinical_tests": [
-            "**Coprocultivo / Reacción Inflamatoria en Heces**: Positivo para bacterias o presencia de leucocitos abundantes.",
+            "**Coprocultivo**: Positivo para bacterias patógenas (Salmonella/Shigella/Campylobacter).",
             "**Hemograma Completo**: Leucocitosis con neutrofilia."
         ],
         "habits": [
@@ -660,8 +661,8 @@ CLINICAL_METADATA = {
         "specialist": "Pediatría / Gastroenterología / Infectología",
         "summary": "Infección intestinal por protozoos o helmintos (ej. Giardia, Entamoeba). Cursa con diarrea prolongada, cólicos y meteorismo.",
         "clinical_tests": [
-            "**Examen Coproparasitológico Seriados**: Presencia de quistes, trofozoítos o huevos.",
-            "**Prueba de Antígeno en heces**: Positiva para Giardia o amebas."
+            "**Examen Coproparasitológico Seriados**: Presencia de quistes o trofozoítos (Giardia/Amebas).",
+            "**Prueba de Antígeno en Heces**: Positiva para Giardia o amebas."
         ],
         "habits": [
             "Hervir el agua de consumo o beber agua embotellada.",
@@ -685,7 +686,7 @@ CLINICAL_METADATA = {
         "specialist": "Medicina General / Familiar",
         "summary": "Infección viral benigna de las vías aéreas superiores. Produce congestión nasal, estornudos y malestar general leve.",
         "clinical_tests": [
-            "**Examen Clínico Nasofaríngeo**: Mucosa nasal eritematosa, rinorrea clara.",
+            "**Examen Clínico Nasofaríngeo**: Eritema de mucosa nasal / Rinorrea clara.",
             "**Radiografía de Tórax**: Normal, campos pulmonares limpios."
         ],
         "habits": [
@@ -711,7 +712,7 @@ CLINICAL_METADATA = {
         "summary": "Infección bacteriana localizada en la vejiga urinaria. Es muy común en mujeres y produce dolor al orinar y micción frecuente.",
         "clinical_tests": [
             "**Examen General de Orina (EGO)**: Leucocituria, nitritos positivos y presencia de bacterias.",
-            "**Urocultivo**: Confirma agente bacteriano (usualmente E. coli) con antibiograma."
+            "**Urocultivo**: Positivo (>100,000 UFC)."
         ],
         "habits": [
             "Aumentar el consumo de agua a 3 litros diarios para favorecer la eliminación de bacterias.",
@@ -735,9 +736,10 @@ CLINICAL_METADATA = {
         "specialist": "Nefrología / Urología / Infectología",
         "summary": "Infección bacteriana grave que asciende al riñón. Se manifiesta con fiebre, escalofríos intensos y dolor en la fosa renal.",
         "clinical_tests": [
-            "**Examen de Orina y Urocultivo**: Altamente patológico, bacterias y leucocitos.",
-            "**Hemograma**: Leucocitosis con desviación a la izquierda.",
-            "**Ecografía Renal**: Descarte de obstrucción o absceso renal."
+            "**Examen General de Orina (EGO)**: Patológico (Leucocituria / Nitritos + / Glucosuria).",
+            "**Urocultivo**: Positivo (>100,000 UFC).",
+            "**Hemograma Completo**: Leucocitosis con neutrofilia.",
+            "**Ecografía Renal**: Ectasia piélica / Signos inflamatorios o absceso renal."
         ],
         "habits": [
             "Reposo absoluto en cama.",
@@ -761,8 +763,8 @@ CLINICAL_METADATA = {
         "specialist": "Gastroenterología / Medicina Interna",
         "summary": "Retorno anormal del contenido ácido del estómago hacia el esófago debido a disfunción del esfínter esofágico inferior.",
         "clinical_tests": [
-            "**Endoscopia Digestiva Alta (EDA)**: Descarta esofagitis, hernia hiatal o esófago de Barrett.",
-            "**pH-metría de 24 horas**: Gold standard para confirmar reflujo ácido."
+            "**Endoscopia Digestiva Alta**: Esofagitis / Hernia hiatal.",
+            "**pH-metría de 24 horas**: Confirmatorio de reflujo ácido."
         ],
         "habits": [
             "Evitar acostarse antes de 2 a 3 horas después de ingerir alimentos.",
@@ -786,8 +788,8 @@ CLINICAL_METADATA = {
         "specialist": "Gastroenterología / Medicina General",
         "summary": "Inflamación aguda de la mucosa gástrica, frecuentemente secundaria a consumo de AINEs, alcohol o estrés severo.",
         "clinical_tests": [
-            "**Endoscopia Digestiva Alta**: Visualiza mucosa eritematosa o erosiones superficiales.",
-            "**Prueba de aliento para H. pylori**: Descarta infección asociada."
+            "**Endoscopia Digestiva Alta**: Erosiones superficiales / Mucosa eritematosa.",
+            "**Prueba para H. pylori**: Positivo."
         ],
         "habits": [
             "Dieta blanda fraccionada, libre de irritantes (grasas, condimentos, cítricos, picantes).",
@@ -811,8 +813,8 @@ CLINICAL_METADATA = {
         "specialist": "Gastroenterología / Medicina Interna",
         "summary": "Lesión profunda en la mucosa del estómago o duodeno. Caracterizada por dolor epigástrico quemante que se alivia o empeora con la comida.",
         "clinical_tests": [
-            "**Endoscopia Digestiva Alta con biopsia**: Descarta malignidad y confirma presencia de la úlcera.",
-            "**Detección de H. pylori**: Confirmatorio mediante biopsia o prueba de antígenos."
+            "**Endoscopia Digestiva Alta**: Úlcera péptica activa / Visualizada.",
+            "**Prueba para H. pylori**: Positivo."
         ],
         "habits": [
             "Evitar el ayuno prolongado; realizar comidas frecuentes de menor volumen.",
@@ -836,8 +838,8 @@ CLINICAL_METADATA = {
         "specialist": "Pediatría / Medicina General",
         "summary": "Infección viral altamente contagiosa por el virus varicela-zóster. Produce sarpullido pruriginoso característico con vesículas.",
         "clinical_tests": [
-            "**Examen Clínico Visual**: Lesiones en diferentes estadios (máculas, pápulas, vesículas y costras).",
-            "**PCR del líquido de la vesícula**: Confirma en casos de duda diagnóstica."
+            "**Examen Clínico Visual**: Lesiones pleomórficas en diferentes estadios (máculas, pápulas, vesículas, costras).",
+            "**PCR del líquido de la vesícula**: Positivo."
         ],
         "habits": [
             "Mantener las uñas cortas y limpias para evitar sobreinfecciones bacterianas por rascado.",

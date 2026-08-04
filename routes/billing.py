@@ -5,8 +5,9 @@ from flask import Blueprint, request, jsonify, session
 from database import (get_connection, get_visit, create_invoice,
                       list_pending_bills, list_invoices, get_user_by_id,
                       save_patient_billing_info, get_invoice_by_id,
-                      get_patient_billing_info, get_all_clinic_settings)
-from utils import requires_login, requires_role, get_current_user
+                      get_patient_billing_info, get_all_clinic_settings,
+                      log_audit_action)
+from utils import requires_login, requires_role, get_current_user, get_client_ip
 from functools import wraps
 
 billing_bp = Blueprint("billing_bp", __name__)
@@ -69,6 +70,7 @@ def api_list_invoices():
 @requires_login
 @requires_billing_permission
 def api_charge_visit():
+    u = get_current_user()
     data = request.json or {}
     visit_id = data.get("visit_id")
     payment_method = data.get("payment_method", "efectivo").lower()
@@ -135,6 +137,13 @@ def api_charge_visit():
         cursor.close()
         conn.close()
         
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Billing",
+            entity_id=str(inv_id),
+            details=f"Pago de saldo pendiente para factura ID {inv_id} registrado con éxito (Abonado: {paid_now}, Pendiente: {new_balance_due})",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
+
         return jsonify({
             "success": True,
             "message": "Pago de balance pendiente registrado con éxito.",
@@ -306,6 +315,13 @@ def api_charge_visit():
 
         if not invoice_id:
             return jsonify({"success": False, "error": "Error interno al guardar la factura."}), 500
+
+        log_audit_action(
+            username=u.get("username"), action="CREATE", entity="Billing",
+            entity_id=str(invoice_id),
+            details=f"Generó factura ID {invoice_id} por consulta de visita ID {visit_id} (Tipo: E{tipo_ecf}, Total: {total_amount})",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
 
         return jsonify({
             "success": True,
@@ -588,6 +604,14 @@ def api_create_credit_note():
 
         if not success:
             return jsonify({"success": False, "error": "Error interno al guardar la Nota de Crédito."}), 500
+
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="CREATE", entity="Billing",
+            entity_id=str(invoice_id),
+            details=f"Generó Nota de Crédito (E34) para factura original ID {invoice_id} por RD$ {monto_total}",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
 
         return jsonify({
             "success": True,

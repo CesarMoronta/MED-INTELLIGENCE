@@ -149,13 +149,13 @@ async function runGeminiAnalysis(probs) {
         ` : ''}
 
         ${res.diagnostico_propuesto && res.diagnostico_propuesto !== topBayesDiag ? `
-          <div class="gemini-correction-banner" style="margin-top:16px; padding:16px; background: rgba(239, 68, 68, 0.15); border: 1px dashed #ef4444; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
-              <span style="color:#ef4444; font-weight:bold; font-size:14px; display: flex; align-items: center; gap: 6px;">
+          <div class="gemini-correction-banner">
+            <div class="gemini-correction-text" style="display: flex; flex-direction: column; gap: 4px;">
+              <span class="gemini-correction-title">
                 ⚠️ Discrepancia Clínica Detectada
               </span>
-              <span style="font-size:13px; color: var(--text);">
-                La IA sugiere cambiar el diagnóstico a: <strong style="color:var(--brand-light);">${res.diagnostico_propuesto}</strong>.
+              <span>
+                La IA sugiere cambiar el diagnóstico a: <strong class="gemini-correction-diag">${res.diagnostico_propuesto}</strong>.
               </span>
             </div>
             <button type="button" class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; margin: 0; background-color: #ef4444; border-color: #ef4444;" onclick="applyAIDiagnosis('${res.diagnostico_propuesto.replace(/'/g, "\\'")}')">

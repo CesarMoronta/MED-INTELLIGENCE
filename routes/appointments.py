@@ -3,8 +3,8 @@ from database import (list_appointments, create_appointment, update_appointment_
                       reschedule_appointment, update_appointment, get_waiting_room,
                       mark_patient_arrived, confirm_appointment, get_patient,
                       get_appointment, check_appointment_clash, get_clinic_working_hours,
-                      get_connection)
-from utils import requires_login, requires_role, get_current_user
+                      get_connection, log_audit_action)
+from utils import requires_login, requires_role, get_current_user, get_client_ip
 
 appointments_bp = Blueprint("appointments_bp", __name__)
 
@@ -135,6 +135,13 @@ def api_create_appointment():
         return jsonify({"success": False, "error": err}), 400
 
     app_id = create_appointment(patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_app_id)
+    u = get_current_user()
+    log_audit_action(
+        username=u.get("username"), action="CREATE", entity="Appointment",
+        entity_id=str(app_id),
+        details=f"Agendó cita ID {app_id} para paciente ID {patient_id} con doctor ID {doctor_id} el {scheduled_date} a las {scheduled_time}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
     return jsonify({"success": True, "appointment_id": app_id, "message": "Cita agendada."})
 
 
@@ -204,6 +211,13 @@ def api_update_appointment(app_id):
         return jsonify({"success": False, "error": "Faltan campos requeridos."}), 400
 
     if updated:
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Appointment",
+            entity_id=str(app_id),
+            details=f"Actualizó detalles de cita ID {app_id} (Estado: {status or current_app.get('status')})",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Cita actualizada."})
     return jsonify({"success": False, "error": "Cita no encontrada."}), 404
 
@@ -234,6 +248,13 @@ def api_update_appointment_status(app_id):
 
     updated = update_appointment_status(app_id, status)
     if updated:
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Appointment",
+            entity_id=str(app_id),
+            details=f"Actualizó estado de cita ID {app_id} a '{status}'",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Estado actualizado."})
     return jsonify({"success": False, "error": "Cita no encontrada."}), 404
 
@@ -264,6 +285,13 @@ def api_reschedule_appointment(app_id):
 
     updated = reschedule_appointment(app_id, new_date, new_time)
     if updated:
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Appointment",
+            entity_id=str(app_id),
+            details=f"Reprogramó cita ID {app_id} para el {new_date} a las {new_time}",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Cita reprogramada."})
     return jsonify({"success": False, "error": "Cita no encontrada."}), 404
 
@@ -287,6 +315,13 @@ def api_mark_arrived(app_id):
     """Marca que el paciente llegó al consultorio."""
     ok = mark_patient_arrived(app_id)
     if ok:
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Appointment",
+            entity_id=str(app_id),
+            details=f"Marcó llegada del paciente para la cita ID {app_id}",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Paciente registrado como llegado."})
     return jsonify({"success": False, "error": "Cita no encontrada."}), 404
 
@@ -300,5 +335,12 @@ def api_confirm_appointment(app_id):
     notes = data.get("notes", "")
     ok    = confirm_appointment(app_id, notes)
     if ok:
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Appointment",
+            entity_id=str(app_id),
+            details=f"Confirmó cita ID {app_id}",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Cita confirmada."})
     return jsonify({"success": False, "error": "Cita no encontrada."}), 404

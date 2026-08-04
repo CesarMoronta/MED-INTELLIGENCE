@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 from extensions import engine, gemini_layer
-from database import save_diagnosis, save_visit_tests, get_medical_tests, get_user_by_id
+from database import save_diagnosis, save_visit_tests, get_medical_tests, get_user_by_id, log_audit_action
 from diagnostic_engine import OfflineAIEngine, CLINICAL_METADATA
-from utils import requires_login, get_current_user
+from utils import requires_login, get_current_user, get_client_ip
 
 diagnostics_bp = Blueprint("diagnostics_bp", __name__)
 
@@ -323,6 +323,14 @@ def api_diagnose_final():
                 if tests_resultados:
                     save_visit_tests(int(visit_id), tests_resultados)
 
+                u = get_current_user()
+                log_audit_action(
+                    username=u.get("username"), action="CREATE", entity="Diagnosis",
+                    entity_id=str(visit_id),
+                    details=f"Guardó diagnóstico {diagnostico} (Fase final - Manual) para la visita ID {visit_id}",
+                    ip_address=get_client_ip(), user_id=u.get("id")
+                )
+
             return jsonify({
                 "success": True,
                 "patient_name": patient_name,
@@ -408,6 +416,14 @@ def api_diagnose_final():
             )
             if tests_resultados:
                 save_visit_tests(int(visit_id), tests_resultados)
+
+            u = get_current_user()
+            log_audit_action(
+                username=u.get("username"), action="CREATE", entity="Diagnosis",
+                entity_id=str(visit_id),
+                details=f"Guardó diagnóstico {diagnostico} (Fase final - Algorítmico) para la visita ID {visit_id}",
+                ip_address=get_client_ip(), user_id=u.get("id")
+            )
 
         return jsonify({
             "success": True,

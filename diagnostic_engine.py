@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import time
 import math
 import copy
@@ -221,8 +222,9 @@ class BayesianDiagnosticSystem:
                 "Negativo": {"Gripe Común / Influenza": 0.02, "COVID-19": 0.02, "COVID-19 Grave": 0.02, "Resfriado Común (Rinofaringitis)": 0.40}
             },
             "Hemograma Completo": {
-                "Leucocitosis": {"Neumonía": 0.88, "Bronquitis Aguda": 0.65, "Faringoamigdalitis Estreptocócica": 0.82, "Pielonefritis Aguda (IVU Alta)": 0.85, "Gastroenteritis Aguda Bacteriana": 0.70},
-                "Leucopenia": {"Dengue No Grave (Clásico)": 0.90, "Dengue Grave": 0.92, "COVID-19": 0.55, "Gripe Común / Influenza": 0.45},
+                "Leucocitosis con neutrofilia": {"Neumonía": 0.88, "Bronquitis Aguda": 0.65, "Faringoamigdalitis Estreptocócica": 0.82, "Pielonefritis Aguda (IVU Alta)": 0.85, "Gastroenteritis Aguda Bacteriana": 0.70},
+                "Leucopenia con linfocitosis": {"Dengue No Grave (Clásico)": 0.90, "Dengue Grave": 0.92, "COVID-19": 0.55, "Gripe Común / Influenza": 0.45},
+                "Hemoconcentración y trombocitopenia": {"Dengue Grave": 0.95, "Dengue No Grave (Clásico)": 0.40},
                 "Normal": {"Gripe Común / Influenza": 0.75, "Migraña Severa": 0.80, "Resfriado Común (Rinofaringitis)": 0.85, "Reflujo Gastroesofágico (ERGE)": 0.90, "Cistitis Aguda (IVU Baja)": 0.80}
             },
             "Glucosa en Ayunas": {
@@ -234,8 +236,9 @@ class BayesianDiagnosticSystem:
                 "Normal": {"Diabetes Mellitus Tipo 2": 0.03}
             },
             "Radiografía de Tórax": {
-                "Consolidación": {"Neumonía": 0.92, "COVID-19 Grave": 0.85},
-                "Vidrio deslustrado": {"COVID-19": 0.80, "COVID-19 Grave": 0.90, "Neumonía": 0.60},
+                "Consolidación lobar / alveolar": {"Neumonía": 0.92, "COVID-19 Grave": 0.85},
+                "Infiltrados bilaterales en vidrio deslustrado": {"COVID-19": 0.80, "COVID-19 Grave": 0.90, "Neumonía": 0.60},
+                "Hiperinsuflación pulmonar / Aumento de trama": {"Crisis Asmática Aguda": 0.75, "Exacerbación Aguda de EPOC": 0.80},
                 "Normal": {"Bronquitis Aguda": 0.75, "Gripe Común / Influenza": 0.70, "Crisis Asmática Aguda": 0.70, "Resfriado Común (Rinofaringitis)": 0.95, "Reflujo Gastroesofágico (ERGE)": 0.98}
             },
             "Antígeno NS1 (Dengue)": {
@@ -247,31 +250,36 @@ class BayesianDiagnosticSystem:
                 "Normal": {"Infarto Agudo de Miocardio (IAM)": 0.05, "Miocarditis": 0.15}
             },
             "ECG de 12 Derivaciones": {
-                "Elevación ST": {"Infarto Agudo de Miocardio (IAM)": 0.92},
-                "Normal": {"Infarto Agudo de Miocardio (IAM)": 0.05, "Migraña Severa": 0.90}
+                "Elevación ST / Ondas Q agudas": {"Infarto Agudo de Miocardio (IAM)": 0.92},
+                "Inversión de onda T / Descenso ST": {"Infarto Agudo de Miocardio (IAM)": 0.60, "Miocarditis": 0.50},
+                "Taquicardia sinusal / Signo S1Q3T3": {"Tromboembolismo Pulmonar": 0.85, "Crisis Asmática Aguda": 0.40},
+                "Normal": {"Infarto Agudo de Miocardio (IAM)": 0.05, "Migraña Severa": 0.90, "Crisis Asmática Aguda": 0.55}
             },
             "Dímero D": {
                 "Elevado": {"Tromboembolismo Pulmonar": 0.88, "COVID-19 Grave": 0.70, "Dengue Grave": 0.60},
                 "Normal": {"Tromboembolismo Pulmonar": 0.10}
             },
             "Punción Lumbar (LCR)": {
-                "Pleocitosis linfocitaria": {"Encefalitis": 0.92, "Accidente Cerebrovascular (ACV)": 0.08},
+                "Pleocitosis linfocitaria / Proteínas elevadas": {"Encefalitis": 0.92, "Accidente Cerebrovascular (ACV)": 0.08},
                 "Normal": {"Encefalitis": 0.05, "Migraña Severa": 0.85}
             },
             "TC de Cráneo": {
-                "Anormal (sangrado/isquemia)": {"Accidente Cerebrovascular (ACV)": 0.90, "Encefalitis": 0.40},
-                "Normal": {"Migraña Severa": 0.90, "Accidente Cerebrovascular (ACV)": 0.15}
+                "Normal": {"Migraña Severa": 0.99, "Accidente Cerebrovascular (ACV)": 0.15, "Encefalitis": 0.50},
+                "Hemorragia intracraneal aguda": {"Accidente Cerebrovascular (ACV)": 0.40, "Migraña Severa": 0.00},
+                "Isquemia cerebral aguda / Infarto hiperagudo": {"Accidente Cerebrovascular (ACV)": 0.55, "Migraña Severa": 0.00},
+                "Edema cerebral / Efecto de masa": {"Encefalitis": 0.45, "Accidente Cerebrovascular (ACV)": 0.10, "Migraña Severa": 0.00}
             },
             "Flujometría (Peak Flow)": {
                 "PEF <60%": {"Crisis Asmática Aguda": 0.90, "Exacerbación Aguda de EPOC": 0.75},
                 "Normal": {"Crisis Asmática Aguda": 0.10, "Exacerbación Aguda de EPOC": 0.20}
             },
             "Otoscopia": {
-                "Patológica": {"Otitis Media Aguda": 0.95, "Otitis Externa Aguda": 0.92},
+                "Membrana timpánica abombada / Eritematosa": {"Otitis Media Aguda": 0.95},
+                "CAE eritematoso / Edematoso / Con detritos": {"Otitis Externa Aguda": 0.92},
                 "Normal": {"Otitis Media Aguda": 0.05, "Otitis Externa Aguda": 0.08}
             },
             "TC de Senos Paranasales": {
-                "Niveles hidroaéreos": {"Sinusitis Aguda": 0.95},
+                "Niveles hidroaéreos / Engrosamiento mucoso": {"Sinusitis Aguda": 0.95},
                 "Normal": {"Sinusitis Aguda": 0.05}
             },
             "Gasometría Arterial": {
@@ -291,18 +299,134 @@ class BayesianDiagnosticSystem:
                 "Normal": {"Tromboembolismo Pulmonar": 0.03}
             },
             "Examen General de Orina (EGO)": {
-                "Patológico": {"Cistitis Aguda (IVU Baja)": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.96},
-                "Normal": {"Cistitis Aguda (IVU Baja)": 0.05, "Pielonefritis Aguda (IVU Alta)": 0.04}
+                "Patológico (Leucocituria / Nitritos + / Glucosuria)": {"Cistitis Aguda (IVU Baja)": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.96, "Diabetes Mellitus Tipo 2": 0.40},
+                "Normal": {"Cistitis Aguda (IVU Baja)": 0.05, "Pielonefritis Aguda (IVU Alta)": 0.04, "Diabetes Mellitus Tipo 2": 0.60}
             },
             "Endoscopia Digestiva Alta": {
                 "Esofagitis / Hernia hiatal": {"Reflujo Gastroesofágico (ERGE)": 0.85},
-                "Erosiones gástricas": {"Gastritis Aguda": 0.90},
-                "Úlcera visualizada": {"Úlcera Péptica No Complicada": 0.95},
+                "Erosiones superficiales / Mucosa eritematosa": {"Gastritis Aguda": 0.90},
+                "Úlcera péptica activa / Visualizada": {"Úlcera Péptica No Complicada": 0.95},
                 "Normal": {"Reflujo Gastroesofágico (ERGE)": 0.15, "Gastritis Aguda": 0.10, "Úlcera Péptica No Complicada": 0.05}
             },
             "Urocultivo": {
                 "Positivo (>100,000 UFC)": {"Cistitis Aguda (IVU Baja)": 0.96, "Pielonefritis Aguda (IVU Alta)": 0.97},
                 "Negativo": {"Cistitis Aguda (IVU Baja)": 0.04, "Pielonefritis Aguda (IVU Alta)": 0.03}
+            },
+            "Examen Neurológico": {
+                "Normal": {"Migraña Severa": 0.99, "Encefalitis": 0.05, "Accidente Cerebrovascular (ACV)": 0.08},
+                "Déficit motor o sensitivo focal": {"Accidente Cerebrovascular (ACV)": 0.92, "Encefalitis": 0.25, "Migraña Severa": 0.01},
+                "Alteración del estado mental / Confusión": {"Encefalitis": 0.85, "Accidente Cerebrovascular (ACV)": 0.30, "Migraña Severa": 0.01},
+                "Rigidez de nuca / Signos meníngeos": {"Encefalitis": 0.60, "Accidente Cerebrovascular (ACV)": 0.02, "Migraña Severa": 0.00}
+            },
+            "Coprocultivo": {
+                "Negativo para bacterias patógenas": {"Gastroenteritis Aguda Viral": 0.99, "Gastroenteritis Aguda Parasitaria": 0.95, "Gastroenteritis Aguda Bacteriana": 0.15},
+                "Positivo para bacterias patógenas (Salmonella/Shigella/Campylobacter)": {"Gastroenteritis Aguda Bacteriana": 0.85, "Gastroenteritis Aguda Viral": 0.00, "Gastroenteritis Aguda Parasitaria": 0.00}
+            },
+            "Examen Coproparasitológico Seriados": {
+                "Negativo": {"Gastroenteritis Aguda Viral": 0.98, "Gastroenteritis Aguda Bacteriana": 0.95, "Gastroenteritis Aguda Parasitaria": 0.15},
+                "Presencia de quistes o trofozoítos (Giardia/Amebas)": {"Gastroenteritis Aguda Parasitaria": 0.85, "Gastroenteritis Aguda Viral": 0.00, "Gastroenteritis Aguda Bacteriana": 0.00}
+            },
+            "Electrólitos Séricos": {
+                "Normal": {"Gastroenteritis Aguda Viral": 0.65, "Gastroenteritis Aguda Bacteriana": 0.55, "Gastroenteritis Aguda Parasitaria": 0.75, "Migraña Severa": 0.99},
+                "Hipopotasemia / Alteración hidroelectrolítica": {"Gastroenteritis Aguda Bacteriana": 0.45, "Gastroenteritis Aguda Viral": 0.35, "Gastroenteritis Aguda Parasitaria": 0.25, "Migraña Severa": 0.01}
+            },
+            "Ecografía Renal": {
+                "Normal": {"Cistitis Aguda (IVU Baja)": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.25},
+                "Ectasia piélica / Signos inflamatorios o absceso renal": {"Pielonefritis Aguda (IVU Alta)": 0.75, "Cistitis Aguda (IVU Baja)": 0.05}
+            },
+            "Electroencefalograma (EEG)": {
+                "Normal": {"Migraña Severa": 0.98, "Encefalitis": 0.20, "Accidente Cerebrovascular (ACV)": 0.80},
+                "Actividad lenta focal o difusa / Descargas paroxísticas": {"Encefalitis": 0.80, "Accidente Cerebrovascular (ACV)": 0.20, "Migraña Severa": 0.02}
+            },
+            "Resonancia Magnética de Cerebro": {
+                "Normal": {"Migraña Severa": 0.99, "Encefalitis": 0.10, "Accidente Cerebrovascular (ACV)": 0.05},
+                "Hiperintensidades en lóbulos temporales (compatible con Encefalitis herpética)": {"Encefalitis": 0.90, "Accidente Cerebrovascular (ACV)": 0.01},
+                "Lesión isquémica o hemorrágica aguda": {"Accidente Cerebrovascular (ACV)": 0.95, "Encefalitis": 0.05}
+            },
+            "Prueba de PCR en Sangre u Orina (Zika)": {
+                "Positiva": {"Fiebre Zika": 0.98},
+                "Negativa": {"Fiebre Zika": 0.02}
+            },
+            "Serología (Chikungunya IgM)": {
+                "Positiva": {"Fiebre Chikungunya": 0.98},
+                "Negativa": {"Fiebre Chikungunya": 0.02}
+            },
+            "PCR específico (Chikungunya)": {
+                "Positiva": {"Fiebre Chikungunya": 0.98},
+                "Negativa": {"Fiebre Chikungunya": 0.02}
+            },
+            "Prueba rápida de Antígeno SARS-CoV-2": {
+                "Positiva": {"COVID-19": 0.95, "COVID-19 Grave": 0.95},
+                "Negativa": {"COVID-19": 0.05, "COVID-19 Grave": 0.05}
+            },
+            "PCR Nasofaríngeo": {
+                "Positivo": {"COVID-19": 0.98, "COVID-19 Grave": 0.98},
+                "Negativo": {"COVID-19": 0.02, "COVID-19 Grave": 0.02}
+            },
+            "Prueba rápida de Dengue (Antígeno NS1 / IgM-IgG)": {
+                "Positiva": {"Dengue No Grave (Clásico)": 0.97, "Dengue Grave": 0.97},
+                "Negativa": {"Dengue No Grave (Clásico)": 0.05, "Dengue Grave": 0.05}
+            },
+            "Signo del Trago": {
+                "Positivo (Dolor intenso)": {"Otitis Externa Aguda": 0.95, "Otitis Media Aguda": 0.15},
+                "Negativo": {"Otitis Externa Aguda": 0.05, "Otitis Media Aguda": 0.85}
+            },
+            "Palpación de la Mastoides": {
+                "Dolor a la palpación / Tracción leve": {"Otitis Media Aguda": 0.92},
+                "Sin dolor": {"Otitis Media Aguda": 0.08}
+            },
+            "Presión sobre Senos Paranasales": {
+                "Dolor a la presión": {"Sinusitis Aguda": 0.95},
+                "Sin dolor": {"Sinusitis Aguda": 0.05}
+            },
+            "Examen Clínico Nasofaríngeo": {
+                "Eritema de mucosa nasal / Rinorrea clara": {"Resfriado Común (Rinofaringitis)": 0.92, "Gripe Común / Influenza": 0.50},
+                "Normal": {"Resfriado Común (Rinofaringitis)": 0.08}
+            },
+            "Examen Clínico Visual": {
+                "Lesiones pleomórficas en diferentes estadios (máculas, pápulas, vesículas, costras)": {"Varicela (Leve/Moderada)": 0.99},
+                "Normal": {"Varicela (Leve/Moderada)": 0.01}
+            },
+            "PCR del líquido de la vesícula": {
+                "Positivo": {"Varicela (Leve/Moderada)": 0.98},
+                "Negativo": {"Varicela (Leve/Moderada)": 0.02}
+            },
+            "Criterios de Centor": {
+                "0-2 puntos (sugiere causa viral)": {"Faringoamigdalitis Viral": 0.92, "Faringoamigdalitis Estreptocócica": 0.15},
+                ">=3 puntos (alta sospecha bacteriana)": {"Faringoamigdalitis Estreptocócica": 0.85, "Faringoamigdalitis Viral": 0.08}
+            },
+            "pH-metría de 24 horas": {
+                "Confirmatorio de reflujo ácido": {"Reflujo Gastroesofágico (ERGE)": 0.95},
+                "Normal": {"Reflujo Gastroesofágico (ERGE)": 0.05}
+            },
+            "Prueba para H. pylori": {
+                "Positivo": {"Gastritis Aguda": 0.80, "Úlcera Péptica No Complicada": 0.90, "Reflujo Gastroesofágico (ERGE)": 0.10},
+                "Negativo": {"Gastritis Aguda": 0.20, "Úlcera Péptica No Complicada": 0.10, "Reflujo Gastroesofágico (ERGE)": 0.90}
+            },
+            "Ecocardiograma": {
+                "Signos de sobrecarga del ventrículo derecho": {"Tromboembolismo Pulmonar": 0.80},
+                "Normal / FEVI conservada": {"Tromboembolismo Pulmonar": 0.20}
+            },
+            "Resonancia Magnética Cardíaca": {
+                "Criterios de Lake Louise positivos": {"Miocarditis": 0.95},
+                "Normal": {"Miocarditis": 0.05}
+            },
+            "Ecografía Abdominal": {
+                "Presencia de ascitis o derrame pleural": {"Dengue Grave": 0.85},
+                "Normal": {"Dengue Grave": 0.15}
+            },
+            "Auscultación Pulmonar": {
+                "Sibilancias espiratorias bilaterales difusas": {"Crisis Asmática Aguda": 0.95, "Bronquitis Aguda": 0.40, "Neumonía": 0.30},
+                "Roncus y sibilancias bilaterales dispersas": {"Exacerbación Aguda de EPOC": 0.90, "Bronquitis Aguda": 0.50},
+                "Normal / Murmullo vesicular conservado": {"Crisis Asmática Aguda": 0.05, "Exacerbación Aguda de EPOC": 0.10, "Migraña Severa": 0.99}
+            },
+            "Proteína C Reactiva (PCR)": {
+                "Elevada": {"Neumonía": 0.90, "Miocarditis": 0.70, "Pielonefritis Aguda (IVU Alta)": 0.80, "Sinusitis Aguda": 0.60},
+                "Normal": {"Migraña Severa": 0.95, "Neumonía": 0.10}
+            },
+            "Prueba de Antígeno en Heces": {
+                "Positiva para Giardia o amebas": {"Gastroenteritis Aguda Parasitaria": 0.90},
+                "Negativa": {"Gastroenteritis Aguda Parasitaria": 0.10}
             }
         }
 

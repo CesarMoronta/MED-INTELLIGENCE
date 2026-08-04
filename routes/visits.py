@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
-from database import list_visits, create_visit, get_visit, save_visit_tests, add_prescription, get_prescriptions_for_visit, get_patient, get_user_by_id
+from database import (list_visits, create_visit, get_visit, save_visit_tests,
+                      add_prescription, get_prescriptions_for_visit, get_patient,
+                      get_user_by_id, log_audit_action)
 from extensions import gemini_layer
-from utils import requires_login, requires_role, get_current_user
+from utils import requires_login, requires_role, get_current_user, get_client_ip
 
 visits_bp = Blueprint("visits_bp", __name__)
 
@@ -60,6 +62,13 @@ def api_create_visit():
     if not visit_id:
         return jsonify({"success": False, "error": "Error al crear la visita."}), 500
 
+    log_audit_action(
+        username=u.get("username"), action="CREATE", entity="Visit",
+        entity_id=str(visit_id),
+        details=f"Inició una {visit_type} para el paciente ID {patient_id}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
+
     return jsonify({"success": True, "visit_id": visit_id})
 
 @visits_bp.route("/api/visits/<int:visit_id>", methods=["GET"])
@@ -81,6 +90,13 @@ def api_save_tests(visit_id):
     data  = request.json or {}
     tests = data.get("tests", [])
     if save_visit_tests(visit_id, tests):
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Visit",
+            entity_id=str(visit_id),
+            details=f"Guardó resultados de pruebas para la visita ID {visit_id}",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "No se pudieron guardar las pruebas."}), 500
 
@@ -100,6 +116,13 @@ def api_add_prescription(visit_id):
         return jsonify({"success": False, "error": "Faltan campos requeridos."}), 400
         
     pid = add_prescription(visit_id, medication, dosage, frequency, int(duration_days), int(quantity), notes)
+    u = get_current_user()
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="Visit",
+        entity_id=str(visit_id),
+        details=f"Agregó receta médica (medicamento: {medication}) para la visita ID {visit_id}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
     return jsonify({"success": True, "prescription_id": pid, "message": "Receta añadida."})
 
 
@@ -144,6 +167,13 @@ def api_generate_prescription_ai(visit_id):
 
     if res.get("fallback"):
         return jsonify({"success": False, "error": "El motor de IA está offline o no disponible."}), 503
+
+    log_audit_action(
+        username=u.get("username"), action="GENERATE_AI", entity="Visit",
+        entity_id=str(visit_id),
+        details=f"Generó receta médica asistida por IA para la visita ID {visit_id}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
 
     return jsonify({"success": True, "medications": res.get("medications", [])})
 

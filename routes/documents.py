@@ -4,8 +4,8 @@ from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
 from database import (list_patient_documents, add_patient_document,
                       get_patient_document, delete_patient_document,
-                      get_active_medications)
-from utils import requires_login, get_current_user
+                      get_active_medications, log_audit_action)
+from utils import requires_login, get_current_user, get_client_ip
 
 documents_bp = Blueprint("documents_bp", __name__)
 
@@ -78,6 +78,13 @@ def api_upload_document(patient_id):
         uploaded_by  = u.get("id")
     )
 
+    log_audit_action(
+        username=u.get("username"), action="CREATE", entity="Document",
+        entity_id=str(doc_id) if doc_id else None,
+        details=f"Subió documento '{original_name}' (ID: {doc_id}) para paciente ID {patient_id}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
+
     return jsonify({
         "success": True,
         "document": {
@@ -132,4 +139,10 @@ def api_delete_document(doc_id):
         os.remove(doc["file_path"])
 
     delete_patient_document(doc_id)
+    log_audit_action(
+        username=u.get("username"), action="DELETE", entity="Document",
+        entity_id=str(doc_id),
+        details=f"Eliminó documento '{doc.get('original_name')}' (ID: {doc_id}) del paciente ID {doc.get('patient_id')}",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
     return jsonify({"success": True, "message": "Documento eliminado."})

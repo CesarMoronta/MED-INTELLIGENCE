@@ -5,9 +5,10 @@ from database import (
     get_doctor_blocked_slots,
     add_doctor_blocked_slot,
     delete_doctor_blocked_slot,
-    get_connection
+    get_connection,
+    log_audit_action
 )
-from utils import requires_login, requires_role, get_current_user
+from utils import requires_login, requires_role, get_current_user, get_client_ip
 
 schedules_bp = Blueprint("schedules_bp", __name__)
 
@@ -32,6 +33,12 @@ def api_save_clinic_hours():
     try:
         success = save_clinic_working_hours(hours_list)
         if success:
+            u = get_current_user()
+            log_audit_action(
+                username=u.get("username"), action="UPDATE", entity="Schedule",
+                details="Actualizó jornada laboral de la clínica",
+                ip_address=get_client_ip(), user_id=u.get("id")
+            )
             return jsonify({"success": True, "message": "Jornada laboral de la clínica actualizada."})
         return jsonify({"success": False, "error": "Error al guardar horarios."}), 500
     except Exception as e:
@@ -80,6 +87,11 @@ def api_add_doctor_blocked():
             reason=reason,
             created_by_doctor=created_by_doctor
         )
+        log_audit_action(
+            username=u.get("username"), action="CREATE", entity="Schedule",
+            details=f"Bloqueó horario para doctor ID {doctor_id} el {blocked_date} de {start_time} a {end_time} (Motivo: {reason})",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": "Horario bloqueado con éxito."})
     except Exception as e:
         # El mensaje de la excepción ya contiene los detalles de la cita que choca
@@ -105,6 +117,12 @@ def api_delete_doctor_blocked(slot_id):
     try:
         success = delete_doctor_blocked_slot(slot_id)
         if success:
+            log_audit_action(
+                username=u.get("username"), action="DELETE", entity="Schedule",
+                entity_id=str(slot_id),
+                details=f"Eliminó bloqueo de horario ID {slot_id}",
+                ip_address=get_client_ip(), user_id=u.get("id")
+            )
             return jsonify({"success": True, "message": "Bloqueo eliminado."})
         return jsonify({"success": False, "error": "El bloqueo no existe o ya fue eliminado."}), 404
     except Exception as e:

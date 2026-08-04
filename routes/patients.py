@@ -289,6 +289,12 @@ def api_mark_patient_deceased(patient_id):
         doctor_username=u.get("username")
     )
     if ok:
+        log_audit_action(
+            username=u.get("username"), action="UPDATE", entity="Patient",
+            entity_id=str(patient_id),
+            details=f"Marcó al paciente '{patient.get('name')}' (ID: {patient_id}) como fallecido",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, "message": f"Paciente '{patient['name']}' marcado como fallecido."})
     return jsonify({"success": False, "error": "No se pudo registrar el fallecimiento."}), 500
 
