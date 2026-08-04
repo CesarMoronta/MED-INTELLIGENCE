@@ -283,7 +283,9 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
         constantes: dict,
         antecedentes: dict,
         motivo_consulta: Optional[str] = None,
-        tests_resultados: Optional[list] = None
+        tests_resultados: Optional[list] = None,
+        patient_profile: Optional[dict] = None,
+        tests_sugeridos: Optional[list] = None
     ) -> dict:
         if not self.available:
             return self._fallback_enriquecimiento(probs_bayes)
@@ -296,27 +298,62 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
         sintomas_presentes  = [s for s, v in sintomas.items() if v]
         antecedentes_activos = [a for a, v in antecedentes.items() if v]
 
+        # Perfil del Paciente
+        profile_str = "PERFIL DEL PACIENTE:\n"
+        if patient_profile:
+            profile_str += f"  - Nombre: {patient_profile.get('name', 'Paciente Anónimo')}\n"
+            profile_str += f"  - Edad: {patient_profile.get('age', constantes.get('edad', '30'))} años\n"
+            profile_str += f"  - Género/Sexo: {patient_profile.get('gender', 'No especificado')}\n"
+            profile_str += f"  - Tipo de Sangre: {patient_profile.get('blood_type', 'No especificado')}\n"
+        else:
+            profile_str += f"  - Edad: {constantes.get('edad', '30')} años\n"
+
+        # Antecedentes Clínicos
+        antecedentes_str = "ANTECEDENTES CLÍNICOS:\n"
+        if antecedentes_activos:
+            antecedentes_str += "\n".join([f"  - {a}" for a in antecedentes_activos]) + "\n"
+        else:
+            antecedentes_str += "  - Ninguno registrado\n"
+
+        # Análisis Sugeridos
+        sugeridos_str = ""
+        if tests_sugeridos:
+            sugeridos_str = "ANÁLISIS/ESTUDIOS CLÍNICOS SUGERIDOS INICIALMENTE:\n" + "\n".join([f"  - {t}" for t in tests_sugeridos]) + "\n"
+
+        # Resultados de Análisis Clínicos Realizados
         tests_str = ""
         if tests_resultados:
             realized_tests = [f"{t['test_name']}: {t['result']}" for t in tests_resultados if t.get('done') and t.get('result')]
             if realized_tests:
-                tests_str = "\nRESULTADOS DE ESTUDIOS/ANÁLISIS CLÍNICOS REALIZADOS:\n" + "\n".join([f"  * {t}" for t in realized_tests])
+                tests_str = "RESULTADOS DE ESTUDIOS/ANÁLISIS CLÍNICOS REALIZADOS CON SUS VALORES:\n" + "\n".join([f"  - {t}" for t in realized_tests]) + "\n"
 
         prompt = f"""El motor bayesiano procesó los datos y obtuvo:
 TOP 5 DIAGNÓSTICOS BAYESIANOS:
 {top5_str}
 
+{profile_str}
 SÍNTOMAS PRESENTES: {', '.join(sintomas_presentes) if sintomas_presentes else 'Ninguno'}
-ANTECEDENTES CLÍNICOS: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
-CONSTANTES VITALES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')} | Edad {constantes.get('edad','?')}
+{antecedentes_str}
+CONSTANTES VITALES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')}
+{sugeridos_str}
 {tests_str}
 """
         if motivo_consulta:
-            prompt += f'HISTORIA/NARRATIVA ADICIONAL: "{motivo_consulta}"\n'
+            prompt += f'HISTORIA/NARRATIVA ADICIONAL DEL MOTIVO DE CONSULTA:\n"{motivo_consulta}"\n'
 
         prompt += f"""
+[INSTRUCCIÓN CLÍNICA IMPORTANTE]:
+Como médico internista experto, realiza una valoración crítica del caso tomando en cuenta todo lo proporcionado:
+1. Evalúa el perfil del paciente (edad, género, etc.) y los antecedentes en relación con los diagnósticos de sospecha.
+2. Si se suministran RESULTADOS DE ESTUDIOS/ANÁLISIS CLÍNICOS de laboratorio:
+   - Analiza minuciosamente el valor de cada prueba.
+   - Determina si dichos valores están en rangos normales o si son patológicos.
+   - Evalúa críticamente si estos resultados reafirman, confirman o descartan los diagnósticos diferenciales bayesianos.
+   - Expón tus conclusiones de laboratorio de forma clara en el campo 'validacion'.
+3. Si los análisis clínicos sugieren un diagnóstico alternativo más coherente de la lista permitida, proponlo en 'diagnostico_propuesto'.
+
 [REGLA CLÍNICA DE DISCREPANCIA]:
-Si consideras que el diagnóstico bayesiano #1 ({top5[0][0] if top5 else ''}) es clínicamente INCORRECTO o poco probable dada la edad y el cuadro clínico (ej. diagnosticar Diabetes Mellitus Tipo 2 ante un cuadro agudo de vómitos y dolor estomacal de inicio abrupto en paciente de 21 años, o diagnosticar cáncer en lugar de una patología infecciosa simple), debes proponer obligatoriamente el nombre exacto del diagnóstico correcto en el campo 'diagnostico_propuesto' seleccionándolo de entre esta lista permitida:
+Si consideras que el diagnóstico bayesiano #1 ({top5[0][0] if top5 else ''}) es clínicamente INCORRECTO o poco probable dada la edad, el género, los antecedentes o especialmente los resultados de los análisis clínicos (ej. diagnosticar Diabetes Mellitus Tipo 2 ante un cuadro agudo de pancreatitis o gastroenteritis, o ignorar un resultado de hemograma alterado), debes proponer obligatoriamente el nombre exacto del diagnóstico correcto en el campo 'diagnostico_propuesto' seleccionándolo de entre esta lista permitida:
 {", ".join(ENFERMEDADES_PERMITIDAS)}
 
 Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto' como null.

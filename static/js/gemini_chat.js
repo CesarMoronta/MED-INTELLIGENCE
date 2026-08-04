@@ -107,7 +107,14 @@ async function runGeminiAnalysis(probs, tests = null) {
       constantes:    STATE.diagConstantes,
       antecedentes:  STATE.diagAntecedentes,
       motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
-      tests_resultados: tests
+      tests_resultados: tests,
+      tests_sugeridos: STATE.tests || [],
+      patient_profile: STATE.currentPatient ? {
+        name: STATE.currentPatient.name,
+        gender: STATE.currentPatient.gender,
+        dob: STATE.currentPatient.dob,
+        age: STATE.currentPatient.age || (typeof calcAge === 'function' ? calcAge(STATE.currentPatient.dob) : (STATE.diagConstantes?.edad || 30))
+      } : null
     });
 
     if (!res.success) {

@@ -590,12 +590,12 @@ def telegram_webhook():
                     send_message(chat_id, f"❌ Error al registrar desde la JCE: {e}", reply_markup=get_main_menu_markup())
                     save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
             else:
-                new_state = {
-                    "state": "AGENDAR_NAME",
-                    "cedula": formatted_cedula
-                }
-                save_bot_state(chat_id, new_state)
-                send_message(chat_id, "📝 Cédula no encontrada en la JCE. Vamos a registrarte manualmente.\n\nPor favor, escribe tu <b>Nombre Completo</b> (nombre y apellido):", reply_markup=get_cancel_keyboard())
+                send_message(
+                    chat_id,
+                    "❌ <b>Cédula no encontrada en la JCE.</b>\n\nEl auto-registro de citas vía bot requiere que tu cédula esté validada en el padrón oficial de la JCE.\n\nPor favor acude a recepción de la clínica para registrar tus datos físicamente.",
+                    reply_markup=get_main_menu_markup()
+                )
+                save_bot_state(chat_id, {"state": "AWAITING_ACTION"})
 
     # AGENDAR_NAME
     elif state == "AGENDAR_NAME":

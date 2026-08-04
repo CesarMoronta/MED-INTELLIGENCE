@@ -486,11 +486,10 @@
                   </div>
                   <div class="vitals-grid">
                     <div class="vital-group">
-                      <div class="vital-header"><label>Edad (años)</label><input type="number" id="val-edad"
-                          class="vital-val-input" value="30" disabled /></div>
-                      <input type="range" id="v-edad" class="form-range" value="30" min="0" max="120"
-                        oninput="updateVitalBadge(this)" disabled />
-                      <div class="vital-badge" id="badge-edad"></div>
+                      <div class="vital-header"><label>Edad (Años)</label><span id="val-edad" class="vital-val-display"
+                          style="color:var(--primary-color);">30</span></div>
+                      <input type="hidden" id="v-edad" value="30" />
+                      <div class="vital-badge" id="badge-edad">Normal</div>
                     </div>
                     <div class="vital-group">
                       <div class="vital-header"><label>Temperatura (°C)</label><input type="number" id="val-temperatura"

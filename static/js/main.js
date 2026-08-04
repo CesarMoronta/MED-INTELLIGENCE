@@ -98,7 +98,13 @@ function resetDiagnose() {
 
   // Hide phase 1 and final results, show phase 1 inputs
   const phase1Result = document.getElementById('phase1-result');
-  if (phase1Result) phase1Result.style.display = 'none';
+  if (phase1Result) {
+    phase1Result.style.display = 'none';
+    const titleEl = phase1Result.querySelector('.section-header h2');
+    if (titleEl) titleEl.textContent = '🧠 Resultado Fase 1 — Diagnóstico Preliminar';
+  }
+  const reviewPanel = document.getElementById('phase2-review-panel');
+  if (reviewPanel) reviewPanel.style.display = 'none';
   const finalResultPanel = document.getElementById('final-result-panel');
   if (finalResultPanel) finalResultPanel.style.display = 'none';
   const phase1Inputs = document.getElementById('phase-1-inputs');
@@ -1302,9 +1308,9 @@ function updateVitalBadge(input) {
     'v-pad':         v => v >= 90 ? ['alert','HTA'] : ['ok','NORMAL'],
     'v-fc':          v => v > 100 ? ['warn','TAQUICARDIA'] : v < 60 ? ['warn','BRADICARDIA'] : ['ok','NORMAL'],
     'v-fr':          v => v > 20 ? ['warn','TAQUIPNEA'] : ['ok','NORMAL'],
-    'v-edad':        () => ['ok',''],
+    'v-edad':        () => ['ok','NORMAL'],
   };
-  const ids = input ? [input.id] : Array.from(document.querySelectorAll('input[type="range"][id^="v-"]')).map(el => el.id);
+  const ids = input ? [input.id] : Array.from(document.querySelectorAll('input[type="range"][id^="v-"], input[type="hidden"][id="v-edad"]')).map(el => el.id);
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1729,16 +1735,62 @@ async function runPhase2() {
     STATE.finalProbs = res.probabilities;
     STATE.finalTestsResultados = testsResultados;
 
-    renderPhase2ReviewScreen(res);
+    // Actualizar dinámicamente la UI de resultados con el cálculo de Fase 2 (Refresh)
+    const titleEl = document.querySelector('#phase1-result .section-header h2');
+    if (titleEl) titleEl.textContent = '🧠 Resultado Actualizado con Análisis (Fase 2)';
+
+    const sorted = Object.entries(res.probabilities || {}).sort(([,a],[,b]) => b - a);
+    const topDiag = sorted[0]?.[0] || '';
+    const topProb = sorted[0]?.[1] || 0.0;
+
+    const confEl = document.getElementById('phase1-confidence');
+    if (confEl) confEl.textContent = `${(topProb * 100).toFixed(2)}%`;
+
+    const dd = document.getElementById('phase1-diagnosis-display');
+    if (dd) {
+      dd.innerHTML = `
+        <div class="diagnosis-name" style="color:var(--brand-light)">${topDiag}</div>
+        <div class="diagnosis-specialist" style="margin-top:6px;">Confianza bayesiana actualizada: <strong style="font-family:var(--mono)">${(topProb*100).toFixed(2)}%</strong> · ${res.pasos_calculo || 0} iteraciones calculadas</div>
+      `;
+    }
+
+    const max = sorted[0]?.[1] || 1.0;
+    const chart = document.getElementById('phase1-probs-chart');
+    if (chart) {
+      chart.innerHTML = sorted.slice(0, 10).map(([d, p]) => {
+        const pct  = ((p / max) * 100).toFixed(1);
+        const col  = p > 0.3 ? '#ef4444' : p > 0.1 ? '#f59e0b' : '#3b82f6';
+        return `<div class="prob-row">
+          <div class="prob-name" title="${d}">${d}</div>
+          <div class="prob-track"><div class="prob-fill" style="width:${pct}%;background:${col};"></div></div>
+          <div class="prob-pct">${(p*100).toFixed(2)}%</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Mantener visible el contenedor de resultados de fase 1
+    document.getElementById('phase1-result').style.display = '';
+
+    // Disparar nueva evaluación de Gemini con resultados de análisis (Fase 2)
     runGeminiAnalysis(res.probabilities, testsResultados);
-    toast('success', '✅ Fase 2 calculada. Revise y seleccione el diagnóstico final.');
+
+    // Cargar panel para seleccionar diagnóstico final e informe clínico
+    renderPhase2ReviewScreen(res);
+
+    toast('success', '✅ Fase 2 calculada. El análisis de Gemini ha sido actualizado.');
+    
+    // Desplazar suavemente al panel de revisión
+    setTimeout(() => {
+      document.getElementById('phase2-review-panel')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   } finally {
     setButtonLoading(btn, false);
   }
 }
 
 function renderPhase2ReviewScreen(res) {
-  document.getElementById('phase1-result').style.display = 'none';
+  // Mantener visible el resultado de la fase 1 para permitir al médico revisar los gráficos y el análisis de Gemini actualizados
+  document.getElementById('phase1-result').style.display = '';
   
   let reviewPanel = document.getElementById('phase2-review-panel');
   if (!reviewPanel) {
