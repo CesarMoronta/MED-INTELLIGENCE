@@ -81,7 +81,7 @@ function removeGeminiTyping(id) {
   document.getElementById(id)?.remove();
 }
 
-async function runGeminiAnalysis(probs) {
+async function runGeminiAnalysis(probs, tests = null) {
   const sortedBayes = Object.entries(probs).sort(([,a],[,b]) => b - a);
   const topBayesDiag = sortedBayes[0]?.[0];
   const panel = document.getElementById('gemini-analisis-panel');
@@ -107,6 +107,7 @@ async function runGeminiAnalysis(probs) {
       constantes:    STATE.diagConstantes,
       antecedentes:  STATE.diagAntecedentes,
       motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
+      tests_resultados: tests
     });
 
     if (!res.success) {

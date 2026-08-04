@@ -21,7 +21,7 @@ _SYSTEM_EXTRACTOR = """Eres un asistente de triaje médico. Tu misión es extrae
 Asigna True solo si el síntoma se relata como presente, o False si no se menciona o se niega explícitamente."""
 
 _SYSTEM_INTERNISTA = """Eres un médico internista especialista.
-Tu rol es enriquecer el análisis probabilístico bayesiano local con razonamiento clínico narrativo de alto nivel, coherente con las probabilidades dadas."""
+Tu rol es enriquecer el análisis probabilístico bayesiano local con razonamiento clínico narrativo de alto nivel, coherente con las probabilidades dadas y prestando especial e inmediata atención a los resultados de pruebas y análisis clínicos de laboratorio proporcionados para confirmar o proponer correcciones al diagnóstico diferencial."""
 
 _SYSTEM_CHATBOT = """Eres el Médico Internista de Apoyo de MED-INTELLIGENCE PRO.
 Responde de forma clara, fundamentada y breve. Máximo 2-4 párrafos.
@@ -282,7 +282,8 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
         sintomas: dict,
         constantes: dict,
         antecedentes: dict,
-        motivo_consulta: Optional[str] = None
+        motivo_consulta: Optional[str] = None,
+        tests_resultados: Optional[list] = None
     ) -> dict:
         if not self.available:
             return self._fallback_enriquecimiento(probs_bayes)
@@ -295,6 +296,12 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
         sintomas_presentes  = [s for s, v in sintomas.items() if v]
         antecedentes_activos = [a for a, v in antecedentes.items() if v]
 
+        tests_str = ""
+        if tests_resultados:
+            realized_tests = [f"{t['test_name']}: {t['result']}" for t in tests_resultados if t.get('done') and t.get('result')]
+            if realized_tests:
+                tests_str = "\nRESULTADOS DE ESTUDIOS/ANÁLISIS CLÍNICOS REALIZADOS:\n" + "\n".join([f"  * {t}" for t in realized_tests])
+
         prompt = f"""El motor bayesiano procesó los datos y obtuvo:
 TOP 5 DIAGNÓSTICOS BAYESIANOS:
 {top5_str}
@@ -302,6 +309,7 @@ TOP 5 DIAGNÓSTICOS BAYESIANOS:
 SÍNTOMAS PRESENTES: {', '.join(sintomas_presentes) if sintomas_presentes else 'Ninguno'}
 ANTECEDENTES CLÍNICOS: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
 CONSTANTES VITALES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')} | Edad {constantes.get('edad','?')}
+{tests_str}
 """
         if motivo_consulta:
             prompt += f'HISTORIA/NARRATIVA ADICIONAL: "{motivo_consulta}"\n'

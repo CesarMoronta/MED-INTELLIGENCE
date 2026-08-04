@@ -163,6 +163,7 @@ def api_diagnose_gemini_analisis():
     constantes   = data.get("constantes", {})
     antecedentes = data.get("antecedentes", {})
     motivo       = data.get("motivo_consulta") or data.get("motivo")
+    tests_resultados = data.get("tests_resultados")
 
     if not probs_bayes:
         return jsonify({"success": False, "error": "Se requieren probabilidades bayesianas."}), 400
@@ -173,7 +174,8 @@ def api_diagnose_gemini_analisis():
             sintomas=sintomas,
             constantes=constantes,
             antecedentes=antecedentes,
-            motivo_consulta=motivo
+            motivo_consulta=motivo,
+            tests_resultados=tests_resultados
         )
         return jsonify({"success": True, **resultado})
     except Exception as e:

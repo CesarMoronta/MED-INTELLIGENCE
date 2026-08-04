@@ -1499,6 +1499,62 @@ async function loadAvailableTestsAndRender() {
   renderTestsList();
 }
 
+function getPersonalizedGlucoseLabel(key) {
+  const edad = parseFloat(document.getElementById('v-edad')?.value) || 30;
+  const imc  = parseFloat(document.getElementById('v-imc')?.value) || 24.2;
+  const sexo = (STATE.currentPatient && STATE.currentPatient.sexo) ? STATE.currentPatient.sexo.toUpperCase() : "M";
+  
+  let shift = 0;
+  if (edad > 50) shift += (edad - 50) * 0.15;
+  if (imc > 25)  shift += (imc - 25) * 0.3;
+  if (sexo === 'F' && edad >= 18 && edad <= 45) shift -= 2.0;
+  
+  const s = Math.min(Math.max(Math.round(shift), -5), 12);
+  
+  if (key === "Normal en adulto sano (70-99 mg/dL)") {
+    return `Normal en adulto (${70 + s}-${99 + s} mg/dL)`;
+  }
+  if (key === "Normal ajustado por edad/gestación") {
+    return `Normal ajustado por perfil (${75 + s}-${104 + s} mg/dL)`;
+  }
+  if (key === "Hipoglucemia clínica (<70 mg/dL)") {
+    return `Hipoglucemia clínica (<${70 + s} mg/dL)`;
+  }
+  if (key === "Hipoglucemia severa (<55 mg/dL)") {
+    return `Hipoglucemia severa (<${55 + s} mg/dL)`;
+  }
+  if (key === "Glucemia basal alterada / Prediabetes (100-125 mg/dL)") {
+    return `Glucemia basal alterada / Prediabetes (${100 + s}-${125 + s} mg/dL)`;
+  }
+  if (key === "Hiperglucemia clínica compatible con Diabetes (>=126 mg/dL)") {
+    return `Hiperglucemia clínica compatible con Diabetes (>=${126 + s} mg/dL)`;
+  }
+  if (key === "Hiperglucemia severa en crisis (>250 mg/dL)") {
+    return `Hiperglucemia severa en crisis (>${250 + s} mg/dL)`;
+  }
+  return key;
+}
+
+function getPersonalizedHemogramaLabel(key) {
+  const sexo = (STATE.currentPatient && STATE.currentPatient.sexo) ? STATE.currentPatient.sexo.toUpperCase() : "M";
+  if (key === "Normal (Valores de referencia estables)") {
+    const hbRange = (sexo === 'F') ? "12.0 - 15.5" : "13.5 - 17.5";
+    return `Normal (Valores estables - Hb: ${hbRange} g/dL)`;
+  }
+  return key;
+}
+
+function getPersonalizedNTproBNPLabel(key) {
+  const edad = parseFloat(document.getElementById('v-edad')?.value) || 30;
+  if (key === "Elevación severa (>450 pg/mL en jóvenes / >900 pg/mL en mayores - ICC descompensada)") {
+    let limit = 450;
+    if (edad >= 50 && edad <= 75) limit = 900;
+    if (edad > 75) limit = 1800;
+    return `Elevación severa (>${limit} pg/mL - ICC descompensada)`;
+  }
+  return key;
+}
+
 function renderTestsList() {
   const testsForm = document.getElementById('tests-form');
   if (!testsForm) return;
@@ -1518,7 +1574,18 @@ function renderTestsList() {
       const resultField = `
         <select class="form-input test-result-select" style="margin:0; width: 100%;" onchange="updateTestState(${i}, 'result', this.value)">
           <option value="">— Seleccionar Resultado —</option>
-          ${possibleResults.map(r => `<option value="${r}" ${t.result === r ? 'selected' : ''}>${r}</option>`).join('')}
+          ${possibleResults.map(r => {
+            let label = r;
+            const nameLower = t.name.toLowerCase();
+            if (nameLower === 'glucosa en ayunas') {
+              label = getPersonalizedGlucoseLabel(r);
+            } else if (nameLower === 'hemograma completo') {
+              label = getPersonalizedHemogramaLabel(r);
+            } else if (nameLower === 'nt-probnp') {
+              label = getPersonalizedNTproBNPLabel(r);
+            }
+            return `<option value="${r}" ${t.result === r ? 'selected' : ''}>${label}</option>`;
+          }).join('')}
         </select>
       `;
       
@@ -1663,6 +1730,7 @@ async function runPhase2() {
     STATE.finalTestsResultados = testsResultados;
 
     renderPhase2ReviewScreen(res);
+    runGeminiAnalysis(res.probabilities, testsResultados);
     toast('success', '✅ Fase 2 calculada. Revise y seleccione el diagnóstico final.');
   } finally {
     setButtonLoading(btn, false);
