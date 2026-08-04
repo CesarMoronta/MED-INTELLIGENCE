@@ -1308,7 +1308,6 @@ function updateVitalBadge(input) {
     'v-pad':         v => v >= 90 ? ['alert','HTA'] : ['ok','NORMAL'],
     'v-fc':          v => v > 100 ? ['warn','TAQUICARDIA'] : v < 60 ? ['warn','BRADICARDIA'] : ['ok','NORMAL'],
     'v-fr':          v => v > 20 ? ['warn','TAQUIPNEA'] : ['ok','NORMAL'],
-    'v-edad':        () => ['ok','NORMAL'],
   };
   const ids = input ? [input.id] : Array.from(document.querySelectorAll('input[type="range"][id^="v-"], input[type="hidden"][id="v-edad"]')).map(el => el.id);
   ids.forEach(id => {
@@ -1465,6 +1464,9 @@ function renderPhase1Result(res) {
   dd.innerHTML = `
     <div class="diagnosis-name" style="color:var(--brand-light)">${diag}</div>
     <div class="diagnosis-specialist" style="margin-top:6px;">Confianza bayesiana: <strong style="font-family:var(--mono)">${(top*100).toFixed(2)}%</strong> · ${res.pasos_calculo} iteraciones calculadas</div>
+    <div style="margin-top:8px;padding:8px 12px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.25);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
+      ⚕️ <strong>Diagnóstico preliminar de apoyo clínico</strong> — La IA analiza la probabilidad estadística. El diagnóstico definitivo debe ser confirmado por el médico tratante.
+    </div>
   `;
 
   // Top 10 diagnósticos
@@ -1831,7 +1833,7 @@ function renderPhase2ReviewScreen(res) {
           <input type="radio" name="review-diagnosis-radio" id="radio-diag-${idx}" value="${d}" ${isChecked} style="margin:0;" />
           <span style="font-weight:600; font-size:14px; color: var(--text);">${d}</span>
         </div>
-        <span style="font-family:var(--mono); font-weight:bold; color: var(--brand-light);">${pct}%</span>
+        <span style="font-family:var(--mono); font-weight:bold; color: var(--brand);">${pct}%</span>
       </label>
     `;
   }).join('');
@@ -1915,6 +1917,8 @@ async function confirmFinalDiagnosis() {
       antecedentes:    STATE.diagAntecedentes,
       constantes:      STATE.diagConstantes,
       confirmed_diagnosis: diag,
+      doctor_notes:    document.getElementById('diag-doctor-notes')?.value.trim() || '',
+      blood_type:      STATE.currentPatient?.blood_type || STATE.currentPatient?.tipo_sangre || null,
       save_diagnosis:  false
     });
 
@@ -1977,6 +1981,8 @@ async function saveFinalDecision(createPrescription) {
       antecedentes: STATE.diagAntecedentes,
       constantes: STATE.diagConstantes,
       confirmed_diagnosis: STATE.confirmedDiagnosisSelected || null,
+      doctor_notes:    document.getElementById('diag-doctor-notes')?.value.trim() || '',
+      blood_type:      STATE.currentPatient?.blood_type || STATE.currentPatient?.tipo_sangre || null,
       save_diagnosis: true,
       is_refuted: isRefuted,
       refutation_reason: refutationReason,
@@ -2037,6 +2043,25 @@ function renderFinalResult(res) {
         <h2>📋 Informe Clínico Detallado ${geminiUsed ? '<span class="gemini-badge" style="font-size:11px;margin-left:8px;">✨ IA Enriquecido</span>' : ''}</h2>
         <button class="btn-outline" onclick="openFullReport()">Ver en pantalla completa</button>
       </div>
+      <div style="margin-bottom:14px;padding:12px 14px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:var(--text-muted);line-height:1.7;display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:20px;line-height:1;">⚕️</span>
+        <div>
+          <strong style="color:var(--text);">Aviso Clínico Importante</strong><br>
+          Este informe es generado por inteligencia artificial como herramienta de <strong>apoyo diagnóstico</strong>. <strong>No constituye un diagnóstico médico definitivo</strong> ni una prescripción terapéutica. El diagnóstico, tratamiento y seguimiento final son responsabilidad exclusiva del <strong>médico tratante</strong>. Consulte siempre a un profesional de la salud calificado.
+        </div>
+      </div>
+      ${(res.tests || []).some(t => t.done && t.result) ? `
+        <div style="margin-bottom:14px;padding:12px;background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.15);border-radius:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">🔬 Resultados de Laboratorio Incorporados</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${(res.tests || []).filter(t => t.done && t.result).map(t => `
+              <span style="padding:4px 10px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:20px;font-size:12px;color:var(--text);">
+                <strong>${t.test_name || t.name}:</strong> ${t.result}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
       <div class="clinical-report" id="clinical-report-preview">${report}</div>
     </div>
 

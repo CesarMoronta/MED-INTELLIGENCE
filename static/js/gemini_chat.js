@@ -107,12 +107,14 @@ async function runGeminiAnalysis(probs, tests = null) {
       constantes:    STATE.diagConstantes,
       antecedentes:  STATE.diagAntecedentes,
       motivo_consulta: document.getElementById('diag-motivo')?.value.trim() || null,
+      doctor_notes:  document.getElementById('diag-doctor-notes')?.value.trim() || null,
       tests_resultados: tests,
       tests_sugeridos: STATE.tests || [],
       patient_profile: STATE.currentPatient ? {
         name: STATE.currentPatient.name,
         gender: STATE.currentPatient.gender,
         dob: STATE.currentPatient.dob,
+        blood_type: STATE.currentPatient.blood_type || STATE.currentPatient.tipo_sangre || null,
         age: STATE.currentPatient.age || (typeof calcAge === 'function' ? calcAge(STATE.currentPatient.dob) : (STATE.diagConstantes?.edad || 30))
       } : null
     });
@@ -130,16 +132,36 @@ async function runGeminiAnalysis(probs, tests = null) {
       `<span class="gemini-tag">${s}</span>`
     ).join('');
 
+    const urgencia = res.nivel_urgencia || 'Ambulatorio';
+    const urgenciaColor = { 'Emergencia': '#ef4444', 'Urgente': '#f59e0b', 'Ambulatorio': '#10b981' }[urgencia] || '#10b981';
+    const urgenciaEmoji = { 'Emergencia': '🔴', 'Urgente': '🟡', 'Ambulatorio': '🟢' }[urgencia] || '🟢';
+
     panel.innerHTML = `
       <div class="gemini-panel">
         <div class="gemini-panel-header">
-          <span class="gemini-badge">✨ Gemini AI</span>
+          <span class="gemini-badge">✨ Gemini AI — Internista de Apoyo</span>
           <span style="color:var(--text-muted);font-size:12px;">${res.fallback ? 'Modo offline' : 'Análisis en tiempo real'}</span>
         </div>
 
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:rgba(0,0,0,0.04);border-radius:8px;border-left:3px solid ${urgenciaColor}">
+          <span style="font-size:16px;">${urgenciaEmoji}</span>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;">Nivel de Urgencia Estimado</div>
+            <div style="font-weight:700;color:${urgenciaColor};font-size:14px;">${urgencia}</div>
+          </div>
+        </div>
+
         <div class="gemini-validacion">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">🧬 Análisis Clínico</div>
           <p>${res.validacion || ''}</p>
         </div>
+
+        ${res.plan_terapeutico_sugerido ? `
+          <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px;margin:12px 0;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">💊 Plan Terapéutico Orientativo</div>
+            <p style="margin:0;font-size:13px;color:var(--text);">${res.plan_terapeutico_sugerido}</p>
+          </div>
+        ` : ''}
 
         ${alertas ? `<div class="gemini-alertas-section">${alertas}</div>` : ''}
 
@@ -152,7 +174,7 @@ async function runGeminiAnalysis(probs, tests = null) {
 
         ${res.confianza_gemini ? `
           <div class="gemini-confianza">
-            <strong>Valoración Gemini:</strong> ${res.confianza_gemini}
+            <strong>Valoración de Confianza Clínica:</strong> ${res.confianza_gemini}
           </div>
         ` : ''}
 
@@ -171,6 +193,10 @@ async function runGeminiAnalysis(probs, tests = null) {
             </button>
           </div>
         ` : ''}
+
+        <div style="margin-top:14px;padding:10px 12px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:11.5px;color:var(--text-muted);line-height:1.6;">
+          ⚕️ <strong>Aviso Clínico:</strong> Este análisis es generado por inteligencia artificial como herramienta de apoyo diagnóstico. <strong>No constituye un diagnóstico médico definitivo</strong> y no reemplaza la evaluación presencial ni el juicio del médico tratante.
+        </div>
       </div>
     `;
   } catch(e) {

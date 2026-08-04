@@ -489,7 +489,6 @@
                       <div class="vital-header"><label>Edad (Años)</label><span id="val-edad" class="vital-val-display"
                           style="color:var(--primary-color);">30</span></div>
                       <input type="hidden" id="v-edad" value="30" />
-                      <div class="vital-badge" id="badge-edad">Normal</div>
                     </div>
                     <div class="vital-group">
                       <div class="vital-header"><label>Temperatura (°C)</label><input type="number" id="val-temperatura"
@@ -672,10 +671,12 @@
             <!-- Tests sugeridos -->
             <div class="section-card" style="margin-top:20px;">
               <div class="section-header">
-                <h2>🔬 Análisis y Estudios Sugeridos</h2>
+                <h2>🔬 Análisis y Estudios Clínicos Sugeridos</h2>
               </div>
-              <p style="color: var(--text-muted); font-size:13px; margin-bottom:16px;">Indica si cada estudio fue
-                realizado e ingresa el resultado:</p>
+              <p style="color: var(--text-muted); font-size:13px; margin-bottom:8px;">Estudios sugeridos por el motor diagnóstico para confirmar o descartar los diagnósticos diferenciales identificados. Indica si cada estudio fue realizado e ingresa el resultado para refinar el diagnóstico final:</p>
+              <div style="margin-bottom:14px;padding:8px 12px;background:rgba(99,102,241,0.05);border:1px solid rgba(99,102,241,0.15);border-radius:6px;font-size:11.5px;color:var(--text-muted);">
+                💡 Los resultados de laboratorio serán evaluados por la IA clínica para ajustar el diagnóstico diferencial antes de generar el informe final.
+              </div>
               <div id="tests-form"></div>
               <div class="form-actions" style="margin-top:20px;">
                 <button id="btn-diag-phase2" class="btn-primary btn-large" onclick="runPhase2()">

@@ -166,6 +166,7 @@ def api_diagnose_gemini_analisis():
     tests_resultados = data.get("tests_resultados")
     patient_profile  = data.get("patient_profile")
     tests_sugeridos  = data.get("tests_sugeridos")
+    doctor_notes     = data.get("doctor_notes", "")
 
     if not probs_bayes:
         return jsonify({"success": False, "error": "Se requieren probabilidades bayesianas."}), 400
@@ -179,7 +180,8 @@ def api_diagnose_gemini_analisis():
             motivo_consulta=motivo,
             tests_resultados=tests_resultados,
             patient_profile=patient_profile,
-            tests_sugeridos=tests_sugeridos
+            tests_sugeridos=tests_sugeridos,
+            doctor_notes=doctor_notes
         )
         return jsonify({"success": True, **resultado})
     except Exception as e:
@@ -266,6 +268,8 @@ def api_diagnose_final():
     sintomas          = data.get("sintomas", {})
     antecedentes      = data.get("antecedentes", {})
     constantes_raw    = data.get("constantes", {})
+    doctor_notes      = data.get("doctor_notes", "")
+    blood_type        = data.get("blood_type", None)
 
     def safe_int(val, default):
         if val is None or val == "":
@@ -381,6 +385,9 @@ def api_diagnose_final():
             motivo_consulta=motivo_consulta,
             tipo_visita=visit_type,
             meta_clinica=meta,
+            doctor_notes=doctor_notes,
+            tests_resultados=tests_resultados,
+            blood_type=blood_type,
         )
 
         # ── Generar informe combinado: estructura Offline + sección Gemini ────

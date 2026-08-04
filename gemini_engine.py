@@ -20,19 +20,46 @@ _MODEL = "gemini-2.5-flash"
 _SYSTEM_EXTRACTOR = """Eres un asistente de triaje médico. Tu misión es extraer una lista de síntomas clínicos estándar a partir de la historia narrativa del paciente.
 Asigna True solo si el síntoma se relata como presente, o False si no se menciona o se niega explícitamente."""
 
-_SYSTEM_INTERNISTA = """Eres un médico internista especialista.
-Tu rol es enriquecer el análisis probabilístico bayesiano local con razonamiento clínico narrativo de alto nivel, coherente con las probabilidades dadas y prestando especial e inmediata atención a los resultados de pruebas y análisis clínicos de laboratorio proporcionados para confirmar o proponer correcciones al diagnóstico diferencial."""
+_SYSTEM_INTERNISTA = """Eres un médico internista especialista de nivel hospitalario terciario con experiencia en diagnóstico diferencial complejo.
 
-_SYSTEM_CHATBOT = """Eres el Médico Internista de Apoyo de MED-INTELLIGENCE PRO.
-Responde de forma clara, fundamentada y breve. Máximo 2-4 párrafos.
-Añade siempre: "Este análisis es de apoyo clínico, no reemplaza el juicio médico." """
+Tu misión es enriquecer el análisis probabilístico bayesiano con razonamiento clínico de alto nivel. Para ello:
 
-_SYSTEM_RECETAS = """Eres un asistente médico de prescripción clínica.
-Diseña una receta adecuada basada en el diagnóstico, constantes y síntomas.
-Reglas de seguridad:
-1. Si el triage es ROJO o hay emergencia crítica, prescribe ÚNICAMENTE alivio sintomático básico seguro (ej. Paracetamol).
-2. Para casos ambulatorios, prescribe medicamentos de primera línea validados, especificando dosis estándar y cantidad exacta.
-3. Evita interacciones peligrosas o sobredosis."""
+1. EVALÚA el perfil demográfico completo del paciente (edad, género, antecedentes, tipo de sangre) y su relevancia en los diagnósticos de sospecha.
+2. ANALIZA los resultados de laboratorio con criterio experto: determina si son normales o patológicos, identifica valores críticos y razona cómo cada resultado impacta el diagnóstico diferencial.
+3. RAZONA con fisiopatología: explica el mecanismo por el cual los síntomas y hallazgos se relacionan con el diagnóstico más probable.
+4. EVALÚA los diagnósticos diferenciales bayesianos en orden de probabilidad y justifica clínicamente por qué el top diagnóstico es más probable que los demás.
+5. SUGIERE un plan terapéutico de primera línea (no definitivo, solo orientativo) coherente con el diagnóstico y el perfil del paciente.
+6. CATEGORIZA la urgencia del caso: Ambulatorio (puede esperar consulta programada), Urgente (requiere atención en horas), o Emergencia (requiere atención inmediata).
+7. ADVIERTE siempre: 'Esta herramienta es de apoyo diagnóstico. El diagnóstico y tratamiento final es responsabilidad exclusiva del médico tratante.'
+
+Sé preciso, usa terminología médica estándar, y fundamenta cada afirmación en datos clínicos."""
+
+_SYSTEM_CHATBOT = """Eres el Médico Internista de Apoyo de MED-INTELLIGENCE PRO, con formación de especialista en Medicina Interna de hospital universitario de tercer nivel.
+
+Responde en español con terminología médica precisa pero accesible para el médico tratante. Organiza tu respuesta con estructura clara. Puedes usar hasta 4-6 párrafos cuando el tema lo requiera.
+
+Para cada consulta:
+- Responde con fundamento clínico y cita mecanismos fisiopatológicos cuando sean relevantes
+- Menciona señales de alarma (red flags) si aplican al caso
+- Considera el contexto completo del paciente (edad, antecedentes, constantes)
+- Siempre concluye con: '⚕️ Recordatorio: Este análisis es de apoyo clínico y no reemplaza el juicio del médico tratante ni la evaluación presencial del paciente.'"""
+
+_SYSTEM_RECETAS = """Eres un asistente médico experto en farmacología clínica y prescripción terapéutica.
+
+Genera una sugerencia de receta médica para el caso proporcionado siguiendo estas directrices:
+
+1. SEGURIDAD CRÍTICA:
+   - Si el triage es ROJO o hay emergencia, prescribe ÚNICAMENTE manejo sintomático de soporte seguro (ej. Paracetamol) y añade una nota de derivación urgente.
+   - Revisa los antecedentes para detectar alergias o contraindicaciones.
+   - Ajusta dosis por edad: pediátrico (<12 años) usa dosis/kg, geriátrico (>65 años) considera función renal/hepática.
+
+2. SELECCIÓN TERAPÉUTICA:
+   - Prescribe medicamentos de primera línea basados en guías clínicas actualizadas.
+   - Especifica: nombre genérico y comercial, forma farmacéutica, dosis por toma, frecuencia, duración total y cantidad exacta de unidades.
+   - Incluye indicaciones claras para el paciente en lenguaje sencillo.
+
+3. ADVERTENCIA OBLIGATORIA en el campo 'notes' del primer medicamento:
+   'Esta sugerencia de receta es generada por IA como apoyo clínico. El médico tratante debe revisar y validar cada medicamento antes de prescribir.'"""
 
 # ── SCHEMAS PYDANTIC PARA STRUCTURED OUTPUTS ──────────────────────────────────
 
@@ -42,11 +69,13 @@ class SymptomExtraction(BaseModel):
     )
 
 class DiagnosticEnrichment(BaseModel):
-    validacion: str = Field(description="Comentario clínico de coherencia entre diagnóstico, síntomas y constantes (2-3 oraciones).")
-    sintomas_sugeridos: List[str] = Field(description="Hasta 4 síntomas adicionales a explorar.")
-    alertas_gemini: List[str] = Field(description="Hasta 3 señales de alerta o emergencias clínicas.")
-    confianza_gemini: str = Field(description="Nivel de confianza (Alta/Media/Baja) y justificación corta.")
-    diagnostico_propuesto: Optional[str] = Field(None, description="Si consideras que el diagnóstico bayesiano principal es incorrecto o improbable, propón de forma textual el nombre exacto de la enfermedad correcta de entre la lista de permitidas. De lo contrario, deja este campo vacío o null.")
+    validacion: str = Field(description="Análisis clínico detallado de coherencia entre diagnóstico, síntomas, constantes vitales y resultados de laboratorio. Incluye razonamiento fisiopatológico y justificación del diagnóstico diferencial (3-5 oraciones).")
+    sintomas_sugeridos: List[str] = Field(description="Hasta 5 síntomas o hallazgos clínicos adicionales a explorar para confirmar o descartar los diagnósticos diferenciales principales.")
+    alertas_gemini: List[str] = Field(description="Hasta 4 señales de alarma clínicas (red flags), criterios de hospitalización o emergencias que el médico debe tener en cuenta.")
+    confianza_gemini: str = Field(description="Valoración de confianza clínica (Alta/Media/Baja), justificación detallada y factores que aumentan o reducen la certeza diagnóstica.")
+    plan_terapeutico_sugerido: Optional[str] = Field(None, description="Sugerencia breve de primera línea de manejo terapéutico coherente con el diagnóstico más probable y el perfil del paciente. No es una prescripción definitiva, es orientativo para el médico.")
+    nivel_urgencia: str = Field(description="Categoría de urgencia del caso: 'Ambulatorio' (puede esperar cita programada), 'Urgente' (atención en menos de 24h) o 'Emergencia' (atención inmediata, activar protocolo de urgencias).")
+    diagnostico_propuesto: Optional[str] = Field(None, description="Si consideras que el diagnóstico bayesiano principal es clínicamente incorrecto o improbable basado en el conjunto de datos clínicos, propón el nombre exacto de la enfermedad correcta de la lista permitida. Si el diagnóstico bayesiano es correcto, deja en null.")
 
 class MedicationItem(BaseModel):
     medication: str = Field(description="Nombre y presentación del medicamento (ej. Paracetamol 500mg)")
@@ -285,7 +314,8 @@ Devuelve la lista de síntomas que están presentes. Los nombres deben coincidir
         motivo_consulta: Optional[str] = None,
         tests_resultados: Optional[list] = None,
         patient_profile: Optional[dict] = None,
-        tests_sugeridos: Optional[list] = None
+        tests_sugeridos: Optional[list] = None,
+        doctor_notes: Optional[str] = None
     ) -> dict:
         if not self.available:
             return self._fallback_enriquecimiento(probs_bayes)
@@ -339,31 +369,42 @@ CONSTANTES VITALES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constant
 {tests_str}
 """
         if motivo_consulta:
-            prompt += f'HISTORIA/NARRATIVA ADICIONAL DEL MOTIVO DE CONSULTA:\n"{motivo_consulta}"\n'
+            prompt += f'MOTIVO DE CONSULTA / HISTORIA DEL PACIENTE:\n"{motivo_consulta}"\n'
+
+        if doctor_notes:
+            prompt += f'NOTAS CLÍNICAS DEL MÉDICO TRATANTE:\n"{doctor_notes}"\n'
 
         prompt += f"""
-[INSTRUCCIÓN CLÍNICA IMPORTANTE]:
-Como médico internista experto, realiza una valoración crítica del caso tomando en cuenta todo lo proporcionado:
-1. Evalúa el perfil del paciente (edad, género, etc.) y los antecedentes en relación con los diagnósticos de sospecha.
-2. Si se suministran RESULTADOS DE ESTUDIOS/ANÁLISIS CLÍNICOS de laboratorio:
-   - Analiza minuciosamente el valor de cada prueba.
-   - Determina si dichos valores están en rangos normales o si son patológicos.
-   - Evalúa críticamente si estos resultados reafirman, confirman o descartan los diagnósticos diferenciales bayesianos.
-   - Expón tus conclusiones de laboratorio de forma clara en el campo 'validacion'.
-3. Si los análisis clínicos sugieren un diagnóstico alternativo más coherente de la lista permitida, proponlo en 'diagnostico_propuesto'.
+[INSTRUCCIÓN CLÍNICA DETALLADA]:
+Como médico internista de nivel hospitalario terciario, realiza una valoración clínica integral del caso:
+
+1. PERFIL Y CONTEXTO: Evalúa la edad, género y antecedentes del paciente en relación con los diagnósticos de sospecha. Identifica factores de riesgo relevantes.
+
+2. ANÁLISIS DE LABORATORIO (si aplica): Para cada resultado de prueba suministrado:
+   - Determina si el valor es normal, alterado o crítico
+   - Explica el significado clínico del hallazgo
+   - Señala cómo impacta en la probabilidad de los diagnósticos diferenciales
+
+3. RAZONAMIENTO FISIOPATOLÓGICO: Explica el mecanismo fisiopatológico que conecta los síntomas y hallazgos con el diagnóstico más probable.
+
+4. DIFERENCIAL RAZONADO: Justifica por qué el diagnóstico top es más probable que los demás, y qué argumento clínico descarta cada alternativa.
+
+5. PLAN TERAPÉUTICO (orientativo): Sugiere manejo de primera línea (no es prescripción definitiva).
+
+6. URGENCIA: Categoriza el caso como 'Ambulatorio', 'Urgente' o 'Emergencia' según las constantes vitales, síntomas y diagnóstico probable.
 
 [REGLA CLÍNICA DE DISCREPANCIA]:
-Si consideras que el diagnóstico bayesiano #1 ({top5[0][0] if top5 else ''}) es clínicamente INCORRECTO o poco probable dada la edad, el género, los antecedentes o especialmente los resultados de los análisis clínicos (ej. diagnosticar Diabetes Mellitus Tipo 2 ante un cuadro agudo de pancreatitis o gastroenteritis, o ignorar un resultado de hemograma alterado), debes proponer obligatoriamente el nombre exacto del diagnóstico correcto en el campo 'diagnostico_propuesto' seleccionándolo de entre esta lista permitida:
+Si consideras que el diagnóstico bayesiano #1 ({top5[0][0] if top5 else ''}) es clínicamente INCORRECTO o poco probable dada la totalidad del caso clínico, debes proponer el nombre exacto del diagnóstico correcto en 'diagnostico_propuesto' seleccionando de esta lista:
 {", ".join(ENFERMEDADES_PERMITIDAS)}
 
-Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto' como null.
+Si el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto' como null.
 """
 
         try:
             config = types.GenerateContentConfig(
                 system_instruction=_SYSTEM_INTERNISTA,
                 temperature=0.3,
-                max_output_tokens=1500,
+                max_output_tokens=2000,
                 response_mime_type="application/json",
                 response_schema=DiagnosticEnrichment,
             )
@@ -388,10 +429,12 @@ Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto'
     def _fallback_enriquecimiento(self, probs_bayes: dict) -> dict:
         top = max(probs_bayes, key=probs_bayes.get)
         return {
-            "validacion": f"Análisis bayesiano completado. El diagnóstico más probable es {top}. Considere el contexto clínico completo antes de concluir.",
+            "validacion": f"Análisis bayesiano completado. El diagnóstico más probable es {top}. Considere el contexto clínico completo antes de concluir. Esta herramienta es de apoyo, no reemplaza el juicio del médico tratante.",
             "sintomas_sugeridos": [],
             "alertas_gemini": [],
             "confianza_gemini": "No disponible (modo offline)",
+            "plan_terapeutico_sugerido": None,
+            "nivel_urgencia": "Ambulatorio",
             "fallback": True,
         }
 
@@ -408,34 +451,86 @@ Si crees que el diagnóstico bayesiano es correcto, deja 'diagnostico_propuesto'
         motivo_consulta: str = "No especificado",
         tipo_visita: str = "consulta",
         meta_clinica: dict = None,
+        doctor_notes: str = "",
+        tests_resultados: list = None,
+        blood_type: str = None,
     ) -> dict:
         if not self.available:
             return {"informe_completo": None, "seccion_gemini": None, "fallback": True}
 
         meta = meta_clinica or {}
-        top3 = sorted(diagnosticos_diferenciales.items(), key=lambda x: x[1], reverse=True)[:3]
-        diferenciales_str = "\n".join([f"  - {d}: {p*100:.2f}%" for d, p in top3 if d != diagnostico])
+        top5 = sorted(diagnosticos_diferenciales.items(), key=lambda x: x[1], reverse=True)[:5]
+        diferenciales_str = "\n".join([f"  {i+1}. {d}: {p*100:.2f}%" for i, (d, p) in enumerate(top5)])
 
         alert_level = meta.get("alert_level", "Verde")
         emoji_nivel = {"Rojo": "🔴", "Amarillo": "🟡", "Verde": "🟢"}.get(alert_level, "🟢")
+        specialist = meta.get("specialist", "Medicina General")
 
-        prompt = f"""Genera el análisis fisiopatológico clínico en markdown.
-DIAGNÓSTICO FINAL: {diagnostico} ({probabilidad*100:.2f}% confianza)
-TRIAGE: {alert_level} {emoji_nivel} | VISITA: {tipo_visita.upper()}
-MOTIVO: {motivo_consulta}
-CONSTANTES: Temp {constantes.get('temperatura','?')}°C | SpO2 {constantes.get('spo2','?')}% | PA {constantes.get('pas','?')}/{constantes.get('pad','?')} | FC {constantes.get('fc','?')} | FR {constantes.get('fr','?')}
-SÍNTOMAS: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno'}
-ANTECEDENTES: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
-DIFERENCIALES:
+        # Preparar resultados de laboratorio
+        labs_str = ""
+        if tests_resultados:
+            labs = [f"  - {t['test_name']}: {t['result']}" for t in tests_resultados if t.get('done') and t.get('result')]
+            if labs:
+                labs_str = "RESULTADOS DE LABORATORIO Y ESTUDIOS CLÍNICOS:\n" + "\n".join(labs) + "\n"
+
+        prompt = f"""Genera un INFORME CLÍNICO MÉDICO COMPLETO en markdown para el siguiente caso clínico.
+
+=== DATOS DEL CASO CLÍNICO ===
+PACIENTE: {paciente_nombre}
+TIPO VISITA: {tipo_visita.upper()} | TRIAGE: {alert_level} {emoji_nivel}
+DIAGNÓSTICO: {diagnostico} (confianza bayesiana: {probabilidad*100:.2f}%)
+ESPECIALISTA SUGERIDO: {specialist}
+MOTIVO DE CONSULTA: {motivo_consulta}
+
+CONSTANTES VITALES:
+  - Temperatura: {constantes.get('temperatura','?')}°C
+  - SpO2: {constantes.get('spo2','?')}%
+  - PA: {constantes.get('pas','?')}/{constantes.get('pad','?')} mmHg
+  - FC: {constantes.get('fc','?')} bpm | FR: {constantes.get('fr','?')} rpm
+  - IMC: {constantes.get('imc','No registrado')} | Tipo de Sangre: {blood_type or 'No registrado'}
+
+SÍNTOMAS PRESENTES: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno reportado'}
+ANTECEDENTES PATOLÓGICOS: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno reportado'}
+
+DIAGNÓSTICOS DIFERENCIALES (probabilidades bayesianas):
 {diferenciales_str}
 
-Genera solo el texto en markdown (sin títulos iniciales). Sé conciso (máx 150 palabras)."""
+{labs_str}
+{f'NOTAS DEL MÉDICO TRATANTE: {doctor_notes}' if doctor_notes else ''}
+
+=== INSTRUCCIÓN PARA EL INFORME ===
+Genera un informe clínico médico completo, profesional y estructurado en formato markdown con las siguientes secciones:
+
+## 📋 Presentación Clínica
+Resumen conciso del cuadro clínico actual (síntomas, tiempo de evolución inferido, contexto).
+
+## 🔬 Hallazgos Relevantes
+Hallazgos objetivos (constantes vitales, valores de laboratorio si aplica). Para cada valor alterado, indica su relevancia clínica.
+
+## 🧬 Análisis Fisiopatológico
+Explica el mecanismo fisiopatológico que conecta los síntomas, hallazgos y antecedentes con el diagnóstico.
+
+## ⚖️ Diagnóstico Diferencial Razonado
+Justifica por qué se establece el diagnóstico principal sobre los demás diferenciales. Menciona qué argumenta en contra de cada alternativa.
+
+## 💊 Plan Terapéutico Sugerido (Orientativo)
+Primera línea de manejo sugerida (no es prescripción definitiva): medidas generales, tratamiento farmacológico de primera línea según guías, estudios complementarios recomendados.
+
+## ⚠️ Señales de Alarma
+Lista de signos y síntomas que deben alertar al médico para hospitalización, cambio de tratamiento o activación de protocolo de urgencias.
+
+## 📌 Recomendaciones al Paciente
+Indicaciones claras y prácticas en lenguaje sencillo para el paciente sobre cuidados en casa, dieta, actividad física y cuándo acudir a urgencias.
+
+---
+> ⚕️ **Aviso Clínico Importante**: Este informe es generado por inteligencia artificial como herramienta de apoyo diagnóstico. **No constituye un diagnóstico médico definitivo** y no reemplaza el juicio clínico del médico tratante. El diagnóstico y tratamiento final es responsabilidad exclusiva del profesional de salud que atiende al paciente.
+"""
 
         try:
             config = types.GenerateContentConfig(
                 system_instruction=_SYSTEM_INTERNISTA,
-                temperature=0.4,
-                max_output_tokens=1000,
+                temperature=0.35,
+                max_output_tokens=2500,
             )
             response = self._generate_content_with_retry(
                 contents=prompt,
@@ -449,6 +544,7 @@ Genera solo el texto en markdown (sin títulos iniciales). Sé conciso (máx 150
         except Exception as e:
             print(f"[GeminiLayer] Error crítico generando informe tras reintentos: {e}")
             return {"seccion_gemini": None, "fallback": True}
+
 
     # ── 3. CHATBOT MÉDICO CON CONTEXTO BAYESIANO ──────────────────────────────
     def chatear_medico(
@@ -562,26 +658,53 @@ Constantes: Temp {constantes.get('temperatura')}°C | SpO2 {constantes.get('spo2
         antecedentes_activos: list,
         paciente_edad: int,
         paciente_genero: str,
-        alert_level: str
+        alert_level: str,
+        blood_type: str = None,
+        tests_resultados: list = None
     ) -> dict:
         if not self.available:
             return {"medications": [], "fallback": True}
 
         # GUARDRAIL EN PYTHON: Si el triage es crítico, forzar receta de alivio sintomático básico
-        # y derivación inmediata a nivel de código
         es_critico = alert_level.strip().lower() in ["rojo", "crítico", "critico"]
 
-        prompt = f"""Genera una sugerencia de receta para el caso clínico:
-PACIENTE: {paciente_edad} años | {paciente_genero}
+        # Grupo de edad para ajuste farmacológico
+        grupo_edad = "pediátrico (<12 años)" if paciente_edad < 12 else ("geriátrico (>65 años)" if paciente_edad > 65 else "adulto")
+
+        # Preparar resultados de laboratorio relevantes
+        labs_str = ""
+        if tests_resultados:
+            labs = [f"  - {t['test_name']}: {t['result']}" for t in tests_resultados if t.get('done') and t.get('result')]
+            if labs:
+                labs_str = "RESULTADOS DE LABORATORIO DISPONIBLES:\n" + "\n".join(labs)
+
+        prompt = f"""Genera una sugerencia de receta médica fundamentada para el siguiente caso clínico:
+
+PERFIL DEL PACIENTE:
+  - Edad: {paciente_edad} años ({grupo_edad})
+  - Género: {paciente_genero}
+  - Tipo de Sangre: {blood_type or 'No registrado'}
+
 DIAGNÓSTICO: {diagnostico}
-TRIAGE: {alert_level}
-MOTIVO: {motivo_consulta}
-SÍNTOMAS ACTIVOS: {', '.join(sintomas_activos)}
-ANTECEDENTES: {', '.join(antecedentes_activos)}
-NOTAS DOCTOR: {doctor_notes}
+NIVEL DE TRIAGE: {alert_level}
+MOTIVO DE CONSULTA: {motivo_consulta}
+
+CONSTANTES VITALES:
+  - Temperatura: {constantes.get('temperatura','?')}°C | SpO2: {constantes.get('spo2','?')}%
+  - PA: {constantes.get('pas','?')}/{constantes.get('pad','?')} mmHg | FC: {constantes.get('fc','?')} bpm
+  - IMC: {constantes.get('imc', 'No registrado')}
+
+SÍNTOMAS ACTIVOS: {', '.join(sintomas_activos) if sintomas_activos else 'Ninguno'}
+ANTECEDENTES PATOLÓGICOS: {', '.join(antecedentes_activos) if antecedentes_activos else 'Ninguno'}
+{labs_str}
+NOTAS DEL MÉDICO TRATANTE: {doctor_notes or 'Sin notas adicionales'}
 """
         if es_critico:
-            prompt += "\n[GUARDRAIL CRÍTICO]: Prescribe únicamente analgésico simple y advierte derivación inmediata."
+            prompt += "\n[GUARDRAIL CRÍTICO]: El triage es ROJO. Prescribe ÚNICAMENTE analgésico/antipirético simple de soporte. En el campo 'notes' del primer medicamento incluye: 'URGENTE: Derivar a urgencias hospitalarias de forma inmediata.'"
+        if paciente_edad < 12:
+            prompt += "\n[AJUSTE PEDIÁTRICO]: Paciente menor de 12 años. Calcula dosis según peso/kg. Evita medicamentos contraindicados en pediatría (AINEs en <2 años, quinolonas, etc.)."
+        elif paciente_edad > 65:
+            prompt += "\n[AJUSTE GERIÁTRICO]: Paciente mayor de 65 años. Ajusta dosis considerando función renal/hepática reducida. Evita polifarmacia y medicamentos con alto riesgo en ancianos (benzodiacepinas, anticolinérgicos fuertes)."
 
         try:
             config = types.GenerateContentConfig(
