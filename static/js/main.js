@@ -766,8 +766,53 @@ async function viewPatient(id) {
   openModal('modal-view-patient');
 }
 
+// Geodata helpers
+function initializeGeodataDropdowns() {
+  const birthCountrySelect = document.getElementById('pt-birth-country');
+  const resCountrySelect = document.getElementById('pt-residence-country');
+  if (!birthCountrySelect || !resCountrySelect) return;
+
+  if (birthCountrySelect.options.length > 1) return;
+
+  const countries = Object.keys(COUNTRIES_AND_CITIES).sort();
+  let html = '<option value="">Seleccione País</option>';
+  countries.forEach(c => {
+    html += `<option value="${c}">${c}</option>`;
+  });
+
+  birthCountrySelect.innerHTML = html;
+  resCountrySelect.innerHTML = html;
+  
+  document.getElementById('pt-birth-city').innerHTML = '<option value="">Seleccione Ciudad</option>';
+  document.getElementById('pt-residence-city').innerHTML = '<option value="">Seleccione Ciudad</option>';
+}
+
+function updateCitiesDropdown(countrySelectId, citySelectId, selectCityValue = null) {
+  const countryVal = document.getElementById(countrySelectId)?.value;
+  const citySelect = document.getElementById(citySelectId);
+  if (!citySelect) return;
+
+  let html = '<option value="">Seleccione Ciudad</option>';
+  let found = false;
+  if (countryVal && COUNTRIES_AND_CITIES[countryVal]) {
+    const cities = COUNTRIES_AND_CITIES[countryVal].sort();
+    cities.forEach(city => {
+      const isSelected = (selectCityValue && selectCityValue.toLowerCase() === city.toLowerCase());
+      if (isSelected) found = true;
+      html += `<option value="${city}" ${isSelected ? 'selected' : ''}>${city}</option>`;
+    });
+  }
+  
+  if (selectCityValue && !found) {
+    html += `<option value="${selectCityValue}" selected>${selectCityValue}</option>`;
+  }
+  
+  citySelect.innerHTML = html;
+}
+
 function openNewPatientModal() {
   clearPatientForm();
+  initializeGeodataDropdowns();
   document.getElementById('modal-patient-title').textContent = 'Registrar Nuevo Paciente';
   openModal('modal-new-patient');
 }
@@ -788,10 +833,13 @@ async function editPatient(id) {
   document.getElementById('pt-gender').value = p.gender || 'Otro';
   document.getElementById('pt-phone').value  = p.phone  || '';
   document.getElementById('pt-blood').value  = p.blood_type || '';
+  
+  initializeGeodataDropdowns();
   document.getElementById('pt-birth-country').value = p.birth_country || '';
-  document.getElementById('pt-birth-city').value    = p.birth_city || '';
+  updateCitiesDropdown('pt-birth-country', 'pt-birth-city', p.birth_city);
   document.getElementById('pt-residence-country').value = p.residence_country || '';
-  document.getElementById('pt-residence-city').value    = p.residence_city || '';
+  updateCitiesDropdown('pt-residence-country', 'pt-residence-city', p.residence_city);
+  
   document.getElementById('pt-ethnicity').value     = p.ethnicity || '';
   document.getElementById('pt-marital-status').value = p.marital_status || '';
   document.getElementById('pt-occupation').value     = p.occupation || '';

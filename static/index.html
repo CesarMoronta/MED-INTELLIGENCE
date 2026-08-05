@@ -1640,21 +1640,29 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">País de Nacimiento</label>
-            <input type="text" id="pt-birth-country" class="form-input" placeholder="República Dominicana" />
+            <select id="pt-birth-country" class="form-input" onchange="updateCitiesDropdown('pt-birth-country', 'pt-birth-city')">
+              <option value="">Seleccione País</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label">Ciudad de Nacimiento</label>
-            <input type="text" id="pt-birth-city" class="form-input" placeholder="Santo Domingo" />
+            <select id="pt-birth-city" class="form-input">
+              <option value="">Seleccione Ciudad</option>
+            </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">País de Residencia</label>
-            <input type="text" id="pt-residence-country" class="form-input" placeholder="República Dominicana" />
+            <select id="pt-residence-country" class="form-input" onchange="updateCitiesDropdown('pt-residence-country', 'pt-residence-city')">
+              <option value="">Seleccione País</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label">Ciudad de Residencia</label>
-            <input type="text" id="pt-residence-city" class="form-input" placeholder="Santo Domingo" />
+            <select id="pt-residence-city" class="form-input">
+              <option value="">Seleccione Ciudad</option>
+            </select>
           </div>
         </div>
         <div class="form-row">
@@ -2656,6 +2664,7 @@
   <script src="/js/theme.js?v=3"></script>
   <script src="/js/simulator.js?v=3"></script>
   <script src="/js/gemini_chat.js?v=3"></script>
+  <script src="/js/geodata.js?v=3"></script>
   <script src="/js/main.js?v=3"></script>
 </body>
 
