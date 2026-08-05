@@ -151,3 +151,16 @@ def api_reports_billing():
     
     data = get_report_billing(date_from, date_to, invoice_type, doctor_id=doctor_id)
     return jsonify({"success": True, "billing": data})
+
+@reports_bp.route("/api/reports/epidemiology", methods=["GET"])
+@requires_login
+def api_reports_epidemiology():
+    doctor_id, error = _get_doctor_id_from_request()
+    if error: return error
+    
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    
+    from database import get_epidemiology_report
+    data = get_epidemiology_report(date_from=date_from, date_to=date_to, doctor_id=doctor_id)
+    return jsonify(data)

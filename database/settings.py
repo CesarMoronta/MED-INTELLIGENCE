@@ -54,6 +54,12 @@ def initialize_database(seed_patients=None, default_priors=None, default_conditi
     except Exception as e:
         print(f"⚠️ Error al aplicar update_db_schedules: {e}")
 
+    try:
+        import update_db_reporting_demographics
+        update_db_reporting_demographics.apply_migration()
+    except Exception as e:
+        print(f"⚠️ Error al aplicar update_db_reporting_demographics: {e}")
+
     conn   = get_connection()
     cursor = conn.cursor()
 

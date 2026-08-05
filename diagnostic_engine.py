@@ -25,7 +25,8 @@ class BayesianDiagnosticSystem:
             "Miocarditis":                             0.015,
             "Encefalitis":                             0.005,
             "Accidente Cerebrovascular (ACV)":         0.03,
-            "Migraña Severa":                          0.04,
+            "Migraña Común / Moderada":                0.04,
+            "Migraña Severa":                          0.015,
             "Dengue No Grave (Clásico)":               0.04,
             "Dengue Grave":                            0.01,
             "Fiebre Zika":                             0.03,
@@ -38,7 +39,8 @@ class BayesianDiagnosticSystem:
             "Faringoamigdalitis Viral":                0.04,
             "Faringoamigdalitis Estreptocócica":       0.03,
             "Tromboembolismo Pulmonar":                0.015,
-            "Diabetes Mellitus Tipo 2":                0.04,
+            "Diabetes Mellitus Tipo 2 (Controlada)":   0.04,
+            "Diabetes Mellitus Tipo 2 (Descompensada)": 0.015,
             "Gastroenteritis Aguda Viral":             0.04,
             "Gastroenteritis Aguda Bacteriana":        0.03,
             "Gastroenteritis Aguda Parasitaria":       0.03,
@@ -46,9 +48,19 @@ class BayesianDiagnosticSystem:
             "Cistitis Aguda (IVU Baja)":               0.04,
             "Pielonefritis Aguda (IVU Alta)":          0.02,
             "Reflujo Gastroesofágico (ERGE)":          0.04,
-            "Gastritis Aguda":                         0.04,
+            "Gastritis Aguda Leve":                    0.04,
+            "Gastritis Erosiva / Sangrante":           0.01,
             "Úlcera Péptica No Complicada":            0.025,
             "Varicela (Leve/Moderada)":                0.015,
+            "Conjuntivitis Aguda":                     0.05,
+            "Síndrome Metabólico / Estrés Metabólico": 0.04,
+            "Ansiedad Generalizada / Trastorno de Pánico": 0.05,
+            "Anemia Ferropénica":                      0.04,
+            "Hipotiroidismo Clínico":                  0.03,
+            "Lumbalgia Mecánica":                      0.06,
+            "Rinitis Alérgica":                        0.05,
+            "Dermatitis Atópica":                      0.04,
+            "Reflujo Laringofaríngeo":                 0.04,
         }
 
         # ── PROBABILIDADES CONDICIONALES: P(Síntoma | Enfermedad)
@@ -56,7 +68,7 @@ class BayesianDiagnosticSystem:
             "Tos Seca Irritativa": {
                 "Gripe Común / Influenza": 0.65, "Neumonía": 0.30, "Bronquitis Aguda": 0.50, "Crisis Asmática Aguda": 0.60,
                 "Exacerbación Aguda de EPOC": 0.30, "COVID-19": 0.70, "COVID-19 Grave": 0.50, "Faringoamigdalitis Viral": 0.35,
-                "Resfriado Común (Rinofaringitis)": 0.40, "Reflujo Gastroesofágico (ERGE)": 0.30
+                "Resfriado Común (Rinofaringitis)": 0.40, "Reflujo Gastroesofágico (ERGE)": 0.30, "Reflujo Laringofaríngeo": 0.50
             },
             "Tos Productiva / con Flema": {
                 "Gripe Común / Influenza": 0.20, "Neumonía": 0.85, "Bronquitis Aguda": 0.88, "Crisis Asmática Aguda": 0.40,
@@ -69,7 +81,7 @@ class BayesianDiagnosticSystem:
                 "Gripe Común / Influenza": 0.15, "Neumonía": 0.88, "Bronquitis Aguda": 0.45, "Crisis Asmática Aguda": 0.97,
                 "Exacerbación Aguda de EPOC": 0.98, "Infarto Agudo de Miocardio (IAM)": 0.62, "Insuficiencia Cardíaca Congestiva (ICC)": 0.95,
                 "Miocarditis": 0.65, "Encefalitis": 0.15, "Accidente Cerebrovascular (ACV)": 0.20, "COVID-19": 0.45, "COVID-19 Grave": 0.98,
-                "Tromboembolismo Pulmonar": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.10
+                "Tromboembolismo Pulmonar": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.10, "Ansiedad Generalizada / Trastorno de Pánico": 0.30
             },
             "Tos con Sangre (Hemoptisis)": {
                 "Neumonía": 0.18, "Bronquitis Aguda": 0.05, "Exacerbación Aguda de EPOC": 0.10, "COVID-19 Grave": 0.12,
@@ -79,23 +91,25 @@ class BayesianDiagnosticSystem:
                 "Gripe Común / Influenza": 0.10, "Neumonía": 0.65, "Bronquitis Aguda": 0.35, "Crisis Asmática Aguda": 0.30,
                 "Exacerbación Aguda de EPOC": 0.40, "Infarto Agudo de Miocardio (IAM)": 0.98, "Insuficiencia Cardíaca Congestiva (ICC)": 0.38,
                 "Miocarditis": 0.90, "COVID-19 Grave": 0.60, "Tromboembolismo Pulmonar": 0.90, "Reflujo Gastroesofágico (ERGE)": 0.45,
-                "Gastritis Aguda": 0.25, "Úlcera Péptica No Complicada": 0.30
+                "Gastritis Aguda Leve": 0.15, "Gastritis Erosiva / Sangrante": 0.30, "Úlcera Péptica No Complicada": 0.30,
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.45
             },
             "Palpitaciones": {
                 "Gripe Común / Influenza": 0.10, "Infarto Agudo de Miocardio (IAM)": 0.50, "Insuficiencia Cardíaca Congestiva (ICC)": 0.65,
-                "Miocarditis": 0.80, "Tromboembolismo Pulmonar": 0.55, "Diabetes Mellitus Tipo 2": 0.15
+                "Miocarditis": 0.80, "Tromboembolismo Pulmonar": 0.55, "Diabetes Mellitus Tipo 2 (Controlada)": 0.10,
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.25, "Ansiedad Generalizada / Trastorno de Pánico": 0.85
             },
             "Edema (Hinchazón)": {
-                "Insuficiencia Cardíaca Congestiva (ICC)": 0.92, "Miocarditis": 0.40, "Diabetes Mellitus Tipo 2": 0.30,
-                "Tromboembolismo Pulmonar": 0.25
+                "Insuficiencia Cardíaca Congestiva (ICC)": 0.92, "Miocarditis": 0.40, "Diabetes Mellitus Tipo 2 (Controlada)": 0.20,
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.35, "Tromboembolismo Pulmonar": 0.25, "Hipotiroidismo Clínico": 0.50
             },
             "Dolor de Cabeza Severo": {
                 "Gripe Común / Influenza": 0.60, "Encefalitis": 0.88, "Accidente Cerebrovascular (ACV)": 0.60, "Migraña Severa": 0.99,
-                "Dengue No Grave (Clásico)": 0.85, "Dengue Grave": 0.85, "Fiebre Zika": 0.65, "Fiebre Chikungunya": 0.70,
-                "Sinusitis Aguda": 0.68, "COVID-19": 0.48
+                "Migraña Común / Moderada": 0.85, "Dengue No Grave (Clásico)": 0.85, "Dengue Grave": 0.85, "Fiebre Zika": 0.65,
+                "Fiebre Chikungunya": 0.70, "Sinusitis Aguda": 0.68, "COVID-19": 0.48
             },
             "Confusión / Convulsiones": {
-                "Encefalitis": 0.95, "Accidente Cerebrovascular (ACV)": 0.52, "Diabetes Mellitus Tipo 2": 0.15,
+                "Encefalitis": 0.95, "Accidente Cerebrovascular (ACV)": 0.52, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.35,
                 "Pielonefritis Aguda (IVU Alta)": 0.20
             },
             "Pérdida de Fuerza/Sensibilidad Unilateral": {
@@ -106,8 +120,9 @@ class BayesianDiagnosticSystem:
             },
             "Mareos / Vértigo": {
                 "Gripe Común / Influenza": 0.25, "Infarto Agudo de Miocardio (IAM)": 0.30, "Insuficiencia Cardíaca Congestiva (ICC)": 0.35,
-                "Accidente Cerebrovascular (ACV)": 0.60, "Migraña Severa": 0.65, "Dengue Grave": 0.50, "Otitis Media Aguda": 0.40,
-                "Otitis Externa Aguda": 0.15, "Pielonefritis Aguda (IVU Alta)": 0.25
+                "Accidente Cerebrovascular (ACV)": 0.60, "Migraña Severa": 0.65, "Migraña Común / Moderada": 0.35, "Dengue Grave": 0.50,
+                "Otitis Media Aguda": 0.40, "Otitis Externa Aguda": 0.15, "Pielonefritis Aguda (IVU Alta)": 0.25,
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.50
             },
             "Fiebre Alta": {
                 "Gripe Común / Influenza": 0.85, "Neumonía": 0.80, "Encefalitis": 0.90, "Dengue No Grave (Clásico)": 0.98,
@@ -125,7 +140,10 @@ class BayesianDiagnosticSystem:
                 "Gripe Común / Influenza": 0.82, "Neumonía": 0.78, "Bronquitis Aguda": 0.55, "Insuficiencia Cardíaca Congestiva (ICC)": 0.85,
                 "Miocarditis": 0.80, "Encefalitis": 0.70, "Dengue No Grave (Clásico)": 0.90, "Dengue Grave": 0.95,
                 "Fiebre Zika": 0.60, "Fiebre Chikungunya": 0.85, "COVID-19": 0.85, "COVID-19 Grave": 0.95,
-                "Diabetes Mellitus Tipo 2": 0.62, "Gastroenteritis Aguda Bacteriana": 0.70, "Pielonefritis Aguda (IVU Alta)": 0.80
+                "Diabetes Mellitus Tipo 2 (Controlada)": 0.40, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.80,
+                "Gastroenteritis Aguda Bacteriana": 0.70, "Pielonefritis Aguda (IVU Alta)": 0.80, "Anemia Ferropénica": 0.85,
+                "Hipotiroidismo Clínico": 0.90, "Síndrome Metabólico / Estrés Metabólico": 0.50,
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.60
             },
             "Dolor de Cuerpo Generalizado": {
                 "Gripe Común / Influenza": 0.78, "Dengue No Grave (Clásico)": 0.95, "Fiebre Zika": 0.75,
@@ -140,10 +158,10 @@ class BayesianDiagnosticSystem:
             },
             "Náuseas / Vómitos": {
                 "Gripe Común / Influenza": 0.15, "Neumonía": 0.20, "Infarto Agudo de Miocardio (IAM)": 0.25,
-                "Encefalitis": 0.65, "Migraña Severa": 0.75, "Dengue No Grave (Clásico)": 0.40, "Dengue Grave": 0.85,
-                "COVID-19": 0.20, "Gastroenteritis Aguda Viral": 0.85, "Gastroenteritis Aguda Bacteriana": 0.80,
-                "Gastroenteritis Aguda Parasitaria": 0.40, "Pielonefritis Aguda (IVU Alta)": 0.65, "Gastritis Aguda": 0.75,
-                "Úlcera Péptica No Complicada": 0.45
+                "Encefalitis": 0.65, "Migraña Severa": 0.75, "Migraña Común / Moderada": 0.30, "Dengue No Grave (Clásico)": 0.40,
+                "Dengue Grave": 0.85, "COVID-19": 0.20, "Gastroenteritis Aguda Viral": 0.85, "Gastroenteritis Aguda Bacteriana": 0.80,
+                "Gastroenteritis Aguda Parasitaria": 0.40, "Pielonefritis Aguda (IVU Alta)": 0.65, "Gastritis Aguda Leve": 0.50,
+                "Gastritis Erosiva / Sangrante": 0.85, "Úlcera Péptica No Complicada": 0.45, "Conjuntivitis Aguda": 0.05
             },
             "Diarrea Acuosa Profusa": {
                 "Gastroenteritis Aguda Viral": 0.92, "Gastroenteritis Aguda Parasitaria": 0.45
@@ -156,11 +174,12 @@ class BayesianDiagnosticSystem:
                 "Úlcera Péptica No Complicada": 0.20
             },
             "Dolor Abdominal Sordo / Difuso": {
-                "Cistitis Aguda (IVU Baja)": 0.35, "Pielonefritis Aguda (IVU Alta)": 0.40, "Gastritis Aguda": 0.50,
-                "Úlcera Péptica No Complicada": 0.55
+                "Cistitis Aguda (IVU Baja)": 0.35, "Pielonefritis Aguda (IVU Alta)": 0.40, "Gastritis Aguda Leve": 0.50,
+                "Gastritis Erosiva / Sangrante": 0.75, "Úlcera Péptica No Complicada": 0.55
             },
             "Dispepsia / Ardor Epigástrico": {
-                "Reflujo Gastroesofágico (ERGE)": 0.70, "Gastritis Aguda": 0.90, "Úlcera Péptica No Complicada": 0.95
+                "Reflujo Gastroesofágico (ERGE)": 0.70, "Gastritis Aguda Leve": 0.90, "Gastritis Erosiva / Sangrante": 0.95,
+                "Úlcera Péptica No Complicada": 0.95
             },
             "Dolor de Garganta": {
                 "Gripe Común / Influenza": 0.55, "COVID-19": 0.60, "Faringoamigdalitis Viral": 0.95,
@@ -179,30 +198,33 @@ class BayesianDiagnosticSystem:
                 "Cistitis Aguda (IVU Baja)": 0.98, "Pielonefritis Aguda (IVU Alta)": 0.75
             },
             "Polaquiuria (Orinar muy seguido)": {
-                "Cistitis Aguda (IVU Baja)": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.60, "Diabetes Mellitus Tipo 2": 0.65
+                "Cistitis Aguda (IVU Baja)": 0.95, "Pielonefritis Aguda (IVU Alta)": 0.60, "Diabetes Mellitus Tipo 2 (Controlada)": 0.30,
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.85
             },
             "Dolor Lumbar / Suprapúbico": {
                 "Cistitis Aguda (IVU Baja)": 0.60, "Pielonefritis Aguda (IVU Alta)": 0.98
             },
             "Pirosis (Acidez estomacal)": {
-                "Reflujo Gastroesofágico (ERGE)": 0.95, "Gastritis Aguda": 0.60, "Úlcera Péptica No Complicada": 0.55
+                "Reflujo Gastroesofágico (ERGE)": 0.95, "Gastritis Aguda Leve": 0.60, "Gastritis Erosiva / Sangrante": 0.65,
+                "Úlcera Péptica No Complicada": 0.55
             },
             "Regurgitación Ácida": {
                 "Reflujo Gastroesofágico (ERGE)": 0.90
             },
             "Congestión Nasal / Estornudos": {
                 "Gripe Común / Influenza": 0.60, "Sinusitis Aguda": 0.70, "COVID-19": 0.40,
-                "Resfriado Común (Rinofaringitis)": 0.90
+                "Resfriado Común (Rinofaringitis)": 0.90, "Rinitis Alérgica": 0.85
             },
             "Rinorrea (Moqueo)": {
-                "Gripe Común / Influenza": 0.58, "Sinusitis Aguda": 0.65, "Resfriado Común (Rinofaringitis)": 0.92
+                "Gripe Común / Influenza": 0.58, "Sinusitis Aguda": 0.65, "Resfriado Común (Rinofaringitis)": 0.92,
+                "Rinitis Alérgica": 0.88
             },
             "Artralgias Severas": {
                 "Dengue No Grave (Clásico)": 0.40, "Fiebre Zika": 0.60, "Fiebre Chikungunya": 0.98
             },
             "Mialgias Intensas": {
                 "Gripe Común / Influenza": 0.70, "Dengue No Grave (Clásico)": 0.90, "Fiebre Zika": 0.50,
-                "Fiebre Chikungunya": 0.80, "COVID-19": 0.60
+                "Fiebre Chikungunya": 0.80, "COVID-19": 0.60, "Ansiedad Generalizada / Trastorno de Pánico": 0.35
             },
             "Dolor Retroocular": {
                 "Dengue No Grave (Clásico)": 0.85, "Dengue Grave": 0.80, "Fiebre Zika": 0.40, "Fiebre Chikungunya": 0.30
@@ -212,6 +234,144 @@ class BayesianDiagnosticSystem:
             },
             "Prurito Generalizado": {
                 "Fiebre Zika": 0.65, "Varicela (Leve/Moderada)": 0.85
+            },
+            # --- NUEVOS SÍNTOMAS ---
+            "Fotofobia / Fonofobia Extrema": {
+                "Migraña Severa": 0.95, "Migraña Común / Moderada": 0.10, "Encefalitis": 0.40
+            },
+            "Aura Visual / Alteración Visual Temporal": {
+                "Migraña Severa": 0.60, "Migraña Común / Moderada": 0.02, "Accidente Cerebrovascular (ACV)": 0.15
+            },
+            "Vómitos Incoercibles / Frecuentes": {
+                "Migraña Severa": 0.70, "Migraña Común / Moderada": 0.05, "Gastroenteritis Aguda Viral": 0.80,
+                "Gastroenteritis Aguda Bacteriana": 0.75, "Gastritis Erosiva / Sangrante": 0.50, "Encefalitis": 0.60
+            },
+            "Cefalea Pulsátil Unilateral Intensa": {
+                "Migraña Severa": 0.95, "Migraña Común / Moderada": 0.75, "Sinusitis Aguda": 0.20
+            },
+            "Hematemesis (Vómito con Sangre)": {
+                "Gastritis Erosiva / Sangrante": 0.70, "Gastritis Aguda Leve": 0.01, "Úlcera Péptica No Complicada": 0.05
+            },
+            "Melenas (Heces Negras y Fétidas)": {
+                "Gastritis Erosiva / Sangrante": 0.75, "Gastritis Aguda Leve": 0.01, "Úlcera Péptica No Complicada": 0.10
+            },
+            "Dolor Epigástrico Quemante Severo": {
+                "Gastritis Erosiva / Sangrante": 0.90, "Gastritis Aguda Leve": 0.30, "Úlcera Péptica No Complicada": 0.70
+            },
+            "Poliuria / Polidipsia Marcada": {
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.92, "Diabetes Mellitus Tipo 2 (Controlada)": 0.15, "Cistitis Aguda (IVU Baja)": 0.10
+            },
+            "Pérdida de Peso Inexplicable / Rápida": {
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.75, "Diabetes Mellitus Tipo 2 (Controlada)": 0.05, "Anemia Ferropénica": 0.10
+            },
+            "Aliento Cetónico / Olor a Fruta Dulce": {
+                "Diabetes Mellitus Tipo 2 (Descompensada)": 0.60, "Diabetes Mellitus Tipo 2 (Controlada)": 0.01
+            },
+            "Inyección Conjuntival / Ojo Rojo": {
+                "Conjuntivitis Aguda": 0.98, "Rinitis Alérgica": 0.40, "Fiebre Zika": 0.30
+            },
+            "Secreción Ocular Purulenta": {
+                "Conjuntivitis Aguda": 0.85
+            },
+            "Prurito y Ardor Ocular": {
+                "Conjuntivitis Aguda": 0.90, "Rinitis Alérgica": 0.75
+            },
+            "Obesidad Abdominal (Cintura >102cm H / >88cm M)": {
+                "Síndrome Metabólico / Estrés Metabólico": 0.95, "Diabetes Mellitus Tipo 2 (Controlada)": 0.60, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.60
+            },
+            "Acantosis Nigricans (Piel oscura y aterciopelada en cuello/axilas)": {
+                "Síndrome Metabólico / Estrés Metabólico": 0.80, "Diabetes Mellitus Tipo 2 (Controlada)": 0.50, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.50
+            },
+            "Fatiga Postprandial / Somnolencia tras comer": {
+                "Síndrome Metabólico / Estrés Metabólico": 0.85, "Diabetes Mellitus Tipo 2 (Controlada)": 0.40, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.70
+            },
+            "Miedo Clínico / Sensación de Muerte Inminente": {
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.95, "Infarto Agudo de Miocardio (IAM)": 0.50, "Tromboembolismo Pulmonar": 0.45
+            },
+            "Sensación de Ahogo / Opresión Torácica": {
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.90, "Infarto Agudo de Miocardio (IAM)": 0.60, "Crisis Asmática Aguda": 0.85, "Exacerbación Aguda de EPOC": 0.80, "Tromboembolismo Pulmonar": 0.75
+            },
+            "Hiperventilación / Respiración Rápida Superficial": {
+                "Ansiedad Generalizada / Trastorno de Pánico": 0.85, "Crisis Asmática Aguda": 0.70, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.30
+            },
+            "Palidez Cutáneo-Mucosa": {
+                "Anemia Ferropénica": 0.95, "Infarto Agudo de Miocardio (IAM)": 0.30, "Dengue Grave": 0.40
+            },
+            "Pica (Deseo de comer hielo, tierra o papel)": {
+                "Anemia Ferropénica": 0.50
+            },
+            "Uñas Quebradizas o en Cuchara (Coiloniquia)": {
+                "Anemia Ferropénica": 0.60, "Hipotiroidismo Clínico": 0.40
+            },
+            "Intolerancia al Frío": {
+                "Hipotiroidismo Clínico": 0.92
+            },
+            "Aumento de Peso Inexplicable": {
+                "Hipotiroidismo Clínico": 0.85, "Síndrome Metabólico / Estrés Metabólico": 0.50
+            },
+            "Piel Seca y Caída de Cabello": {
+                "Hipotiroidismo Clínico": 0.88, "Dermatitis Atópica": 0.30
+            },
+            "Dolor Lumbar que Empeora al Moverse y Mejora con Reposo": {
+                "Lumbalgia Mecánica": 0.98
+            },
+            "Rigidez Lumbar Matutina Leve (<30 min)": {
+                "Lumbalgia Mecánica": 0.70
+            },
+            "Estornudos en Salva / Prurito Nasal": {
+                "Rinitis Alérgica": 0.95, "Resfriado Común (Rinofaringitis)": 0.40
+            },
+            "Rinorrea Acuosa Clara ('Agua de roca')": {
+                "Rinitis Alérgica": 0.92, "Resfriado Común (Rinofaringitis)": 0.50
+            },
+            "Prurito Intenso en Zonas de Flexión (Codos/Rodillas)": {
+                "Dermatitis Atópica": 0.96
+            },
+            "Placas Eritematosas y Descamativas": {
+                "Dermatitis Atópica": 0.95, "Varicela (Leve/Moderada)": 0.10
+            },
+            "Disfonía / Ronquera Persistente": {
+                "Reflujo Laringofaríngeo": 0.80, "Faringoamigdalitis Viral": 0.15
+            },
+            "Sensación de Globo en la Garganta (Cuerpo Extraño)": {
+                "Reflujo Laringofaríngeo": 0.85, "Ansiedad Generalizada / Trastorno de Pánico": 0.40
+            },
+            "Carraspeo Constante / Tos Laríngea": {
+                "Reflujo Laringofaríngeo": 0.90, "Bronquitis Aguda": 0.10
+            },
+            "Dolor Abdominal Intenso / Continuo": {
+                "Dengue Grave": 0.92, "Gastroenteritis Aguda Bacteriana": 0.40, "Gastritis Erosiva / Sangrante": 0.50
+            },
+            "Sangrado Activo (Encías/Nariz/Petequias)": {
+                "Dengue Grave": 0.85, "Dengue No Grave (Clásico)": 0.05
+            },
+            "Vómitos Persistentes (>3 en 1 hora)": {
+                "Dengue Grave": 0.88, "Gastroenteritis Aguda Viral": 0.45, "Gastroenteritis Aguda Bacteriana": 0.40, "Gastritis Erosiva / Sangrante": 0.35
+            },
+            # --- SIGNOS VITALES MAPEADOS ---
+            "Hipoxia Leve": {
+                "Neumonía": 0.45, "Crisis Asmática Aguda": 0.35, "Exacerbación Aguda de EPOC": 0.50, "COVID-19": 0.20, "COVID-19 Grave": 0.40, "Tromboembolismo Pulmonar": 0.40
+            },
+            "Hipoxia Severa": {
+                "Neumonía": 0.35, "Exacerbación Aguda de EPOC": 0.60, "COVID-19 Grave": 0.95, "Tromboembolismo Pulmonar": 0.70
+            },
+            "Hipertensión": {
+                "Accidente Cerebrovascular (ACV)": 0.85, "Infarto Agudo de Miocardio (IAM)": 0.55, "Síndrome Metabólico / Estrés Metabólico": 0.85
+            },
+            "Hipotensión": {
+                "Infarto Agudo de Miocardio (IAM)": 0.30, "Dengue Grave": 0.65, "Tromboembolismo Pulmonar": 0.40
+            },
+            "Taquicardia": {
+                "Crisis Asmática Aguda": 0.80, "Infarto Agudo de Miocardio (IAM)": 0.70, "Tromboembolismo Pulmonar": 0.85, "Dengue Grave": 0.90, "Ansiedad Generalizada / Trastorno de Pánico": 0.95
+            },
+            "Bradicardia": {
+                "Miocarditis": 0.15, "Hipotiroidismo Clínico": 0.40
+            },
+            "Taquipnea": {
+                "Crisis Asmática Aguda": 0.85, "Exacerbación Aguda de EPOC": 0.88, "Neumonía": 0.80, "Tromboembolismo Pulmonar": 0.90, "Ansiedad Generalizada / Trastorno de Pánico": 0.75
+            },
+            "Edad Avanzada": {
+                "Exacerbación Aguda de EPOC": 0.75, "Accidente Cerebrovascular (ACV)": 0.70, "Insuficiencia Cardíaca Congestiva (ICC)": 0.65, "Diabetes Mellitus Tipo 2 (Controlada)": 0.50, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.50, "Hipotiroidismo Clínico": 0.40
             }
         }
 
@@ -225,30 +385,30 @@ class BayesianDiagnosticSystem:
                 "Positivo para Adenovirus / Co-infección viral": {"Resfriado Común (Rinofaringitis)": 0.20, "Faringoamigdalitis Viral": 0.45}
             },
             "Hemograma Completo": {
-                "Normal (Valores de referencia estables)": {"Gripe Común / Influenza": 0.75, "Migraña Severa": 0.98, "Resfriado Común (Rinofaringitis)": 0.85, "Reflujo Gastroesofágico (ERGE)": 0.95, "Cistitis Aguda (IVU Baja)": 0.80},
+                "Normal (Valores de referencia estables)": {"Gripe Común / Influenza": 0.75, "Migraña Severa": 0.98, "Migraña Común / Moderada": 0.98, "Resfriado Común (Rinofaringitis)": 0.85, "Reflujo Gastroesofágico (ERGE)": 0.95, "Cistitis Aguda (IVU Baja)": 0.80, "Gastritis Aguda Leve": 0.95, "Conjuntivitis Aguda": 0.98, "Ansiedad Generalizada / Trastorno de Pánico": 0.98, "Hipotiroidismo Clínico": 0.90, "Lumbalgia Mecánica": 0.98, "Rinitis Alérgica": 0.95, "Dermatitis Atópica": 0.95, "Reflujo Laringofaríngeo": 0.98},
                 "Leucocitosis leve con linfocitosis (Infección viral)": {"Gripe Común / Influenza": 0.20, "Faringoamigdalitis Viral": 0.45, "Bronquitis Aguda": 0.30, "COVID-19": 0.40},
                 "Leucocitosis marcada con neutrofilia y desviación a la izquierda (Infección bacteriana)": {"Neumonía": 0.92, "Bronquitis Aguda": 0.55, "Faringoamigdalitis Estreptocócica": 0.85, "Pielonefritis Aguda (IVU Alta)": 0.90, "Gastroenteritis Aguda Bacteriana": 0.82},
                 "Leucopenia y trombocitopenia moderada (Sospecha de virosis/dengue)": {"Dengue No Grave (Clásico)": 0.90, "Fiebre Zika": 0.50, "COVID-19": 0.30},
                 "Trombocitopenia severa <100,000/mm³ y hemoconcentración Hct >20% (Dengue Grave)": {"Dengue Grave": 0.97, "Dengue No Grave (Clásico)": 0.08},
-                "Anemia microcítica hipocrómica (Deficiencia de hierro / Pérdida crónica)": {"Úlcera Péptica No Complicada": 0.35, "Gastritis Aguda": 0.15}
+                "Anemia microcítica hipocrómica (Deficiencia de hierro / Pérdida crónica)": {"Gastritis Erosiva / Sangrante": 0.35, "Anemia Ferropénica": 0.95}
             },
             "Glucosa en Ayunas": {
-                "Normal en adulto sano (70-99 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.01},
-                "Normal ajustado por edad/gestación": {"Diabetes Mellitus Tipo 2": 0.02},
-                "Hipoglucemia clínica (<70 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.01},
-                "Hipoglucemia severa (<55 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.00},
-                "Glucemia basal alterada / Prediabetes (100-125 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.35},
-                "Hiperglucemia clínica compatible con Diabetes (>=126 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.98},
-                "Hiperglucemia severa en crisis (>250 mg/dL)": {"Diabetes Mellitus Tipo 2": 0.60}
+                "Normal en adulto sano (70-99 mg/dL)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.05, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.01},
+                "Normal ajustado por edad/gestación": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.02, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.01},
+                "Hipoglucemia clínica (<70 mg/dL)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.01},
+                "Hipoglucemia severa (<55 mg/dL)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.00},
+                "Glucemia basal alterada / Prediabetes (100-125 mg/dL)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.35},
+                "Hiperglucemia clínica compatible con Diabetes (>=126 mg/dL)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.98, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.98, "Síndrome Metabólico / Estrés Metabólico": 0.50},
+                "Hiperglucemia severa en crisis (>250 mg/dL)": {"Diabetes Mellitus Tipo 2 (Descompensada)": 0.95, "Diabetes Mellitus Tipo 2 (Controlada)": 0.10}
             },
             "Hemoglobina Glicosilada (HbA1c)": {
-                "Normal (<5.7%)": {"Diabetes Mellitus Tipo 2": 0.02},
-                "Rango de prediabetes (5.7% - 6.4%)": {"Diabetes Mellitus Tipo 2": 0.40},
-                "Diabetes Mellitus establecida (>=6.5%)": {"Diabetes Mellitus Tipo 2": 0.97},
-                "Diabetes con mal control metabólico (>=8.0%)": {"Diabetes Mellitus Tipo 2": 0.70}
+                "Normal (<5.7%)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.02, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.01},
+                "Rango de prediabetes (5.7% - 6.4%)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.40},
+                "Diabetes Mellitus establecida (>=6.5%)": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.95, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.97},
+                "Diabetes con mal control metabólico (>=8.0%)": {"Diabetes Mellitus Tipo 2 (Descompensada)": 0.90, "Diabetes Mellitus Tipo 2 (Controlada)": 0.20}
             },
             "Radiografía de Tórax": {
-                "Normal (Campos pulmonares libres)": {"Bronquitis Aguda": 0.75, "Gripe Común / Influenza": 0.70, "Crisis Asmática Aguda": 0.70, "Resfriado Común (Rinofaringitis)": 0.95, "Reflujo Gastroesofágico (ERGE)": 0.98, "Neumonía": 0.05},
+                "Normal (Campos pulmonares libres)": {"Bronquitis Aguda": 0.75, "Gripe Común / Influenza": 0.70, "Crisis Asmática Aguda": 0.70, "Resfriado Común (Rinofaringitis)": 0.95, "Reflujo Gastroesofágico (ERGE)": 0.98, "Neumonía": 0.05, "Ansiedad Generalizada / Trastorno de Pánico": 0.99, "Reflujo Laringofaríngeo": 0.99, "Anemia Ferropénica": 0.99},
                 "Consolidación lobar única (Neumonía bacteriana típica)": {"Neumonía": 0.95, "Bronquitis Aguda": 0.01},
                 "Infiltrados intersticiales bilaterales (Patrón atípico / Viral)": {"COVID-19": 0.80, "COVID-19 Grave": 0.90, "Neumonía": 0.50},
                 "Infiltrados parahiliares difusos y congestión vascular": {"Insuficiencia Cardíaca Congestiva (ICC)": 0.85, "Neumonía": 0.15},
@@ -266,7 +426,7 @@ class BayesianDiagnosticSystem:
                 "Elevación patológica franca (>0.4 ng/mL - Compatible con IAM)": {"Infarto Agudo de Miocardio (IAM)": 0.98, "Miocarditis": 0.40}
             },
             "ECG de 12 Derivaciones": {
-                "Normal (Ritmo sinusal, eje normal)": {"Infarto Agudo de Miocardio (IAM)": 0.03, "Migraña Severa": 0.95},
+                "Normal (Ritmo sinusal, eje normal)": {"Infarto Agudo de Miocardio (IAM)": 0.03, "Migraña Severa": 0.95, "Migraña Común / Moderada": 0.95},
                 "Taquicardia sinusal inespecífica": {"Crisis Asmática Aguda": 0.40, "Gripe Común / Influenza": 0.30, "Miocarditis": 0.35, "Tromboembolismo Pulmonar": 0.50},
                 "Elevación difusa del segmento ST con concavidad superior (Sugerente de Miocarditis)": {"Miocarditis": 0.92, "Infarto Agudo de Miocardio (IAM)": 0.05},
                 "Elevación del segmento ST localizada con ondas T hiperagudas (IAM en curso)": {"Infarto Agudo de Miocardio (IAM)": 0.95, "Miocarditis": 0.01},
@@ -280,13 +440,13 @@ class BayesianDiagnosticSystem:
                 "Elevación crítica (>1000 ng/mL - Alta sospecha de TEP / Trombosis)": {"Tromboembolismo Pulmonar": 0.95, "COVID-19 Grave": 0.50, "Dengue Grave": 0.35}
             },
             "Punción Lumbar (LCR)": {
-                "Normal (Líquido claro, presión normal)": {"Encefalitis": 0.03, "Migraña Severa": 0.90},
+                "Normal (Líquido claro, presión normal)": {"Encefalitis": 0.03, "Migraña Severa": 0.90, "Migraña Común / Moderada": 0.90},
                 "Pleocitosis linfocitaria con proteínas moderadamente elevadas y glucosa normal (Encefalitis viral)": {"Encefalitis": 0.95, "Accidente Cerebrovascular (ACV)": 0.02},
                 "Pleocitosis neutrofílica con hiperproteinorraquia e hipoglucorraquia (Meningitis bacteriana)": {"Encefalitis": 0.20},
                 "Líquido hemático / Xantocrómico (Hemorragia subaracnoidea)": {"Accidente Cerebrovascular (ACV)": 0.35, "Encefalitis": 0.01}
             },
             "TC de Cráneo": {
-                "Normal (Sin alteraciones estructurales)": {"Migraña Severa": 0.99, "Accidente Cerebrovascular (ACV)": 0.10, "Encefalitis": 0.45},
+                "Normal (Sin alteraciones estructurales)": {"Migraña Severa": 0.99, "Migraña Común / Moderada": 0.99, "Accidente Cerebrovascular (ACV)": 0.10, "Encefalitis": 0.45},
                 "Isquemia cerebral aguda / Zona hipodensa temprana (Infarto isquémico)": {"Accidente Cerebrovascular (ACV)": 0.60, "Migraña Severa": 0.00},
                 "Hemorragia intraparenquimatosa o subaracnoidea aguda (Foco hiperdenso)": {"Accidente Cerebrovascular (ACV)": 0.38, "Migraña Severa": 0.00},
                 "Edema cerebral difuso / Pérdida de surcos (Encefalitis severa)": {"Encefalitis": 0.50, "Accidente Cerebrovascular (ACV)": 0.05, "Migraña Severa": 0.00},
@@ -309,7 +469,7 @@ class BayesianDiagnosticSystem:
                 "Oclusión del complejo ostiomeatal y niveles hidroaéreos (Sinusitis aguda)": {"Sinusitis Aguda": 0.98}
             },
             "Gasometría Arterial": {
-                "Normal (pH, PaO2 y PaCO2 en rangos estables)": {"Gripe Común / Influenza": 0.85, "Migraña Severa": 0.98},
+                "Normal (pH, PaO2 y PaCO2 en rangos estables)": {"Gripe Común / Influenza": 0.85, "Migraña Severa": 0.98, "Migraña Común / Moderada": 0.98},
                 "Hipoxia leve sin hipercapnia (PaO2 60-79 mmHg)": {"Exacerbación Aguda de EPOC": 0.40, "COVID-19 Grave": 0.25, "Tromboembolismo Pulmonar": 0.35},
                 "Hipoxia severa / Insuficiencia respiratoria aguda (PaO2 <60 mmHg)": {"COVID-19 Grave": 0.90, "Exacerbación Aguda de EPOC": 0.82, "Tromboembolismo Pulmonar": 0.85},
                 "Acidosis respiratoria compensada (Retención de CO2)": {"Exacerbación Aguda de EPOC": 0.70, "Crisis Asmática Aguda": 0.25}
@@ -330,18 +490,18 @@ class BayesianDiagnosticSystem:
                 "Defecto de llenado masivo / Arterias principales (TEP severo / de alto riesgo)": {"Tromboembolismo Pulmonar": 0.98}
             },
             "Examen General de Orina (EGO)": {
-                "Normal (Clara, sin sedimentos patológicos)": {"Cistitis Aguda (IVU Baja)": 0.03, "Pielonefritis Aguda (IVU Alta)": 0.02, "Diabetes Mellitus Tipo 2": 0.50},
-                "Glucosuria aislada (sin signos de infección)": {"Diabetes Mellitus Tipo 2": 0.85, "Cistitis Aguda (IVU Baja)": 0.05},
-                "Microalbuminuria o proteinuria leve": {"Diabetes Mellitus Tipo 2": 0.45, "Pielonefritis Aguda (IVU Alta)": 0.15},
+                "Normal (Clara, sin sedimentos patológicos)": {"Cistitis Aguda (IVU Baja)": 0.03, "Pielonefritis Aguda (IVU Alta)": 0.02, "Diabetes Mellitus Tipo 2 (Controlada)": 0.50, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.10},
+                "Glucosuria aislada (sin signos de infección)": {"Diabetes Mellitus Tipo 2 (Descompensada)": 0.85, "Diabetes Mellitus Tipo 2 (Controlada)": 0.40, "Cistitis Aguda (IVU Baja)": 0.05},
+                "Microalbuminuria o proteinuria leve": {"Diabetes Mellitus Tipo 2 (Controlada)": 0.45, "Diabetes Mellitus Tipo 2 (Descompensada)": 0.65, "Pielonefritis Aguda (IVU Alta)": 0.15},
                 "Leucocituria moderada y nitritos positivos (Sugerente de infección)": {"Cistitis Aguda (IVU Baja)": 0.88, "Pielonefritis Aguda (IVU Alta)": 0.70},
                 "Leucocituria marcada, bacterias abundantes y hematuria microscópica": {"Cistitis Aguda (IVU Baja)": 0.96, "Pielonefritis Aguda (IVU Alta)": 0.92}
             },
             "Endoscopia Digestiva Alta": {
-                "Mucosa gástrica y esofágica normal": {"Reflujo Gastroesofágico (ERGE)": 0.10, "Gastritis Aguda": 0.05, "Úlcera Péptica No Complicada": 0.03},
+                "Mucosa gástrica y esofágica normal": {"Reflujo Gastroesofágico (ERGE)": 0.10, "Gastritis Aguda Leve": 0.05, "Úlcera Péptica No Complicada": 0.03},
                 "Esofagitis por reflujo activa (Grados A/B)": {"Reflujo Gastroesofágico (ERGE)": 0.92},
-                "Gastritis eritematosa antral (Asociada a Helicobacter pylori)": {"Gastritis Aguda": 0.88, "Úlcera Péptica No Complicada": 0.40, "Reflujo Gastroesofágico (ERGE)": 0.12},
-                "Gastritis erosiva difusa con sangrado en capa": {"Gastritis Aguda": 0.75, "Úlcera Péptica No Complicada": 0.25},
-                "Úlcera gástrica o duodenal activa sin sangrado reciente": {"Úlcera Péptica No Complicada": 0.98, "Gastritis Aguda": 0.15},
+                "Gastritis eritematosa antral (Asociada a Helicobacter pylori)": {"Gastritis Aguda Leve": 0.88, "Gastritis Erosiva / Sangrante": 0.30, "Úlcera Péptica No Complicada": 0.40, "Reflujo Gastroesofágico (ERGE)": 0.12},
+                "Gastritis erosiva difusa con sangrado en capa": {"Gastritis Erosiva / Sangrante": 0.95, "Gastritis Aguda Leve": 0.05, "Úlcera Péptica No Complicada": 0.25},
+                "Úlcera gástrica o duodenal activa sin sangrado reciente": {"Úlcera Péptica No Complicada": 0.98, "Gastritis Erosiva / Sangrante": 0.20},
                 "Estenosis o esófago de Barrett": {"Reflujo Gastroesofágico (ERGE)": 0.20}
             },
             "Urocultivo": {
@@ -353,7 +513,7 @@ class BayesianDiagnosticSystem:
                 "Bacteriuria significativa de otras especies (10,000 - 100,000 UFC/mL)": {"Cistitis Aguda (IVU Baja)": 0.40, "Pielonefritis Aguda (IVU Alta)": 0.45}
             },
             "Examen Neurológico": {
-                "Completamente normal (Sin focalidad neurológica)": {"Migraña Severa": 0.99, "Encefalitis": 0.05, "Accidente Cerebrovascular (ACV)": 0.08},
+                "Completamente normal (Sin focalidad neurológica)": {"Migraña Severa": 0.99, "Migraña Común / Moderada": 0.99, "Encefalitis": 0.05, "Accidente Cerebrovascular (ACV)": 0.08, "Ansiedad Generalizada / Trastorno de Pánico": 0.99, "Hipotiroidismo Clínico": 0.99},
                 "Déficit motor o sensitivo focal agudo (Sospecha de ACV)": {"Accidente Cerebrovascular (ACV)": 0.95, "Encefalitis": 0.20, "Migraña Severa": 0.01},
                 "Alteración del estado mental, desorientación o confusión (Encefalitis/Delirium)": {"Encefalitis": 0.90, "Accidente Cerebrovascular (ACV)": 0.40, "Migraña Severa": 0.01},
                 "Signos meníngeos presentes (Rigidez de nuca, Kerning/Brudzinski)": {"Encefalitis": 0.80, "Accidente Cerebrovascular (ACV)": 0.02, "Migraña Severa": 0.00},
@@ -372,7 +532,7 @@ class BayesianDiagnosticSystem:
                 "Presencia de huevos de helmintos": {"Gastroenteritis Aguda Parasitaria": 0.70, "Gastroenteritis Aguda Viral": 0.00}
             },
             "Electrólitos Séricos": {
-                "Normal (Sodio, Potasio, Cloro estables)": {"Gastroenteritis Aguda Viral": 0.65, "Gastroenteritis Aguda Bacteriana": 0.50, "Gastroenteritis Aguda Parasitaria": 0.75, "Migraña Severa": 0.99},
+                "Normal (Sodio, Potasio, Cloro estables)": {"Gastroenteritis Aguda Viral": 0.65, "Gastroenteritis Aguda Bacteriana": 0.50, "Gastroenteritis Aguda Parasitaria": 0.75, "Migraña Severa": 0.99, "Migraña Común / Moderada": 0.99},
                 "Hipopotasemia leve o moderada (Potasio 3.0 - 3.4 mEq/L)": {"Gastroenteritis Aguda Bacteriana": 0.38, "Gastroenteritis Aguda Viral": 0.28, "Gastroenteritis Aguda Parasitaria": 0.20},
                 "Hipopotasemia severa (Potasio <3.0 mEq/L)": {"Gastroenteritis Aguda Bacteriana": 0.52, "Gastroenteritis Aguda Viral": 0.42, "Gastroenteritis Aguda Parasitaria": 0.12},
                 "Hiponatremia dilucional (Sodio <135 mEq/L)": {"Gastroenteritis Aguda Bacteriana": 0.20, "Gastroenteritis Aguda Viral": 0.18}
@@ -384,13 +544,13 @@ class BayesianDiagnosticSystem:
                 "Litiasis renal con sombra acústica posterior": {"Pielonefritis Aguda (IVU Alta)": 0.30, "Cistitis Aguda (IVU Baja)": 0.10}
             },
             "Electroencefalograma (EEG)": {
-                "Normal (Actividad de fondo organizada)": {"Migraña Severa": 0.98, "Encefalitis": 0.15, "Accidente Cerebrovascular (ACV)": 0.80},
+                "Normal (Actividad de fondo organizada)": {"Migraña Severa": 0.98, "Migraña Común / Moderada": 0.98, "Encefalitis": 0.15, "Accidente Cerebrovascular (ACV)": 0.80},
                 "Actividad lenta focal temporal (Asociada a Encefalitis)": {"Encefalitis": 0.90, "Accidente Cerebrovascular (ACV)": 0.15},
                 "Actividad lenta difusa inespecífica": {"Encefalitis": 0.65, "Accidente Cerebrovascular (ACV)": 0.35, "Migraña Severa": 0.05},
                 "Descargas epileptiformes paroxísticas": {"Encefalitis": 0.50, "Accidente Cerebrovascular (ACV)": 0.18, "Migraña Severa": 0.01}
             },
             "Resonancia Magnética de Cerebro": {
-                "Normal (Sin áreas de restricción a la difusión)": {"Migraña Severa": 0.99, "Encefalitis": 0.05, "Accidente Cerebrovascular (ACV)": 0.02},
+                "Normal (Sin áreas de restricción a la difusión)": {"Migraña Severa": 0.99, "Migraña Común / Moderada": 0.99, "Encefalitis": 0.05, "Accidente Cerebrovascular (ACV)": 0.02},
                 "Hiperintensidades en secuencias T2/FLAIR en lóbulos temporales (Encefalitis herpética)": {"Encefalitis": 0.96, "Accidente Cerebrovascular (ACV)": 0.01},
                 "Restricción a la difusión compatible con isquemia aguda cerebral": {"Accidente Cerebrovascular (ACV)": 0.98, "Encefalitis": 0.02},
                 "Foco de hemorragia aguda lobar": {"Accidente Cerebrovascular (ACV)": 0.95, "Encefalitis": 0.01}
@@ -459,8 +619,8 @@ class BayesianDiagnosticSystem:
                 "Confirmatorio de reflujo ácido patológico (DeMeester score >14.7)": {"Reflujo Gastroesofágico (ERGE)": 0.98}
             },
             "Prueba para H. pylori": {
-                "Negativo": {"Gastritis Aguda": 0.25, "Úlcera Péptica No Complicada": 0.15, "Reflujo Gastroesofágico (ERGE)": 0.85},
-                "Positivo para Helicobacter pylori": {"Gastritis Aguda": 0.85, "Úlcera Péptica No Complicada": 0.92, "Reflujo Gastroesofágico (ERGE)": 0.15}
+                "Negativo": {"Gastritis Aguda Leve": 0.25, "Úlcera Péptica No Complicada": 0.15, "Reflujo Gastroesofágico (ERGE)": 0.85},
+                "Positivo para Helicobacter pylori": {"Gastritis Aguda Leve": 0.85, "Gastritis Erosiva / Sangrante": 0.70, "Úlcera Péptica No Complicada": 0.92, "Reflujo Gastroesofágico (ERGE)": 0.15}
             },
             "Ecocardiograma": {
                 "Normal (Estructura y contractilidad conservadas)": {"Tromboembolismo Pulmonar": 0.20, "Insuficiencia Cardíaca Congestiva (ICC)": 0.04},
@@ -478,22 +638,38 @@ class BayesianDiagnosticSystem:
                 "Esplenomegalia reactiva": {"Dengue No Grave (Clásico)": 0.30, "Dengue Grave": 0.40}
             },
             "Auscultación Pulmonar": {
-                "Normal / Murmullo vesicular conservado": {"Crisis Asmática Aguda": 0.05, "Exacerbación Aguda de EPOC": 0.10, "Migraña Severa": 0.99},
+                "Normal / Murmullo vesicular conservado": {"Crisis Asmática Aguda": 0.05, "Exacerbación Aguda de EPOC": 0.10, "Migraña Severa": 0.99, "Migraña Común / Moderada": 0.99, "Ansiedad Generalizada / Trastorno de Pánico": 0.95},
                 "Sibilancias espiratorias bilaterales difusas": {"Crisis Asmática Aguda": 0.95, "Bronquitis Aguda": 0.40, "Neumonía": 0.30},
                 "Roncus y sibilancias bilaterales dispersas": {"Exacerbación Aguda de EPOC": 0.90, "Bronquitis Aguda": 0.50},
                 "Crepitantes basales unilaterales (Sugerente de consolidación)": {"Neumonía": 0.95},
                 "Disminución de murmullo vesicular unilateral": {"Neumonía": 0.40}
             },
             "Proteína C Reactiva (PCR)": {
-                "Normal (<5 mg/L)": {"Migraña Severa": 0.95, "Neumonía": 0.10},
+                "Normal (<5 mg/L)": {"Migraña Severa": 0.95, "Migraña Común / Moderada": 0.95, "Neumonía": 0.10, "Gastritis Aguda Leve": 0.90, "Ansiedad Generalizada / Trastorno de Pánico": 0.95},
                 "Elevación leve a moderada (5 - 40 mg/L - Proceso inflamatorio/viral)": {"Miocarditis": 0.40, "Sinusitis Aguda": 0.50},
-                "Elevación marcada (>40 mg/L - Alta sospecha de infección bacteriana o inflamación sistémica aguda)": {"Neumonía": 0.90, "Miocarditis": 0.70, "Pielonefritis Aguda (IVU Alta)": 0.80, "Sinusitis Aguda": 0.60}
+                "Elevación marcada (>40 mg/L - Alta sospecha de infección bacteriana o inflamación sistémica aguda)": {"Neumonía": 0.90, "Miocarditis": 0.70, "Pielonefritis Aguda (IVU Alta)": 0.80, "Sinusitis Aguda": 0.60, "Gastritis Erosiva / Sangrante": 0.25}
             },
             "Prueba de Antígeno en Heces": {
                 "Negativa": {"Gastroenteritis Aguda Parasitaria": 0.10},
                 "Positiva para Giardia lamblia": {"Gastroenteritis Aguda Parasitaria": 0.90},
                 "Positiva para Entamoeba histolytica": {"Gastroenteritis Aguda Parasitaria": 0.85},
-                "Positiva para Helicobacter pylori (Antígeno en heces)": {"Gastritis Aguda": 0.80, "Úlcera Péptica No Complicada": 0.85}
+                "Positiva para Helicobacter pylori (Antígeno en heces)": {"Gastritis Aguda Leve": 0.80, "Gastritis Erosiva / Sangrante": 0.60, "Úlcera Péptica No Complicada": 0.85}
+            },
+            "Perfil Lipídico": {
+                "Normal (Colesterol y triglicéridos en rango)": {"Síndrome Metabólico / Estrés Metabólico": 0.05},
+                "Triglicéridos elevados (>150 mg/dL) y/o HDL bajo": {"Síndrome Metabólico / Estrés Metabólico": 0.95, "Diabetes Mellitus Tipo 2 (Controlada)": 0.60}
+            },
+            "Perfil Tiroideo": {
+                "Normal (TSH y T4L estables)": {"Hipotiroidismo Clínico": 0.02},
+                "TSH elevada con T4 Libre disminuida (Hipotiroidismo)": {"Hipotiroidismo Clínico": 0.98}
+            },
+            "Frotis de Secreción Ocular": {
+                "Normal / Sin crecimiento patógeno": {"Conjuntivitis Aguda": 0.15},
+                "Positivo para bacterias Gram positivas / Gram negativas": {"Conjuntivitis Aguda": 0.85}
+            },
+            "Perfil de Hierro": {
+                "Normal (Ferritina y hierro sérico normales)": {"Anemia Ferropénica": 0.02},
+                "Ferritina sérica disminuida (<15 ng/mL)": {"Anemia Ferropénica": 0.98}
             }
         }
 
@@ -589,7 +765,8 @@ class BayesianDiagnosticSystem:
             prob["Accidente Cerebrovascular (ACV)"]  = prob.get("Accidente Cerebrovascular (ACV)", 0)  + math.log(1.8)
             prob["Infarto Agudo de Miocardio (IAM)"] = prob.get("Infarto Agudo de Miocardio (IAM)", 0) + math.log(1.8)
             prob["Neumonía"]                          = prob.get("Neumonía", 0)                          + math.log(1.7)
-            prob["Diabetes Mellitus Tipo 2"]          = prob.get("Diabetes Mellitus Tipo 2", 0)          + math.log(2.5)
+            prob["Diabetes Mellitus Tipo 2 (Controlada)"]   = prob.get("Diabetes Mellitus Tipo 2 (Controlada)", 0)   + math.log(2.5)
+            prob["Diabetes Mellitus Tipo 2 (Descompensada)"] = prob.get("Diabetes Mellitus Tipo 2 (Descompensada)", 0) + math.log(2.5)
 
         # Inmunosupresión
         if antecedentes.get("Inmunosupresión"):
@@ -623,7 +800,8 @@ class BayesianDiagnosticSystem:
         # Obesidad
         if antecedentes.get("Obesidad"):
             prob["Insuficiencia Cardíaca Congestiva (ICC)"] = prob.get("Insuficiencia Cardíaca Congestiva (ICC)", 0) + math.log(1.5)
-            prob["Diabetes Mellitus Tipo 2"]                = prob.get("Diabetes Mellitus Tipo 2", 0)                + math.log(2.0)
+            prob["Diabetes Mellitus Tipo 2 (Controlada)"]   = prob.get("Diabetes Mellitus Tipo 2 (Controlada)", 0)   + math.log(2.0)
+            prob["Diabetes Mellitus Tipo 2 (Descompensada)"] = prob.get("Diabetes Mellitus Tipo 2 (Descompensada)", 0) + math.log(2.0)
             prob["COVID-19 Grave"]                          = prob.get("COVID-19 Grave", 0)                          + math.log(1.7)
             prob["Tromboembolismo Pulmonar"]                = prob.get("Tromboembolismo Pulmonar", 0)                + math.log(1.5)
 
@@ -639,7 +817,8 @@ class BayesianDiagnosticSystem:
         # Insuficiencia Renal Crónica
         if antecedentes.get("Insuficiencia Renal Crónica"):
             prob["Insuficiencia Cardíaca Congestiva (ICC)"] = prob.get("Insuficiencia Cardíaca Congestiva (ICC)", 0) + math.log(1.5)
-            prob["Diabetes Mellitus Tipo 2"]                = prob.get("Diabetes Mellitus Tipo 2", 0)                + math.log(1.5)
+            prob["Diabetes Mellitus Tipo 2 (Controlada)"]   = prob.get("Diabetes Mellitus Tipo 2 (Controlada)", 0)   + math.log(1.5)
+            prob["Diabetes Mellitus Tipo 2 (Descompensada)"] = prob.get("Diabetes Mellitus Tipo 2 (Descompensada)", 0) + math.log(1.5)
 
         # Viaje Reciente a Zona Endémica
         if antecedentes.get("Viaje Reciente a Zona Endémica"):
@@ -670,6 +849,65 @@ class BayesianDiagnosticSystem:
         if antecedentes.get("Antecedente de Litiasis Renal"):
             prob["Pielonefritis Aguda (IVU Alta)"]   = prob.get("Pielonefritis Aguda (IVU Alta)", 0)   + math.log(3.0)
 
+        max_log = max(prob.values())
+        exp_prob = {k: math.exp(v - max_log) for k, v in prob.items()}
+        return self.normalizar(exp_prob)
+
+    def aplicar_demograficos(self, priors: dict, demographics: dict) -> dict:
+        if not demographics:
+            return priors
+        
+        # Clonar priors para trabajar en log-space
+        prob = {k: math.log(max(v, 1e-9)) for k, v in priors.items()}
+
+        residence_country = (demographics.get("residence_country") or "").strip().lower()
+        birth_country     = (demographics.get("birth_country") or "").strip().lower()
+        ethnicity         = (demographics.get("ethnicity") or "").strip().lower()
+        past_surgeries    = (demographics.get("past_surgeries") or "").strip().lower()
+        occupation        = (demographics.get("occupation") or "").strip().lower()
+
+        # 1. Enfermedades tropicales por país de residencia o nacimiento
+        paises_tropicales = [
+            "república dominicana", "republica dominicana", "puerto rico", 
+            "colombia", "venezuela", "brasil", "honduras", "panamá", 
+            "panama", "guatemala", "el salvador", "costa rica", "ecuador", 
+            "perú", "peru"
+        ]
+        if residence_country in paises_tropicales or birth_country in paises_tropicales:
+            for enf in ["Dengue No Grave (Clásico)", "Dengue Grave", "Fiebre Zika", "Fiebre Chikungunya"]:
+                if enf in prob:
+                    prob[enf] += math.log(2.2)
+
+        # 2. Etnia (ej. Afrodescendiente tiene más riesgo cardiovascular; hispanos más riesgo de diabetes)
+        if "afro" in ethnicity or "negra" in ethnicity:
+            for enf in ["Infarto Agudo de Miocardio (IAM)", "Accidente Cerebrovascular (ACV)", "Insuficiencia Cardíaca Congestiva (ICC)"]:
+                if enf in prob:
+                    prob[enf] += math.log(1.4)
+        elif "hispano" in ethnicity or "latino" in ethnicity or "mestizo" in ethnicity:
+            for enf in ["Diabetes Mellitus Tipo 2 (Controlada)", "Diabetes Mellitus Tipo 2 (Descompensada)"]:
+                if enf in prob:
+                    prob[enf] += math.log(1.25)
+
+        # 3. Operaciones anteriores (riesgo de TEP y úlceras)
+        if past_surgeries and len(past_surgeries) > 2:
+            if "Tromboembolismo Pulmonar" in prob:
+                prob["Tromboembolismo Pulmonar"] += math.log(2.5)
+            for enf in ["Gastritis Erosiva / Sangrante", "Úlcera Péptica No Complicada"]:
+                if enf in prob:
+                    prob[enf] += math.log(1.3)
+
+        # 4. Ocupación (trabajo sedentario vs físico pesado)
+        if occupation:
+            if any(w in occupation for w in ["oficina", "sedentario", "programador", "escritorio", "sentado"]):
+                if "Lumbalgia Mecánica" in prob:
+                    prob["Lumbalgia Mecánica"] += math.log(1.3)
+                if "Síndrome Metabólico / Estrés Metabólico" in prob:
+                    prob["Síndrome Metabólico / Estrés Metabólico"] += math.log(1.5)
+            elif any(w in occupation for w in ["construcción", "carga", "chofer", "conductor", "levantar", "físico", "mora", "campo", "agricultura"]):
+                if "Lumbalgia Mecánica" in prob:
+                    prob["Lumbalgia Mecánica"] += math.log(2.2)
+
+        # Reconvertir de log-space y normalizar
         max_log = max(prob.values())
         exp_prob = {k: math.exp(v - max_log) for k, v in prob.items()}
         return self.normalizar(exp_prob)
@@ -740,13 +978,18 @@ class BayesianDiagnosticSystem:
 
     def calcular_diagnostico_preliminar(
         self, constantes: dict, antecedentes: dict, sintomas: dict,
-        priors_custom=None, conditionals_custom=None
+        priors_custom=None, conditionals_custom=None, demographics: dict = None
     ):
         self.cargar_aprendizaje_clinico()
         priors      = priors_custom      if priors_custom      else self.P_enfermedad_base
+        
+        priors_cloned = dict(priors)
+        if demographics:
+            priors_cloned = self.aplicar_demograficos(priors_cloned, demographics)
+            
         conditionals = conditionals_custom if conditionals_custom else self.P_sintoma
 
-        prob_post_antecedentes = self.aplicar_antecedentes(priors, antecedentes)
+        prob_post_antecedentes = self.aplicar_antecedentes(priors_cloned, antecedentes)
         log_prob = {e: math.log(max(p, self.LAPLACE_ALPHA)) for e, p in prob_post_antecedentes.items()}
 
         signos_mapeados = self.mapear_signos_vitales(constantes)

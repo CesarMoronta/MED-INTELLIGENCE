@@ -695,3 +695,161 @@ def get_report_ai_comparison(doctor_id: int = None) -> list:
     for r in rows:
         r["created_at"] = _fmt_date(r.get("created_at"))
     return rows
+
+def get_epidemiology_report(date_from: str = None, date_to: str = None, doctor_id: int = None) -> dict:
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 1. Construir las condiciones WHERE comunes para filtrar por visitas
+    where_clauses = ["1=1"]
+    params = []
+
+    if date_from:
+        where_clauses.append("v.visit_date >= ?")
+        params.append(date_from + " 00:00:00")
+    if date_to:
+        where_clauses.append("v.visit_date <= ?")
+        params.append(date_to + " 23:59:59")
+    if doctor_id:
+        where_clauses.append("v.doctor_id = ?")
+        params.append(doctor_id)
+
+    where_sql = " AND ".join(where_clauses)
+
+    # A. Diagnósticos por País de Residencia
+    # Solo mostrar los países con pacientes registrados y no nulos
+    query_country = f"""
+        SELECT p.residence_country, d.diagnosis_primary, COUNT(DISTINCT p.id) AS patient_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.diagnoses d ON v.id = d.visit_id
+        WHERE p.residence_country IS NOT NULL AND p.residence_country <> '' AND d.phase = 'final' AND {where_sql}
+        GROUP BY p.residence_country, d.diagnosis_primary
+        ORDER BY p.residence_country ASC, patient_count DESC
+    """
+    cursor.execute(query_country, params)
+    by_country = rows_to_dicts(cursor)
+
+    # B. Diagnósticos por Etnia
+    query_ethnicity = f"""
+        SELECT p.ethnicity, d.diagnosis_primary, COUNT(DISTINCT p.id) AS patient_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.diagnoses d ON v.id = d.visit_id
+        WHERE p.ethnicity IS NOT NULL AND p.ethnicity <> '' AND d.phase = 'final' AND {where_sql}
+        GROUP BY p.ethnicity, d.diagnosis_primary
+        ORDER BY p.ethnicity ASC, patient_count DESC
+    """
+    cursor.execute(query_ethnicity, params)
+    by_ethnicity = rows_to_dicts(cursor)
+
+    # C. Diagnósticos por Rango de Edad
+    query_age = f"""
+        SELECT 
+            CASE 
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 12 THEN 'Pediátrico (0-12)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 18 THEN 'Adolescente (13-18)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 35 THEN 'Adulto Joven (19-35)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 50 THEN 'Adulto (36-50)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 65 THEN 'Adulto Mayor (51-65)'
+                ELSE 'Geriátrico (66+)'
+            END AS age_range,
+            d.diagnosis_primary,
+            COUNT(DISTINCT p.id) AS patient_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.diagnoses d ON v.id = d.visit_id
+        WHERE d.phase = 'final' AND {where_sql}
+        GROUP BY 
+            CASE 
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 12 THEN 'Pediátrico (0-12)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 18 THEN 'Adolescente (13-18)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 35 THEN 'Adulto Joven (19-35)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 50 THEN 'Adulto (36-50)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 65 THEN 'Adulto Mayor (51-65)'
+                ELSE 'Geriátrico (66+)'
+            END,
+            d.diagnosis_primary
+        ORDER BY age_range ASC, patient_count DESC
+    """
+    cursor.execute(query_age, params)
+    by_age = rows_to_dicts(cursor)
+
+    # D. Prescripciones por Perfil de Paciente (Etnia, País, Grupo de Edad)
+    # 1. Por Etnia
+    query_meds_ethnicity = f"""
+        SELECT p.ethnicity AS profile_value, rx.medication, COUNT(rx.id) AS prescription_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.prescriptions rx ON v.id = rx.visit_id
+        WHERE p.ethnicity IS NOT NULL AND p.ethnicity <> '' AND {where_sql}
+        GROUP BY p.ethnicity, rx.medication
+        ORDER BY p.ethnicity ASC, prescription_count DESC
+    """
+    cursor.execute(query_meds_ethnicity, params)
+    meds_by_ethnicity = rows_to_dicts(cursor)
+    for m in meds_by_ethnicity:
+        m["profile_type"] = "Etnia"
+
+    # 2. Por País
+    query_meds_country = f"""
+        SELECT p.residence_country AS profile_value, rx.medication, COUNT(rx.id) AS prescription_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.prescriptions rx ON v.id = rx.visit_id
+        WHERE p.residence_country IS NOT NULL AND p.residence_country <> '' AND {where_sql}
+        GROUP BY p.residence_country, rx.medication
+        ORDER BY p.residence_country ASC, prescription_count DESC
+    """
+    cursor.execute(query_meds_country, params)
+    meds_by_country = rows_to_dicts(cursor)
+    for m in meds_by_country:
+        m["profile_type"] = "País Residencia"
+
+    # 3. Por Edad
+    query_meds_age = f"""
+        SELECT 
+            CASE 
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 12 THEN 'Pediátrico (0-12)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 18 THEN 'Adolescente (13-18)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 35 THEN 'Adulto Joven (19-35)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 50 THEN 'Adulto (36-50)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 65 THEN 'Adulto Mayor (51-65)'
+                ELSE 'Geriátrico (66+)'
+            END AS profile_value,
+            rx.medication,
+            COUNT(rx.id) AS prescription_count
+        FROM dbo.patients p
+        JOIN dbo.emergency_visits v ON p.id = v.patient_id
+        JOIN dbo.prescriptions rx ON v.id = rx.visit_id
+        WHERE {where_sql}
+        GROUP BY 
+            CASE 
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 12 THEN 'Pediátrico (0-12)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 18 THEN 'Adolescente (13-18)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 35 THEN 'Adulto Joven (19-35)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 50 THEN 'Adulto (36-50)'
+                WHEN (DATEDIFF(YEAR, p.dob, GETDATE()) - CASE WHEN MONTH(p.dob) > MONTH(GETDATE()) OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE())) THEN 1 ELSE 0 END) <= 65 THEN 'Adulto Mayor (51-65)'
+                ELSE 'Geriátrico (66+)'
+            END,
+            rx.medication
+        ORDER BY profile_value ASC, prescription_count DESC
+    """
+    cursor.execute(query_meds_age, params)
+    meds_by_age = rows_to_dicts(cursor)
+    for m in meds_by_age:
+        m["profile_type"] = "Rango Edad"
+
+    # Consolidar medicamentos prescritos por perfiles
+    meds_by_profile = meds_by_ethnicity + meds_by_country + meds_by_age
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "success": True,
+        "by_country": by_country,
+        "by_ethnicity": by_ethnicity,
+        "by_age": by_age,
+        "meds_by_profile": meds_by_profile
+    }

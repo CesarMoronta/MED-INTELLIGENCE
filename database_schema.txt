@@ -115,6 +115,15 @@ BEGIN
         death_date      DATE                NULL,
         death_certificate_url NVARCHAR(MAX) NULL,
         death_notes     NVARCHAR(MAX)       NULL,
+        birth_country   NVARCHAR(100)       NULL,
+        birth_city      NVARCHAR(100)       NULL,
+        residence_country NVARCHAR(100)     NULL,
+        residence_city  NVARCHAR(100)       NULL,
+        ethnicity       NVARCHAR(100)       NULL,
+        past_surgeries  NVARCHAR(MAX)       NULL,
+        education_level NVARCHAR(100)       NULL,
+        occupation      NVARCHAR(100)       NULL,
+        marital_status  NVARCHAR(50)        NULL,
         created_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at      DATETIME2           NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_patients          PRIMARY KEY (id),
@@ -511,6 +520,15 @@ SELECT
     p.death_date,
     p.death_certificate_url,
     p.death_notes,
+    p.birth_country,
+    p.birth_city,
+    p.residence_country,
+    p.residence_city,
+    p.ethnicity,
+    p.past_surgeries,
+    p.education_level,
+    p.occupation,
+    p.marital_status,
     DATEDIFF(YEAR, p.dob, GETDATE())
         - CASE WHEN MONTH(p.dob) > MONTH(GETDATE())
                 OR (MONTH(p.dob) = MONTH(GETDATE()) AND DAY(p.dob) > DAY(GETDATE()))
@@ -838,12 +856,27 @@ CREATE PROCEDURE dbo.sp_create_patient
     @vital_status   NVARCHAR(20)  = 'Vivo',
     @death_date     DATE          = NULL,
     @death_certificate_url NVARCHAR(MAX) = NULL,
-    @death_notes    NVARCHAR(MAX) = NULL
+    @death_notes    NVARCHAR(MAX) = NULL,
+    @birth_country   NVARCHAR(100) = NULL,
+    @birth_city      NVARCHAR(100) = NULL,
+    @residence_country NVARCHAR(100) = NULL,
+    @residence_city  NVARCHAR(100) = NULL,
+    @ethnicity       NVARCHAR(100) = NULL,
+    @past_surgeries  NVARCHAR(MAX) = NULL,
+    @education_level NVARCHAR(100) = NULL,
+    @occupation      NVARCHAR(100) = NULL,
+    @marital_status  NVARCHAR(50)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO dbo.patients (cedula, name, dob, gender, phone, blood_type, registered_by, photo_url, vital_status, death_date, death_certificate_url, death_notes)
-    VALUES (@cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by, @photo_url, @vital_status, @death_date, @death_certificate_url, @death_notes);
+    INSERT INTO dbo.patients (
+        cedula, name, dob, gender, phone, blood_type, registered_by, photo_url, vital_status, death_date, death_certificate_url, death_notes,
+        birth_country, birth_city, residence_country, residence_city, ethnicity, past_surgeries, education_level, occupation, marital_status
+    )
+    VALUES (
+        @cedula, @name, @dob, @gender, @phone, @blood_type, @registered_by, @photo_url, @vital_status, @death_date, @death_certificate_url, @death_notes,
+        @birth_country, @birth_city, @residence_country, @residence_city, @ethnicity, @past_surgeries, @education_level, @occupation, @marital_status
+    );
     SELECT SCOPE_IDENTITY() AS patient_id;
 END
 GO
@@ -852,26 +885,44 @@ GO
 IF OBJECT_ID(N'dbo.sp_update_patient', N'P') IS NOT NULL DROP PROCEDURE dbo.sp_update_patient;
 GO
 CREATE PROCEDURE dbo.sp_update_patient
-    @patient_id INT,
-    @cedula     NVARCHAR(50)  = NULL,
-    @name       NVARCHAR(200) = NULL,
-    @dob        DATE          = NULL,
-    @gender     NVARCHAR(20)  = NULL,
-    @phone      NVARCHAR(30)  = NULL,
-    @blood_type NVARCHAR(5)   = NULL,
-    @photo_url  NVARCHAR(MAX) = NULL
+    @patient_id     INT,
+    @cedula         NVARCHAR(50)  = NULL,
+    @name           NVARCHAR(200) = NULL,
+    @dob            DATE          = NULL,
+    @gender         NVARCHAR(20)  = NULL,
+    @phone          NVARCHAR(30)  = NULL,
+    @blood_type     NVARCHAR(5)   = NULL,
+    @photo_url      NVARCHAR(MAX) = NULL,
+    @birth_country   NVARCHAR(100) = NULL,
+    @birth_city      NVARCHAR(100) = NULL,
+    @residence_country NVARCHAR(100) = NULL,
+    @residence_city  NVARCHAR(100) = NULL,
+    @ethnicity       NVARCHAR(100) = NULL,
+    @past_surgeries  NVARCHAR(MAX) = NULL,
+    @education_level NVARCHAR(100) = NULL,
+    @occupation      NVARCHAR(100) = NULL,
+    @marital_status  NVARCHAR(50)  = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     UPDATE dbo.patients
-    SET cedula      = COALESCE(@cedula, cedula),
-        name        = COALESCE(@name, name),
-        dob         = COALESCE(@dob, dob),
-        gender      = COALESCE(@gender, gender),
-        phone       = COALESCE(@phone, phone),
-        blood_type  = COALESCE(@blood_type, blood_type),
-        photo_url   = COALESCE(@photo_url, photo_url),
-        updated_at  = SYSUTCDATETIME()
+    SET cedula            = COALESCE(@cedula, cedula),
+        name              = COALESCE(@name, name),
+        dob               = COALESCE(@dob, dob),
+        gender            = COALESCE(@gender, gender),
+        phone             = COALESCE(@phone, phone),
+        blood_type        = COALESCE(@blood_type, blood_type),
+        photo_url         = COALESCE(@photo_url, photo_url),
+        birth_country     = COALESCE(@birth_country, birth_country),
+        birth_city        = COALESCE(@birth_city, birth_city),
+        residence_country = COALESCE(@residence_country, residence_country),
+        residence_city    = COALESCE(@residence_city, residence_city),
+        ethnicity         = COALESCE(@ethnicity, ethnicity),
+        past_surgeries    = COALESCE(@past_surgeries, past_surgeries),
+        education_level   = COALESCE(@education_level, education_level),
+        occupation        = COALESCE(@occupation, occupation),
+        marital_status    = COALESCE(@marital_status, marital_status),
+        updated_at        = SYSUTCDATETIME()
     WHERE id = @patient_id;
     SELECT @@ROWCOUNT AS rows_affected;
 END

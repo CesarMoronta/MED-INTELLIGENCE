@@ -87,10 +87,25 @@ def api_diagnose_preliminar():
     custom_priors       = data.get("custom_priors")
     custom_conditionals = data.get("custom_conditionals")
 
+    # Obtener demográficos si viene el patient_id
+    patient_id = data.get("patient_id")
+    demographics_dict = {}
+    if patient_id:
+        from database.patients import get_patient
+        patient_obj = get_patient(patient_id)
+        if patient_obj:
+            demographics_dict = {
+                "birth_country": patient_obj.get("birth_country"),
+                "residence_country": patient_obj.get("residence_country"),
+                "ethnicity": patient_obj.get("ethnicity"),
+                "occupation": patient_obj.get("occupation"),
+                "past_surgeries": patient_obj.get("past_surgeries")
+            }
+
     try:
         probabilidades, pasos = engine.calcular_diagnostico_preliminar(
             constantes_dict, antecedentes, sintomas,
-            custom_priors, custom_conditionals
+            custom_priors, custom_conditionals, demographics=demographics_dict
         )
         diagnostico_preliminar = max(probabilidades, key=probabilidades.get)
         meta      = CLINICAL_METADATA.get(diagnostico_preliminar, {})

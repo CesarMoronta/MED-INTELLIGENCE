@@ -94,7 +94,8 @@ from database.reports import (
     get_report_patient,
     get_report_audit,
     get_audit_logs,
-    log_audit_action
+    log_audit_action,
+    get_epidemiology_report
 )
 
 from database.settings import (

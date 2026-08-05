@@ -99,13 +99,18 @@ class RefinementQuestionsResponse(BaseModel):
 ENFERMEDADES_PERMITIDAS = [
     "Gripe Común / Influenza", "Neumonía", "Bronquitis Aguda", "Crisis Asmática Aguda",
     "Exacerbación Aguda de EPOC", "Infarto Agudo de Miocardio (IAM)", "Insuficiencia Cardíaca Congestiva (ICC)",
-    "Miocarditis", "Encefalitis", "Accidente Cerebrovascular (ACV)", "Migraña Severa", "Dengue No Grave (Clásico)",
-    "Dengue Grave", "Fiebre Zika", "Fiebre Chikungunya", "Otitis Media Aguda", "Otitis Externa Aguda",
-    "Sinusitis Aguda", "COVID-19", "COVID-19 Grave", "Faringoamigdalitis Viral", "Faringoamigdalitis Estreptocócica",
-    "Tromboembolismo Pulmonar", "Diabetes Mellitus Tipo 2", "Gastroenteritis Aguda Viral",
-    "Gastroenteritis Aguda Bacteriana", "Gastroenteritis Aguda Parasitaria", "Resfriado Común (Rinofaringitis)",
-    "Cistitis Aguda (IVU Baja)", "Pielonefritis Aguda (IVU Alta)", "Reflujo Gastroesofágico (ERGE)",
-    "Gastritis Aguda", "Úlcera Péptica No Complicada", "Varicela (Leve/Moderada)"
+    "Miocarditis", "Encefalitis", "Accidente Cerebrovascular (ACV)", "Migraña Común / Moderada",
+    "Migraña Severa", "Dengue No Grave (Clásico)", "Dengue Grave", "Fiebre Zika", "Fiebre Chikungunya",
+    "Otitis Media Aguda", "Otitis Externa Aguda", "Sinusitis Aguda", "COVID-19", "COVID-19 Grave",
+    "Faringoamigdalitis Viral", "Faringoamigdalitis Estreptocócica", "Tromboembolismo Pulmonar",
+    "Diabetes Mellitus Tipo 2 (Controlada)", "Diabetes Mellitus Tipo 2 (Descompensada)",
+    "Gastroenteritis Aguda Viral", "Gastroenteritis Aguda Bacteriana", "Gastroenteritis Aguda Parasitaria",
+    "Resfriado Común (Rinofaringitis)", "Cistitis Aguda (IVU Baja)", "Pielonefritis Aguda (IVU Alta)",
+    "Reflujo Gastroesofágico (ERGE)", "Gastritis Aguda Leve", "Gastritis Erosiva / Sangrante",
+    "Úlcera Péptica No Complicada", "Varicela (Leve/Moderada)", "Conjuntivitis Aguda",
+    "Síndrome Metabólico / Estrés Metabólico", "Ansiedad Generalizada / Trastorno de Pánico",
+    "Anemia Ferropénica", "Hipotiroidismo Clínico", "Lumbalgia Mecánica", "Rinitis Alérgica",
+    "Dermatitis Atópica", "Reflujo Laringofaríngeo"
 ]
 
 

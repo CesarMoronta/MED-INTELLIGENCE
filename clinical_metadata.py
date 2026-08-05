@@ -254,29 +254,54 @@ CLINICAL_METADATA = {
             "Desviación de la comisura bucal o pérdida del equilibrio súbito."
         ]
     },
-    "Migraña Severa": {
+    "Migraña Común / Moderada": {
         "alert_level": "Verde",
         "color": "#10b981",
-        "specialist": "Neurología / Medicina General",
-        "summary": "Cefalea primaria recurrente, intensa, de carácter pulsátil, usualmente unilateral, que se acompaña de náuseas o fotofobia.",
+        "specialist": "Medicina General / Familiar / Neurología",
+        "summary": "Cefalea primaria recurrente de intensidad leve a moderada, de carácter pulsátil, unilateral o bilateral, que suele ceder con analgésicos comunes.",
         "clinical_tests": [
             "**Examen Neurológico**: Completamente normal (Sin focalidad neurológica).",
             "**TC de Cráneo**: Normal (Sin alteraciones estructurales)."
         ],
         "habits": [
-            "Reposo en habitación oscura, fresca y sin ruidos.",
+            "Reposo en una habitación tranquila, con luz tenue y sin ruidos.",
+            "Mantener un diario de dolor para identificar desencadenantes (comidas, falta de sueño, estrés).",
+            "Mantener un horario de sueño regular y una buena hidratación."
+        ],
+        "medications": [
+            "Ibuprofeno 400mg o Paracetamol 500mg - 1g vía oral ante los primeros síntomas.",
+            "Cafeína combinada con analgésicos para potenciar el efecto.",
+            "**ADVERTENCIA**: Limitar el uso de analgésicos a un máximo de 2-3 días por semana para evitar cefalea de rebote."
+        ],
+        "red_flags": [
+            "Cefalea que empeora progresivamente a lo largo de los días.",
+            "Cefalea de inicio repentino e inusualmente severo (cefalea en trueno).",
+            "Asociación con fiebre alta o rigidez de nuca."
+        ]
+    },
+    "Migraña Severa": {
+        "alert_level": "Amarillo",
+        "color": "#f59e0b",
+        "specialist": "Neurología",
+        "summary": "Crisis migrañosa severa y debilitante, acompañada de intolerancia extrema a estímulos sensoriales (fotofobia/fonofobia) y vómitos incoercibles, o con presencia de aura visual.",
+        "clinical_tests": [
+            "**Examen Neurológico**: Completamente normal (Sin focalidad neurológica).",
+            "**TC de Cráneo**: Normal (Sin alteraciones estructurales)."
+        ],
+        "habits": [
+            "Reposo absoluto en una habitación completamente oscura, fresca y silenciosa.",
             "Colocar compresas frías sobre la frente o sienes.",
-            "Evitar factores desencadenantes (quesos maduros, chocolate, vino tinto, estrés)."
+            "Evitar de forma absoluta factores desencadenantes (quesos maduros, chocolate, vino tinto)."
         ],
         "medications": [
             "Triptanos (Sumatriptán 50-100mg) al inicio de la cefalea.",
-            "Analgésicos y antieméticos (Metoclopramida) para las náuseas asociadas.",
-            "**ADVERTENCIA**: Limitar el uso de analgésicos a un máximo de 2-3 días por semana para evitar cefalea por rebote."
+            "Antieméticos (Metoclopramida 10mg) vía oral para los vómitos y náuseas.",
+            "**ADVERTENCIA**: Evitar triptanos en pacientes con antecedentes de cardiopatía isquémica o ACV."
         ],
         "red_flags": [
-            "Cefalea de inicio súbito, de intensidad máxima en segundos (cefalea en trueno).",
-            "Presencia de fiebre, rigidez de nuca o confusión.",
-            "Aparición del dolor tras un traumatismo de cráneo."
+            "Aparición de déficit neurológico persistente posterior a la crisis.",
+            "Vómitos incoercibles que impidan la hidratación oral.",
+            "Cefalea que no responde a triptanos tras 24 horas."
         ]
     },
     "Dengue No Grave (Clásico)": {
@@ -579,30 +604,55 @@ CLINICAL_METADATA = {
             "Pérdida brusca del conocimiento o tos con sangre (hemoptisis)."
         ]
     },
-    "Diabetes Mellitus Tipo 2": {
-        "alert_level": "Amarillo",
-        "color": "#f59e0b",
-        "specialist": "Endocrinología / Medicina Interna",
-        "summary": "Trastorno metabólico crónico caracterizado por resistencia a la insulina e hiperglucemia. Requiere control estricto a largo plazo.",
+    "Diabetes Mellitus Tipo 2 (Controlada)": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Endocrinología / Medicina General",
+        "summary": "Estado estable de diabetes en el que los niveles de glucosa se mantienen cerca del rango meta mediante estilo de vida y/o medicación.",
         "clinical_tests": [
-            "**Glucosa en Ayunas**: Hiperglucemia clínica compatible con Diabetes (>=126 mg/dL).",
-            "**Hemoglobina Glicosilada (HbA1c)**: Diabetes Mellitus establecida (>=6.5%).",
-            "**Examen General de Orina (EGO)**: Leucocituria marcada, bacterias abundantes y hematuria microscópica."
+            "**Glucosa en Ayunas**: Glucemia basal estable (<130 mg/dL en pacientes bajo tratamiento).",
+            "**Hemoglobina Glicosilada (HbA1c)**: Control metabólico óptimo o aceptable (<7.0%)."
         ],
         "habits": [
-            "Dieta baja en azúcares refinados y carbohidratos simples.",
-            "Realizar actividad física aeróbica moderada al menos 150 minutos por semana.",
-            "Revisión diaria del estado de la piel de los pies."
+            "Actividad física aeróbica regular (mínimo 150 minutos por semana).",
+            "Dieta baja en carbohidratos simples y alta en fibra.",
+            "Monitoreo periódico de glucosa capilar y cuidado diario de los pies."
         ],
         "medications": [
-            "Metformina 500mg-850mg administrada con las comidas principales.",
-            "Otros antidiabéticos orales o insulina según la indicación del especialista.",
-            "**ADVERTENCIA**: En caso de temblor, sudoración fría o confusión (hipoglucemia), consumir azúcar inmediatamente."
+            "Metformina 850mg vía oral con la comida principal.",
+            "Monitoreo y ajuste farmacológico por el médico de cabecera.",
+            "**ADVERTENCIA**: Mantener adherencia terapéutica para prevenir complicaciones micro y macrovasculares crónicas."
         ],
         "red_flags": [
-            "Aliento con olor a frutas dulces, deshidratación extrema y confusión (Cetoacidosis).",
-            "Nivel de glucosa capilar persistente >300 mg/dL.",
-            "Presencia de heridas o úlceras en los pies con signos de infección."
+            "Glucemias capilares persistentemente por encima de 200 mg/dL.",
+            "Aparición de hormigueo, entumecimiento o heridas en los pies.",
+            "Visión borrosa de inicio reciente."
+        ]
+    },
+    "Diabetes Mellitus Tipo 2 (Descompensada)": {
+        "alert_level": "Amarillo",
+        "color": "#f59e0b",
+        "specialist": "Endocrinología / Medicina Interna / Urgencias",
+        "summary": "Pérdida del control metabólico caracterizada por hiperglucemia marcada, poliuria, polidipsia y riesgo de crisis hiperglucémicas (cetoacidosis o estado hiperosmolar).",
+        "clinical_tests": [
+            "**Glucosa en Ayunas**: Hiperglucemia marcada (>200 mg/dL o en crisis >250 mg/dL).",
+            "**Hemoglobina Glicosilada (HbA1c)**: Mal control metabólico (>=8.0%).",
+            "**Examen General de Orina (EGO)**: Glucosuria marcada y presencia de cuerpos cetónicos (en caso de cetoacidosis)."
+        ],
+        "habits": [
+            "Reposo físico inmediato y control horario de glucemias.",
+            "Hidratación oral abundante con agua (evitar bebidas azucaradas de forma absoluta).",
+            "Seguimiento médico estrecho para ajuste de insulinoterapia o fármacos orales."
+        ],
+        "medications": [
+            "Insulinoterapia de rescate o ajuste de dosis de insulina basal/prandial según esquema médico.",
+            "Reposición hídrica oral o endovenosa enérgica.",
+            "**ADVERTENCIA**: La presencia de cetonuria con hiperglucemia requiere atención médica urgente."
+        ],
+        "red_flags": [
+            "Aliento con olor frutal dulce, respiración rápida y profunda (de Kussmaul), náuseas y vómitos.",
+            "Estado mental alterado, confusión, letargia o somnolencia extrema.",
+            "Deshidratación severa con boca seca, ausencia de sudoración y orina escasa."
         ]
     },
     "Gastroenteritis Aguda Viral": {
@@ -782,29 +832,54 @@ CLINICAL_METADATA = {
             "Vómitos con sangre o deposiciones negras (melenas)."
         ]
     },
-    "Gastritis Aguda": {
+    "Gastritis Aguda Leve": {
         "alert_level": "Verde",
         "color": "#10b981",
-        "specialist": "Gastroenterología / Medicina General",
-        "summary": "Inflamación aguda de la mucosa gástrica, frecuentemente secundaria a consumo de AINEs, alcohol o estrés severo.",
+        "specialist": "Medicina General / Gastroenterología",
+        "summary": "Inflamación transitoria de la mucosa gástrica caracterizada por dispepsia, acidez y dolor epigástrico leve, frecuentemente autolimitada.",
         "clinical_tests": [
-            "**Endoscopia Digestiva Alta**: Gastritis eritematosa antral (Asociada a Helicobacter pylori).",
-            "**Prueba para H. pylori**: Positivo para Helicobacter pylori."
+            "**Endoscopia Digestiva Alta**: Mucosa con eritema leve, sin erosiones ni sangrado activo.",
+            "**Prueba para H. pylori**: Negativo o Positivo (según etiología)."
         ],
         "habits": [
             "Dieta blanda fraccionada, libre de irritantes (grasas, condimentos, cítricos, picantes).",
             "Evitar de forma absoluta el tabaco y el alcohol.",
-            "No consumir medicamentos antiinflamatorios (AINEs) sin protección gástrica."
+            "No acostarse inmediatamente después de comer."
         ],
         "medications": [
-            "Omeprazol 20mg o Esomeprazol 40mg diario en ayunas.",
+            "Omeprazol 20mg diario en ayunas.",
             "Sucralfato o antiácidos orales como protector de la mucosa.",
-            "**ADVERTENCIA**: No suspender el tratamiento antes del tiempo indicado por riesgo de recidiva."
+            "**ADVERTENCIA**: No consumir medicamentos antiinflamatorios (AINEs) sin protección gástrica."
         ],
         "red_flags": [
-            "Vómito persistente en 'poso de café' o con sangre fresca.",
-            "Dolor epigástrico severo y repentino que no cede.",
-            "Melenas (heces negras y fétidas)."
+            "Dolor epigástrico que empeora significativamente.",
+            "Vómitos persistentes que impiden la alimentación.",
+            "Aparición de heces oscuras."
+        ]
+    },
+    "Gastritis Erosiva / Sangrante": {
+        "alert_level": "Amarillo",
+        "color": "#f59e0b",
+        "specialist": "Gastroenterología",
+        "summary": "Forma severa de gastritis caracterizada por erosiones en la mucosa gástrica con riesgo de hemorragia digestiva alta, manifestándose con dolor intenso y sangrado.",
+        "clinical_tests": [
+            "**Endoscopia Digestiva Alta**: Presencia de múltiples erosiones en la mucosa con áreas de sangrado en capa.",
+            "**Hemograma Completo**: Anemia microcítica o normocítica (si hay sangrado crónico/agudo)."
+        ],
+        "habits": [
+            "Reposo relativo y dieta líquida o blanda estricta según tolerancia.",
+            "Suspensión absoluta e inmediata de alcohol, tabaco y cualquier fármaco antiinflamatorio (AINE).",
+            "Evitar esfuerzos físicos intensos."
+        ],
+        "medications": [
+            "Esomeprazol 40mg cada 12 horas vía oral o endovenoso.",
+            "Sucralfato en suspensión (1g cada 6 horas) como protector local de las erosiones.",
+            "**ADVERTENCIA**: Requiere valoración endoscópica oportuna para descartar sangrado activo mayor."
+        ],
+        "red_flags": [
+            "Vómitos con sangre fresca o con aspecto de 'poso de café' (hematemesis).",
+            "Heces negras, alquitranadas y fétidas (melenas).",
+            "Signos de shock (palidez extrema, sudoración fría, mareo o desmayo al ponerse de pie)."
         ]
     },
     "Úlcera Péptica No Complicada": {
@@ -856,6 +931,230 @@ CLINICAL_METADATA = {
             "Lesiones de la piel que se vuelven calientes, rojas, con pus o muy dolorosas (infección bacteriana secundaria).",
             "Tos persistente o dificultad para respirar.",
             "Inestabilidad al caminar, confusión o convulsiones."
+        ]
+    },
+    "Conjuntivitis Aguda": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Oftalmología / Medicina General",
+        "summary": "Inflamación o infección de la conjuntiva ocular, de etiología viral, bacteriana o alérgica, caracterizada por ojo rojo y secreción.",
+        "clinical_tests": [
+            "**Examen Clínico Ocular**: Inyección conjuntival, presencia de secreción (purulenta o serosa) y edema palpebral.",
+            "**Frotis de Secreción Ocular**: Útil en casos crónicos o severos para identificar bacterias."
+        ],
+        "habits": [
+            "No frotarse los ojos bajo ninguna circunstancia.",
+            "Limpiar las secreciones de los ojos con una gasa estéril humedecida en solución salina, usando una gasa diferente para cada ojo.",
+            "Lavado de manos frecuente y no compartir toallas ni almohadas para evitar el contagio."
+        ],
+        "medications": [
+            "Gotas oftálmicas de Tobramicina o Ciprofloxacino (1 gota cada 4 horas por 7 días en caso de sospecha bacteriana).",
+            "Lágrimas artificiales para aliviar el ardor y la resequedad.",
+            "**ADVERTENCIA**: Evitar el uso de gotas oftálmicas con corticoides sin indicación explícita del oftalmólogo."
+        ],
+        "red_flags": [
+            "Dolor ocular severo o disminución de la agudeza visual (visión borrosa).",
+            "Sensibilidad extrema a la luz (fotofobia severa).",
+            "Falta de mejoría clínica tras 48 horas de tratamiento antibiótico."
+        ]
+    },
+    "Síndrome Metabólico / Estrés Metabólico": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Endocrinología / Medicina Interna",
+        "summary": "Conjunto de alteraciones metabólicas que aumentan el riesgo de enfermedad cardiovascular y diabetes, incluyendo obesidad abdominal, hipertensión y dislipidemia.",
+        "clinical_tests": [
+            "**Perfil Lipídico**: Triglicéridos elevados (>150 mg/dL) y colesterol HDL bajo (<40 mg/dL en hombres / <50 mg/dL en mujeres).",
+            "**Glucosa en Ayunas**: Glucemia en ayunas alterada (100-125 mg/dL).",
+            "**Presión Arterial**: Presión elevada de forma sostenida (>=130/85 mmHg)."
+        ],
+        "habits": [
+            "Pérdida de peso gradual mediante restricción calórica moderada y saludable.",
+            "Realizar al menos 150-300 minutos de ejercicio aeróbico de intensidad moderada por semana.",
+            "Dieta de estilo mediterráneo (rica en vegetales, grasas saludables y pescado; baja en ultraprocesados)."
+        ],
+        "medications": [
+            "Tratamiento dirigido a los componentes individuales (Metformina para prediabetes, estatinas para dislipidemia, antihipertensivos).",
+            "Multivitamínicos o suplementación si se documentan deficiencias.",
+            "**ADVERTENCIA**: El pilar fundamental de este síndrome es el cambio en el estilo de vida, no los medicamentos aislados."
+        ],
+        "red_flags": [
+            "Aparición de dolor de pecho opresivo al realizar esfuerzos físicos.",
+            "Dificultad repentina para respirar.",
+            "Niveles de glucosa en ayunas superiores a 126 mg/dL en múltiples tomas."
+        ]
+    },
+    "Ansiedad Generalizada / Trastorno de Pánico": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Psiquiatría / Psicología Clínica",
+        "summary": "Trastorno caracterizado por preocupación excesiva y persistente, o crisis súbitas de miedo intenso con manifestaciones físicas como palpitaciones y disnea.",
+        "clinical_tests": [
+            "**Examen Físico y ECG**: Ritmo sinusal normal o taquicardia sinusal benigna (descarta causas cardíacas orgánicas).",
+            "**Pruebas de Función Tiroidea (TSH)**: Normal (descarta hipertiroidismo como causa de la ansiedad)."
+        ],
+        "habits": [
+            "Practicar técnicas de respiración diafragmática profunda y relajación muscular progresiva.",
+            "Evitar estimulantes como cafeína, nicotina, alcohol y bebidas energéticas.",
+            "Establecer una rutina de ejercicio físico regular y mantener buenos hábitos de sueño."
+        ],
+        "medications": [
+            "Inhibidores Selectivos de la Recaptación de Serotonina (ISRS) como Sertralina o Escitalopram (bajo prescripción médica).",
+            "Benzodiacepinas de forma transitoria y con estricto control médico para crisis agudas.",
+            "**ADVERTENCIA**: Las benzodiacepinas pueden causar dependencia física y psicológica si se usan a largo plazo."
+        ],
+        "red_flags": [
+            "Ideación suicida activa o deseos de autolesionarse.",
+            "Ataques de pánico tan frecuentes que impidan realizar actividades básicas cotidianas.",
+            "Dolor torácico que no cede con la relajación y se acompaña de sudoración fría (sospecha de causa cardíaca)."
+        ]
+    },
+    "Anemia Ferropénica": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Hematología / Medicina Interna / Medicina General",
+        "summary": "Disminución de la concentración de hemoglobina y glóbulos rojos debido a la deficiencia de hierro, provocando fatiga y palidez.",
+        "clinical_tests": [
+            "**Hemograma Completo**: Anemia microcítica hipocrómica (Hemoglobina baja, VCM <80 fL, HCM <27 pg).",
+            "**Perfil de Hierro**: Ferritina sérica disminuida (<15 ng/mL - Confirmatorio de deficiencia de hierro)."
+        ],
+        "habits": [
+            "Incrementar el consumo de alimentos ricos en hierro hemo (carnes rojas, hígado, pescado).",
+            "Consumir alimentos ricos en vitamina C (cítricos) junto con alérgenos o alimentos ricos en hierro para mejorar su absorción.",
+            "Evitar tomar té, café o lácteos junto con las comidas, ya que inhiben la absorción de hierro."
+        ],
+        "medications": [
+            "Sulfato Ferroso 325mg (65mg de hierro elemental) una o dos veces al día vía oral, preferiblemente con el estómago vacío.",
+            "**ADVERTENCIA**: El hierro oral puede causar efectos secundarios gastrointestinales como estreñimiento y heces oscuras."
+        ],
+        "red_flags": [
+            "Disnea o fatiga extrema con mínimos esfuerzos cotidianos.",
+            "Palpitaciones continuas o dolor de pecho.",
+            "Sangrado activo evidente (menorragia masiva, sangrado digestivo)."
+        ]
+    },
+    "Hipotiroidismo Clínico": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Endocrinología",
+        "summary": "Deficiencia de hormona tiroidea caracterizada por una ralentización general de las funciones metabólicas corporales.",
+        "clinical_tests": [
+            "**Perfil Tiroideo (TSH y T4 Libre)**: TSH elevada (>4.5 uUI/mL) con T4 Libre disminuida (Hipotiroidismo establecido).",
+            "**Anticuerpos Anti-TPO**: Elevados en caso de sospecha de Tiroiditis de Hashimoto."
+        ],
+        "habits": [
+            "Tomar la hormona tiroidea estrictamente en ayunas, al menos 30 a 60 minutos antes del desayuno.",
+            "Mantener una dieta rica en fibra para combatir el estreñimiento crónico.",
+            "Realizar ejercicio regular para mejorar los niveles de energía y el estado de ánimo."
+        ],
+        "medications": [
+            "Levotiroxina sódica vía oral en dosis ajustadas individualmente por el endocrinólogo (generalmente comenzando con 25-50 mcg/día).",
+            "**ADVERTENCIA**: No cambiar de marca comercial de Levotiroxina sin consultar al médico, debido a variaciones de biodisponibilidad."
+        ],
+        "red_flags": [
+            "Aparición de hinchazón generalizada marcada, somnolencia extrema y lentitud mental severa (sospecha de coma mixedematoso).",
+            "Frecuencia cardíaca extremadamente baja (<50 bpm) con mareos o desmayos.",
+            "Aparición de dolor torácico tras iniciar el tratamiento con Levotiroxina."
+        ]
+    },
+    "Lumbalgia Mecánica": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Traumatología / Fisiatría / Medicina General",
+        "summary": "Dolor localizado en la región lumbar baja de etiología musculoesquelética, agravado por el movimiento y aliviado por el reposo.",
+        "clinical_tests": [
+            "**Examen Físico (Prueba de Laségue)**: Negativa (Descarta compresión radicular aguda de tipo ciática).",
+            "**Radiografía de Columna Lumbar**: Descarte de fracturas o listesis, puede mostrar signos leves de artrosis."
+        ],
+        "habits": [
+            "Evitar el reposo en cama prolongado (no más de 48 horas); mantenerse activo dentro de los límites del dolor.",
+            "Aplicar calor local seco durante 15-20 minutos, 3 veces al día en la zona dolorosa.",
+            "Adoptar posturas correctas al sentarse, agacharse (doblar rodillas) y levantar objetos pesados."
+        ],
+        "medications": [
+            "AINEs (Ibuprofeno 400mg cada 8 horas o Naproxeno 250-500mg cada 12 horas) por un máximo de 5-7 días.",
+            "Relajantes musculares (Ciclobenzaprina 5-10mg antes de dormir) si hay espasmo muscular evidente.",
+            "**ADVERTENCIA**: El uso de fajas lumbares por períodos prolongados debilita la musculatura estabilizadora del torso."
+        ],
+        "red_flags": [
+            "Pérdida súbita de la fuerza en las piernas o dificultad para caminar.",
+            "Pérdida del control de los esfínteres (incontinencia urinaria o fecal - Síndrome de Cola de Caballo).",
+            "Dolor lumbar persistente que no mejora en reposo, de predominio nocturno y acompañado de fiebre."
+        ]
+    },
+    "Rinitis Alérgica": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Alergología / Otorrinolaringología / Medicina General",
+        "summary": "Reacción inflamatoria de la mucosa nasal mediada por IgE tras la exposición a alérgenos como polvo, polen o pelo de animales.",
+        "clinical_tests": [
+            "**Examen Clínico Nasal (Rinoscopia)**: Mucosa nasal pálida, edematosa, con presencia de rinorrea acuosa abundante.",
+            "**Pruebas Cutáneas (Prick Test)**: Identificación de alérgenos causales específicos."
+        ],
+        "habits": [
+            "Minimizar la exposición a alérgenos conocidos (evitar alfombras, usar fundas antiácaros, ventilar la habitación).",
+            "Realizar lavados nasales diarios con solución salina para remover alérgenos físicamente.",
+            "Evitar el contacto directo con mascotas si se documenta alergia a su epitelio."
+        ],
+        "medications": [
+            "Antihistamínicos orales de segunda generación (Loratadina 10mg o Cetirizina 10mg una vez al día) para estornudos y prurito.",
+            "Corticoides nasales en spray (Fluticasona o Mometasona) una aplicación en cada fosa nasal diariamente.",
+            "**ADVERTENCIA**: Los descongestionantes nasales tópicos (Oximetazolina) no deben usarse por más de 3-5 días por riesgo de rinitis medicamentosa."
+        ],
+        "red_flags": [
+            "Aparición de dificultad severa para respirar o sibilancias (asociación con crisis asmática).",
+            "Dolor facial severo, fiebre y secreción nasal espesa y purulenta unilateral (sospecha de sinusitis bacteriana secundaria).",
+            "Sangrado nasal recurrente y abundante (epistaxis)."
+        ]
+    },
+    "Dermatitis Atópica": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Dermatología / Pediatría / Medicina General",
+        "summary": "Trastorno cutáneo inflamatorio crónico y pruriginoso, común en pacientes con antecedentes de atopia (asma, rinitis), caracterizado por eczema.",
+        "clinical_tests": [
+            "**Examen Clínico Dermatológico**: Placas eritematosas, secas y descamativas localizadas principalmente en pliegues flexurales (codos, rodillas).",
+            "**Determinación de IgE Sérica**: Frecuentemente elevada en pacientes atópicos."
+        ],
+        "habits": [
+            "Mantener la piel profundamente hidratada aplicando cremas emolientes sin perfume inmediatamente después del baño.",
+            "Tomar baños cortos (5-10 minutos) con agua templada y jabones syndet (sin detergentes artificiales).",
+            "Usar ropa de algodón holgada y evitar tejidos sintéticos o lana."
+        ],
+        "medications": [
+            "Corticoides tópicos de baja o moderada potencia (Hidrocortisona al 1% o Mometasona) aplicados en las placas activas por períodos cortos.",
+            "Antihistamínicos orales para el control del prurito intenso, especialmente por las noches.",
+            "**ADVERTENCIA**: El uso prolongado de corticoides tópicos potentes puede causar atrofia cutánea."
+        ],
+        "red_flags": [
+            "Aparición de costras melicéricas (color miel), pus o enrojecimiento que se extiende rápidamente (sospecha de sobreinfección bacteriana por Staphylococcus aureus).",
+            "Prurito intratable que interrumpe de forma grave el sueño cotidiano.",
+            "Erupción vesicular dolorosa diseminada."
+        ]
+    },
+    "Reflujo Laringofaríngeo": {
+        "alert_level": "Verde",
+        "color": "#10b981",
+        "specialist": "Otorrinolaringología / Gastroenterología",
+        "summary": "Retorno del contenido gástrico hacia la laringe y faringe, causando irritación en las vías aéreas superiores sin necesariamente causar pirosis.",
+        "clinical_tests": [
+            "**Laringoscopia Directa/Indirecta**: Eritema interaritenoideo, edema de cuerdas vocales (sugerente de reflujo ácido local).",
+            "**pH-metría de doble canal de 24 horas**: Confirmación de reflujo laringofaríngeo ácido."
+        ],
+        "habits": [
+            "Evitar comer al menos 3 horas antes de acostarse.",
+            "Fraccionar las comidas en porciones pequeñas a lo largo del día.",
+            "Evitar alimentos que relajen el esfínter esofágico inferior (café, menta, alcohol, grasas y cítricos)."
+        ],
+        "medications": [
+            "Inhibidores de la bomba de protones (Esomeprazol 40mg o Pantoprazol 40mg) en dosis doble (antes del desayuno y antes de la cena) por 8 a 12 semanas.",
+            "Procinéticos (Itoprida o Domperidona) antes de las comidas principales.",
+            "**ADVERTENCIA**: Esta patología requiere tratamientos más prolongados que el reflujo gastroesofágico típico."
+        ],
+        "red_flags": [
+            "Dificultad progresiva para tragar alimentos sólidos o líquidos (disfagia).",
+            "Pérdida de peso significativa involuntaria.",
+            "Tos con sangre o cambios persistentes en la voz que no mejoran tras 4-6 semanas de tratamiento."
         ]
     }
 }

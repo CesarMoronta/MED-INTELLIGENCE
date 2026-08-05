@@ -42,6 +42,17 @@ def api_save_patient():
     blood_type   = (data.get("blood_type") or "").strip() or None
     photo_url    = (data.get("photo_url") or "").strip() or None
 
+    # Nuevos campos demográficos
+    birth_country     = (data.get("birth_country") or "").strip() or None
+    birth_city        = (data.get("birth_city") or "").strip() or None
+    residence_country = (data.get("residence_country") or "").strip() or None
+    residence_city    = (data.get("residence_city") or "").strip() or None
+    ethnicity         = (data.get("ethnicity") or "").strip() or None
+    past_surgeries    = (data.get("past_surgeries") or "").strip() or None
+    education_level   = (data.get("education_level") or "").strip() or None
+    occupation        = (data.get("occupation") or "").strip() or None
+    marital_status    = (data.get("marital_status") or "").strip() or None
+
     if not cedula:
         return jsonify({"success": False, "error": "La cédula del paciente es obligatoria."}), 400
     if not name:
@@ -58,7 +69,12 @@ def api_save_patient():
     u = get_current_user()
     registered_by = u.get("id")
 
-    patient_id = add_patient(cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by, photo_url)
+    patient_id = add_patient(
+        cedula, name, dob, gender, antecedentes, phone, blood_type, registered_by, photo_url,
+        birth_country=birth_country, birth_city=birth_city, residence_country=residence_country,
+        residence_city=residence_city, ethnicity=ethnicity, past_surgeries=past_surgeries,
+        education_level=education_level, occupation=occupation, marital_status=marital_status
+    )
     if patient_id:
         log_audit_action(
             username=u.get("username"), action="CREATE", entity="Patient",
@@ -109,7 +125,23 @@ def api_update_patient(patient_id):
     photo_url  = (data.get("photo_url") or "").strip() or None
     antecedentes = data.get("antecedentes")
 
-    if not update_patient(patient_id, cedula, name, dob, gender, phone, blood_type, antecedentes, photo_url):
+    # Nuevos campos demográficos
+    birth_country     = data.get("birth_country")
+    birth_city        = data.get("birth_city")
+    residence_country = data.get("residence_country")
+    residence_city    = data.get("residence_city")
+    ethnicity         = data.get("ethnicity")
+    past_surgeries    = data.get("past_surgeries")
+    education_level   = data.get("education_level")
+    occupation        = data.get("occupation")
+    marital_status    = data.get("marital_status")
+
+    if not update_patient(
+        patient_id, cedula, name, dob, gender, phone, blood_type, antecedentes, photo_url,
+        birth_country=birth_country, birth_city=birth_city, residence_country=residence_country,
+        residence_city=residence_city, ethnicity=ethnicity, past_surgeries=past_surgeries,
+        education_level=education_level, occupation=occupation, marital_status=marital_status
+    ):
         return jsonify({"success": False, "error": "No se pudo actualizar el paciente."}), 404
 
     u = get_current_user()

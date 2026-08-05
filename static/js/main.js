@@ -39,7 +39,24 @@ const ALL_SYMPTOMS = [
   "Dolor de Garganta", "Dolor de Oído / Cara", "Otalgia (Dolor de oído)", "Odor Fétido / Secreción Ótica",
   "Disuria (Ardor al orinar)", "Polaquiuria (Orinar muy seguido)", "Dolor Lumbar / Suprapúbico",
   "Pirosis (Acidez estomacal)", "Regurgitación Ácida", "Congestión Nasal / Estornudos", "Rinorrea (Moqueo)",
-  "Artralgias Severas", "Mialgias Intensas", "Dolor Retroocular", "Lesiones Vesiculares Cutáneas", "Prurito Generalizado"
+  "Artralgias Severas", "Mialgias Intensas", "Dolor Retroocular", "Lesiones Vesiculares Cutáneas", "Prurito Generalizado",
+  "Fotofobia / Fonofobia Extrema", "Aura Visual / Alteración Visual Temporal", "Vómitos Incoercibles / Frecuentes",
+  "Cefalea Pulsátil Unilateral Intensa", "Hematemesis (Vómito con Sangre)", "Melenas (Heces Negras y Fétidas)",
+  "Dolor Epigástrico Quemante Severo", "Poliuria / Polidipsia Marcada", "Pérdida de Peso Inexplicable / Rápida",
+  "Aliento Cetónico / Olor a Fruta Dulce", "Inyección Conjuntival / Ojo Rojo", "Secreción Ocular Purulenta",
+  "Prurito y Ardor Ocular", "Obesidad Abdominal (Cintura >102cm H / >88cm M)",
+  "Acantosis Nigricans (Piel oscura y aterciopelada en cuello/axilas)", "Fatiga Postprandial / Somnolencia tras comer",
+  "Miedo Clínico / Sensación de Muerte Inminente", "Sensación de Ahogo / Opresión Torácica",
+  "Hiperventilación / Respiración Rápida Superficial", "Palidez Cutáneo-Mucosa",
+  "Pica (Deseo de comer hielo, tierra o papel)", "Uñas Quebradizas o en Cuchara (Coiloniquia)",
+  "Intolerancia al Frío", "Aumento de Peso Inexplicable", "Piel Seca y Caída de Cabello",
+  "Dolor Lumbar que Empeora al Moverse y Mejora con Reposo", "Rigidez Lumbar Matutina Leve (<30 min)",
+  "Estornudos en Salva / Prurito Nasal", "Rinorrea Acuosa Clara ('Agua de roca')",
+  "Prurito Intenso en Zonas de Flexión (Codos/Rodillas)", "Placas Eritematosas y Descamativas",
+  "Disfonía / Ronquera Persistente", "Sensación de Globo en la Garganta (Cuerpo Extraño)",
+  "Carraspeo Constante / Tos Laríngea", "Dolor Abdominal Intenso / Continuo",
+  "Sangrado Activo (Encías/Nariz/Petequias)", "Vómitos Persistentes (>3 en 1 hora)",
+  "Hipoxia Leve", "Hipoxia Severa", "Hipertensión", "Hipotensión", "Taquicardia", "Bradicardia", "Taquipnea", "Edad Avanzada"
 ];
 
 const ALL_ANTECEDENTES = [
@@ -731,6 +748,11 @@ async function viewPatient(id) {
       <div><div class="form-label">Género</div><div>${p.gender}</div></div>
       <div><div class="form-label">Tipo de Sangre</div><div>${p.blood_type || '—'}</div></div>
       <div><div class="form-label">Teléfono</div><div>${p.phone || '—'}</div></div>
+      <div><div class="form-label">Lugar Nacimiento</div><div>${p.birth_country ? `${p.birth_city || ''}, ${p.birth_country}` : '—'}</div></div>
+      <div><div class="form-label">Lugar Residencia</div><div>${p.residence_country ? `${p.residence_city || ''}, ${p.residence_country}` : '—'}</div></div>
+      <div><div class="form-label">Etnia / Estado Civil</div><div>${p.ethnicity || '—'} / ${p.marital_status || '—'}</div></div>
+      <div><div class="form-label">Ocupación / Educación</div><div>${p.occupation || '—'} (${p.education_level || '—'})</div></div>
+      <div><div class="form-label">Operaciones Anteriores</div><div>${p.past_surgeries || 'Ninguna registrada'}</div></div>
       <div><div class="form-label">Registrado</div><div style="font-size:12px;color:var(--text-muted)">${fmtDate(p.created_at)}</div></div>
     </div>
     <div><div class="form-label" style="margin-bottom:10px;">Antecedentes Patológicos</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${ants}</div></div>
@@ -766,6 +788,15 @@ async function editPatient(id) {
   document.getElementById('pt-gender').value = p.gender || 'Otro';
   document.getElementById('pt-phone').value  = p.phone  || '';
   document.getElementById('pt-blood').value  = p.blood_type || '';
+  document.getElementById('pt-birth-country').value = p.birth_country || '';
+  document.getElementById('pt-birth-city').value    = p.birth_city || '';
+  document.getElementById('pt-residence-country').value = p.residence_country || '';
+  document.getElementById('pt-residence-city').value    = p.residence_city || '';
+  document.getElementById('pt-ethnicity').value     = p.ethnicity || '';
+  document.getElementById('pt-marital-status').value = p.marital_status || '';
+  document.getElementById('pt-occupation').value     = p.occupation || '';
+  document.getElementById('pt-education-level').value = p.education_level || '';
+  document.getElementById('pt-past-surgeries').value = p.past_surgeries || '';
   
   const photoUrlField = document.getElementById('pt-photo-url');
   const photoPreview = document.getElementById('pt-photo-preview');
@@ -813,6 +844,16 @@ async function savePatient() {
   const blood   = document.getElementById('pt-blood').value;
   const photo_url = document.getElementById('pt-photo-url') ? document.getElementById('pt-photo-url').value : null;
 
+  const birth_country     = document.getElementById('pt-birth-country').value.trim();
+  const birth_city        = document.getElementById('pt-birth-city').value.trim();
+  const residence_country = document.getElementById('pt-residence-country').value.trim();
+  const residence_city    = document.getElementById('pt-residence-city').value.trim();
+  const ethnicity         = document.getElementById('pt-ethnicity').value;
+  const marital_status    = document.getElementById('pt-marital-status').value;
+  const occupation        = document.getElementById('pt-occupation').value.trim();
+  const education_level   = document.getElementById('pt-education-level').value;
+  const past_surgeries    = document.getElementById('pt-past-surgeries').value.trim();
+
   const cedulaDigits = cedula.replace(/\D/g, '');
   if (cedulaDigits.length !== 11) {
     toast('warning', 'La cédula debe contener exactamente 11 dígitos numéricos.');
@@ -833,8 +874,19 @@ async function savePatient() {
       ants[n]  = cb.checked;
     });
 
-    const payload = { cedula, name, dob, gender, phone: phone || null,
-                      blood_type: blood || null, antecedentes: ants, photo_url: photo_url };
+    const payload = { 
+      cedula, name, dob, gender, phone: phone || null, blood_type: blood || null, 
+      antecedentes: ants, photo_url: photo_url,
+      birth_country: birth_country || null,
+      birth_city: birth_city || null,
+      residence_country: residence_country || null,
+      residence_city: residence_city || null,
+      ethnicity: ethnicity || null,
+      marital_status: marital_status || null,
+      occupation: occupation || null,
+      education_level: education_level || null,
+      past_surgeries: past_surgeries || null
+    };
 
     let res;
     if (STATE.editingPatientId) {
@@ -860,7 +912,9 @@ async function savePatient() {
 }
 
 function clearPatientForm() {
-  ['pt-cedula','pt-name','pt-dob','pt-gender','pt-phone','pt-blood','pt-photo-url']
+  ['pt-cedula','pt-name','pt-dob','pt-gender','pt-phone','pt-blood','pt-photo-url',
+   'pt-birth-country', 'pt-birth-city', 'pt-residence-country', 'pt-residence-city',
+   'pt-ethnicity', 'pt-marital-status', 'pt-occupation', 'pt-education-level', 'pt-past-surgeries']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
   
   const photoPreview = document.getElementById('pt-photo-preview');
@@ -1382,6 +1436,7 @@ async function runPhase1() {
     STATE.diagAntecedentes = getCheckedFrom('antecedentes-checkboxes');
 
     const res = await api('POST', '/api/diagnose/preliminar', {
+      patient_id:   patientId || (STATE.currentPatient ? STATE.currentPatient.id : null),
       constantes:   STATE.diagConstantes,
       sintomas:     STATE.diagSintomas,
       antecedentes: STATE.diagAntecedentes,
@@ -3368,6 +3423,26 @@ async function viewPatient(id) {
               <div style="color:var(--text-primary);">${escHtml(p.phone || '—')}</div>
             </div>
             <div class="form-group" style="margin:0;">
+              <div class="form-label">Lugar de Nacimiento</div>
+              <div style="color:var(--text-primary);">${escHtml(p.birth_country ? `${p.birth_city || ''}, ${p.birth_country}` : '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Lugar de Residencia</div>
+              <div style="color:var(--text-primary);">${escHtml(p.residence_country ? `${p.residence_city || ''}, ${p.residence_country}` : '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Etnia / Estado Civil</div>
+              <div style="color:var(--text-primary);">${escHtml(p.ethnicity || '—')} / ${escHtml(p.marital_status || '—')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Ocupación / Educación</div>
+              <div style="color:var(--text-primary);">${escHtml(p.occupation || '—')} (${escHtml(p.education_level || '—')})</div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <div class="form-label">Operaciones Anteriores</div>
+              <div style="color:var(--text-primary);">${escHtml(p.past_surgeries || 'Ninguna registrada')}</div>
+            </div>
+            <div class="form-group" style="margin:0;">
               <div class="form-label">Registrado</div>
               <div style="color:var(--text-muted);font-size:13px;">${fmtDate(p.created_at)}</div>
             </div>
@@ -5072,7 +5147,8 @@ function loadReportsTab() {
       { value: 'ai-comparison', text: 'Comparación IA vs Médico' },
       { value: 'prescriptions', text: 'Prescripciones Emitidas' },
       { value: 'activity', text: 'Mi Actividad' },
-      { value: 'billing', text: 'Mis Cobros y Facturación' }
+      { value: 'billing', text: 'Mis Cobros y Facturación' },
+      { value: 'epidemiology', text: '🔬 Investigación y Epidemiología (Venta)' }
     ];
   } else {
     // Admin o Secretaria
@@ -5082,7 +5158,8 @@ function loadReportsTab() {
       { value: 'ai-comparison', text: 'Comparación IA vs Médico' },
       { value: 'prescriptions', text: 'Prescripciones Emitidas' },
       { value: 'activity', text: 'Actividad de Doctores' },
-      { value: 'billing', text: 'Facturación General' }
+      { value: 'billing', text: 'Facturación General' },
+      { value: 'epidemiology', text: '🔬 Investigación y Epidemiología (Venta)' }
     ];
     if (role === 'admin') {
       options.push({ value: 'audit', text: 'Registro de Auditoría' });
@@ -5194,6 +5271,8 @@ async function generateReport() {
     url += 'billing';
     const it = document.getElementById('reports-val-invoice-type').value;
     if (it) params.append('invoice_type', it);
+  } else if (type === 'epidemiology') {
+    url += 'epidemiology';
   } else if (type === 'audit') {
     url = '/api/audit_logs'; // Usar el existente
     const action = document.getElementById('reports-val-audit-action').value;
@@ -5208,6 +5287,7 @@ async function generateReport() {
   try {
     const res = await api('GET', finalUrl);
     if (res.success) {
+      STATE.lastReportData = res;
       renderReportStats(type, res);
       renderReportTable(type, res);
       toast('success', 'Reporte generado correctamente');
@@ -5304,6 +5384,49 @@ function renderReportStats(type, res) {
       <div class="stat-card">
         <div class="stat-value">${totalVisits}</div>
         <div class="stat-label">Visitas Totales</div>
+      </div>`;
+  } else if (type === 'epidemiology') {
+    const countries = [...new Set((res.by_country || []).map(item => item.residence_country).filter(Boolean))];
+    const ethnicities = [...new Set((res.by_ethnicity || []).map(item => item.ethnicity).filter(Boolean))];
+    
+    let topDiagnosis = '—';
+    let topDiagnosisCount = 0;
+    (res.by_country || []).forEach(item => {
+      if (item.patient_count > topDiagnosisCount) {
+        topDiagnosisCount = item.patient_count;
+        topDiagnosis = item.diagnosis_primary;
+      }
+    });
+
+    let topMed = '—';
+    let topMedCount = 0;
+    const medCounts = {};
+    (res.meds_by_profile || []).forEach(item => {
+      medCounts[item.medication] = (medCounts[item.medication] || 0) + item.prescription_count;
+    });
+    Object.entries(medCounts).forEach(([med, count]) => {
+      if (count > topMedCount) {
+        topMedCount = count;
+        topMed = med;
+      }
+    });
+
+    cardsHtml = `
+      <div class="stat-card">
+        <div class="stat-value">${countries.length}</div>
+        <div class="stat-label">Países Representados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${ethnicities.length}</div>
+        <div class="stat-label">Etnias en Muestra</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="font-size: 13px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;" title="${topDiagnosis}">${topDiagnosis}</div>
+        <div class="stat-label">Dx más Prevalente</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="font-size: 13px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;" title="${topMed}">${topMed}</div>
+        <div class="stat-label">Medicina más Recetada</div>
       </div>`;
   // ── Tipos legacy ─────────────────────────────────────────────────────────
   } else if (type === 'visits') {
@@ -5410,6 +5533,84 @@ function renderReportStats(type, res) {
 function renderReportTable(type, res) {
   const wrap = document.getElementById('reports-table-wrap');
   wrap.innerHTML = '';
+
+  if (type === 'epidemiology') {
+    let tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:25%;">Categoría de Perfil</th>
+            <th style="width:25%;">Valor de Perfil</th>
+            <th style="width:30%;">Diagnóstico / Medicamento</th>
+            <th style="width:20%;">Frecuencia Registrada</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    // 1. Por País
+    tableHtml += `<tr style="background:var(--brand-light); color:#000; font-weight:bold;"><td colspan="4">🌍 DISTRIBUCIÓN DE ENFERMEDADES POR PAÍS DE RESIDENCIA</td></tr>`;
+    if (!res.by_country || res.by_country.length === 0) {
+      tableHtml += `<tr><td colspan="4" style="color:var(--text-muted); text-align:center; padding:10px;">No hay datos registrados en el período seleccionado.</td></tr>`;
+    } else {
+      res.by_country.forEach(item => {
+        tableHtml += `<tr>
+          <td>País de Residencia</td>
+          <td><strong>${escHtml(item.residence_country)}</strong></td>
+          <td>${escHtml(item.diagnosis_primary)}</td>
+          <td><code>${item.patient_count} pacientes</code></td>
+        </tr>`;
+      });
+    }
+
+    // 2. Por Etnia
+    tableHtml += `<tr style="background:var(--brand-light); color:#000; font-weight:bold;"><td colspan="4">🧬 DISTRIBUCIÓN DE ENFERMEDADES POR ETNIA</td></tr>`;
+    if (!res.by_ethnicity || res.by_ethnicity.length === 0) {
+      tableHtml += `<tr><td colspan="4" style="color:var(--text-muted); text-align:center; padding:10px;">No hay datos registrados en el período seleccionado.</td></tr>`;
+    } else {
+      res.by_ethnicity.forEach(item => {
+        tableHtml += `<tr>
+          <td>Etnia del Paciente</td>
+          <td><strong>${escHtml(item.ethnicity)}</strong></td>
+          <td>${escHtml(item.diagnosis_primary)}</td>
+          <td><code>${item.patient_count} pacientes</code></td>
+        </tr>`;
+      });
+    }
+
+    // 3. Por Edad
+    tableHtml += `<tr style="background:var(--brand-light); color:#000; font-weight:bold;"><td colspan="4">🎂 DISTRIBUCIÓN DE ENFERMEDADES POR GRUPO DE EDAD</td></tr>`;
+    if (!res.by_age || res.by_age.length === 0) {
+      tableHtml += `<tr><td colspan="4" style="color:var(--text-muted); text-align:center; padding:10px;">No hay datos registrados en el período seleccionado.</td></tr>`;
+    } else {
+      res.by_age.forEach(item => {
+        tableHtml += `<tr>
+          <td>Grupo de Edad (Años)</td>
+          <td><strong>${escHtml(item.age_range)}</strong></td>
+          <td>${escHtml(item.diagnosis_primary)}</td>
+          <td><code>${item.patient_count} pacientes</code></td>
+        </tr>`;
+      });
+    }
+
+    // 4. Medicamentos
+    tableHtml += `<tr style="background:var(--brand-light); color:#000; font-weight:bold;"><td colspan="4">💊 MEDICAMENTOS MÁS PRESCRITOS POR PERFIL DE PACIENTE</td></tr>`;
+    if (!res.meds_by_profile || res.meds_by_profile.length === 0) {
+      tableHtml += `<tr><td colspan="4" style="color:var(--text-muted); text-align:center; padding:10px;">No hay recetas registradas en el período seleccionado.</td></tr>`;
+    } else {
+      res.meds_by_profile.forEach(item => {
+        tableHtml += `<tr>
+          <td>Medicamentos por ${escHtml(item.profile_type)}</td>
+          <td><strong>${escHtml(item.profile_value)}</strong></td>
+          <td>${escHtml(item.medication)}</td>
+          <td><code>${item.prescription_count} recetas</code></td>
+        </tr>`;
+      });
+    }
+
+    tableHtml += `</tbody></table>`;
+    wrap.innerHTML = tableHtml;
+    return;
+  }
 
   // Resolver el array de filas según el key real de cada endpoint
   let list = [];
@@ -5956,7 +6157,9 @@ async function applyRefinementAnswers() {
   if (btn) setButtonLoading(btn, true, 'Recalculando...');
 
   try {
+    const patientId = document.getElementById('diag-patient-id')?.value || (STATE.currentPatient ? STATE.currentPatient.id : null);
     const res = await api('POST', '/api/diagnose/preliminar', {
+      patient_id:   patientId,
       constantes:   STATE.diagConstantes,
       sintomas:     STATE.diagSintomas,
       antecedentes: STATE.diagAntecedentes,

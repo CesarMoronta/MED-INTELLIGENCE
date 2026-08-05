@@ -6,7 +6,11 @@ from utils import format_cedula
 def add_patient(cedula: str, name: str, dob: str, gender: str,
                 antecedentes: dict, phone: str = None,
                 blood_type: str = None, registered_by: int = None,
-                photo_url: str = None) -> int | None:
+                photo_url: str = None, birth_country: str = None,
+                birth_city: str = None, residence_country: str = None,
+                residence_city: str = None, ethnicity: str = None,
+                past_surgeries: str = None, education_level: str = None,
+                occupation: str = None, marital_status: str = None) -> int | None:
     """Crea un nuevo paciente. Retorna el ID del paciente si tuvo éxito, None si ya existe o falla."""
     name = (name or "").strip().upper()
     conn      = get_connection()
@@ -14,8 +18,10 @@ def add_patient(cedula: str, name: str, dob: str, gender: str,
     patient_id = None
     try:
         cursor.execute(
-            "EXEC dbo.sp_create_patient ?, ?, ?, ?, ?, ?, ?, ?",
-            cedula, name, dob, gender, phone, blood_type, registered_by, photo_url
+            "EXEC dbo.sp_create_patient ?, ?, ?, ?, ?, ?, ?, ?, 'Vivo', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?",
+            cedula, name, dob, gender, phone, blood_type, registered_by, photo_url,
+            birth_country, birth_city, residence_country, residence_city, ethnicity,
+            past_surgeries, education_level, occupation, marital_status
         )
         row        = cursor.fetchone()
         patient_id = int(row[0]) if row else None
@@ -55,7 +61,8 @@ def get_patient(patient_id: int) -> dict | None:
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes, created_at, updated_at, photo_url, vital_status, death_date, death_certificate_url, death_notes "
+        "SELECT id, cedula, name, dob, gender, phone, blood_type, age, antecedentes, created_at, updated_at, photo_url, vital_status, death_date, death_certificate_url, death_notes, "
+        "birth_country, birth_city, residence_country, residence_city, ethnicity, past_surgeries, education_level, occupation, marital_status "
         "FROM dbo.vw_patients WHERE id = ?",
         patient_id
     )
@@ -71,7 +78,12 @@ def get_patient(patient_id: int) -> dict | None:
         "antecedentes": {}, "created_at": _fmt_date(row[9]),
         "updated_at": _fmt_date(row[10]), "photo_url": row[11],
         "vital_status": row[12], "death_date": _fmt_date(row[13]),
-        "death_certificate_url": row[14], "death_notes": row[15]
+        "death_certificate_url": row[14], "death_notes": row[15],
+        "birth_country": row[16], "birth_city": row[17],
+        "residence_country": row[18], "residence_city": row[19],
+        "ethnicity": row[20], "past_surgeries": row[21],
+        "education_level": row[22], "occupation": row[23],
+        "marital_status": row[24]
     }
     if row[8]:
         parsed = json.loads(row[8])
@@ -82,7 +94,12 @@ def list_patients(search: str = None, doctor_id: int = None) -> list:
     conn   = get_connection()
     cursor = conn.cursor()
     
-    base_query = "SELECT p.id, p.cedula, p.name, p.dob, p.gender, p.phone, p.blood_type, p.age, p.antecedentes, p.photo_url FROM dbo.vw_patients p"
+    base_query = (
+        "SELECT p.id, p.cedula, p.name, p.dob, p.gender, p.phone, p.blood_type, p.age, p.antecedentes, p.photo_url, "
+        "p.birth_country, p.birth_city, p.residence_country, p.residence_city, p.ethnicity, p.past_surgeries, "
+        "p.education_level, p.occupation, p.marital_status "
+        "FROM dbo.vw_patients p"
+    )
     where_clauses = []
     params = []
 
@@ -116,7 +133,11 @@ def list_patients(search: str = None, doctor_id: int = None) -> list:
 def update_patient(patient_id: int, cedula: str = None, name: str = None,
                    dob: str = None, gender: str = None, phone: str = None,
                    blood_type: str = None, antecedentes: dict = None,
-                   photo_url: str = None) -> bool:
+                   photo_url: str = None, birth_country: str = None,
+                   birth_city: str = None, residence_country: str = None,
+                   residence_city: str = None, ethnicity: str = None,
+                   past_surgeries: str = None, education_level: str = None,
+                   occupation: str = None, marital_status: str = None) -> bool:
     existing = get_patient(patient_id)
     if not existing:
         return False
@@ -125,7 +146,7 @@ def update_patient(patient_id: int, cedula: str = None, name: str = None,
     conn   = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC dbo.sp_update_patient ?, ?, ?, ?, ?, ?, ?, ?",
+        "EXEC dbo.sp_update_patient ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?",
         patient_id,
         cedula   or None,
         name     or None,
@@ -133,7 +154,16 @@ def update_patient(patient_id: int, cedula: str = None, name: str = None,
         gender   or None,
         phone    or None,
         blood_type or None,
-        photo_url or None
+        photo_url or None,
+        birth_country,
+        birth_city,
+        residence_country,
+        residence_city,
+        ethnicity,
+        past_surgeries,
+        education_level,
+        occupation,
+        marital_status
     )
     cursor.fetchone()
     cursor.close()
