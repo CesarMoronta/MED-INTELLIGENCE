@@ -198,6 +198,13 @@ def api_diagnose_gemini_analisis():
             tests_sugeridos=tests_sugeridos,
             doctor_notes=doctor_notes
         )
+        u = get_current_user()
+        top_diag = next(iter(probs_bayes.keys())) if probs_bayes else 'N/A'
+        log_audit_action(
+            username=u.get("username"), action="READ", entity="AIDiagnosis",
+            details=f"Ejecutó análisis clínico asistido por Gemini AI. Top diagnóstico: '{top_diag}'",
+            ip_address=get_client_ip(), user_id=u.get("id")
+        )
         return jsonify({"success": True, **resultado})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -516,6 +523,12 @@ def api_diagnose_chat_gemini():
             mensaje_usuario=mensaje,
             historial=historial,
             meta_clinica=meta,
+        )
+        u = get_current_user()
+        log_audit_action(
+            username=u.get("username"), action="READ", entity="AIChat",
+            details=f"Interactuó con Asistente Gemini sobre diagnóstico: '{diagnostico}' (Probabilidad: {probabilidad})",
+            ip_address=get_client_ip(), user_id=u.get("id")
         )
         return jsonify({"success": True, **result})
     except Exception as e:

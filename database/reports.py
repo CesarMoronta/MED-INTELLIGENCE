@@ -2,19 +2,86 @@ import json
 from datetime import datetime, date
 from database.connection import get_connection, get_db_cursor, rows_to_dicts, _fmt_date, MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES
 
-def get_audit_logs(limit: int = 200) -> list:
+def get_audit_logs(page: int = None, limit: int = 200, username: str = None,
+                   action: str = None, ip_address: str = None,
+                   date_start: str = None, date_end: str = None,
+                   entity: str = None) -> dict | list:
     conn   = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        f"SELECT TOP ({limit}) id, user_id, username, action, entity, entity_id, "
-        f"details, ip_address, logged_at FROM dbo.audit_log ORDER BY logged_at DESC"
+    
+    where_clauses = []
+    params = []
+    
+    if username:
+        where_clauses.append("username LIKE ?")
+        params.append(f"%{username}%")
+    if action:
+        where_clauses.append("action = ?")
+        params.append(action)
+    if ip_address:
+        where_clauses.append("ip_address LIKE ?")
+        params.append(f"%{ip_address}%")
+    if date_start:
+        where_clauses.append("logged_at >= ?")
+        params.append(date_start)
+    if date_end:
+        where_clauses.append("logged_at <= ?")
+        params.append(date_end)
+    if entity:
+        where_clauses.append("entity LIKE ?")
+        params.append(f"%{entity}%")
+        
+    where_str = ""
+    if where_clauses:
+        where_str = "WHERE " + " AND ".join(where_clauses)
+        
+    if page is None:
+        # Modo compatible hacia atrás: retorna lista simple de logs
+        sql = (
+            f"SELECT TOP ({limit}) id, user_id, username, action, entity, entity_id, "
+            f"details, ip_address, logged_at FROM dbo.audit_log {where_str} ORDER BY logged_at DESC"
+        )
+        cursor.execute(sql, params)
+        rows = rows_to_dicts(cursor)
+        cursor.close()
+        conn.close()
+        for r in rows:
+            r["logged_at"] = _fmt_date(r.get("logged_at"))
+        return rows
+        
+    # Modo paginado
+    count_sql = f"SELECT COUNT(*) FROM dbo.audit_log {where_str}"
+    cursor.execute(count_sql, params)
+    total_count = cursor.fetchone()[0]
+    
+    offset = (page - 1) * limit
+    
+    fetch_sql = (
+        f"SELECT id, user_id, username, action, entity, entity_id, details, ip_address, logged_at "
+        f"FROM dbo.audit_log {where_str} "
+        f"ORDER BY logged_at DESC, id DESC "
+        f"OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
     )
+    
+    cursor.execute(fetch_sql, params + [offset, limit])
     rows = rows_to_dicts(cursor)
+    
     cursor.close()
     conn.close()
+    
     for r in rows:
         r["logged_at"] = _fmt_date(r.get("logged_at"))
-    return rows
+        
+    import math
+    total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+    
+    return {
+        "logs": rows,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "page": page,
+        "limit": limit
+    }
 
 def log_audit_action(username: str, action: str, entity: str,
                      entity_id: str = None, details: str = None,

@@ -1,8 +1,9 @@
 import os
 from flask import Blueprint, request, jsonify
 from database import (get_clinic_name, set_clinic_name,
-                      get_all_clinic_settings, set_clinic_settings)
-from utils import requires_login, requires_role
+                      get_all_clinic_settings, set_clinic_settings,
+                      log_audit_action)
+from utils import requires_login, requires_role, get_current_user, get_client_ip
 
 settings_bp = Blueprint("settings_bp", __name__)
 
@@ -34,6 +35,12 @@ def api_set_clinic_name():
     if not name:
         return jsonify({"success": False, "error": "Nombre requerido."}), 400
     set_clinic_name(name)
+    u = get_current_user()
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="Settings",
+        details=f"Actualizó nombre del consultorio a '{name}'",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
     return jsonify({"success": True, "message": "Nombre del consultorio actualizado."})
 
 
@@ -58,4 +65,10 @@ def api_save_clinic_settings():
     if not settings:
         return jsonify({"success": False, "error": "No hay ajustes para guardar."}), 400
     set_clinic_settings(settings)
+    u = get_current_user()
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="Settings",
+        details=f"Actualizó ajustes del consultorio (Campos modificados: {', '.join(settings.keys())})",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
     return jsonify({"success": True, "message": "Ajustes del consultorio actualizados."})

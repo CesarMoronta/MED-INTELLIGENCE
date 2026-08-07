@@ -65,3 +65,6 @@ function updateThemeUI(isDark) {
     }
   }
 }
+
+// Inicializar tema automáticamente al cargar el script
+initTheme();

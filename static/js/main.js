@@ -3260,25 +3260,131 @@ async function resetBayesParams() {
 }
 
 // AUDIT LOGS
-async function loadAuditLogs() {
-  const data = await api('GET', '/api/audit_logs');
-  if (!data.success) return;
+let STATE_AUDIT = {
+  currentPage: 1,
+  limit: 30
+};
+
+async function loadAuditLogs(page = 1) {
+  STATE_AUDIT.currentPage = page;
+  
+  // Obtener valores de los filtros
+  const username = document.getElementById('audit-filter-user').value.trim();
+  const action   = document.getElementById('audit-filter-action').value;
+  const ip       = document.getElementById('audit-filter-ip').value.trim();
+  const start    = document.getElementById('audit-filter-date-start').value;
+  const end      = document.getElementById('audit-filter-date-end').value;
+  
+  // Construir query string
+  const params = new URLSearchParams();
+  params.append('page', page);
+  params.append('limit', STATE_AUDIT.limit);
+  if (username) params.append('username', username);
+  if (action)   params.append('action', action);
+  if (ip)       params.append('ip_address', ip);
+  if (start)    params.append('date_start', start);
+  if (end)      params.append('date_end', end);
+  
+  const el = document.getElementById('audit-table');
+  el.innerHTML = `<div class="loading-state"><div class="spinner-ring"></div><span>Cargando logs...</span></div>`;
+  
+  const data = await api('GET', `/api/audit_logs?${params.toString()}`);
+  if (!data.success) {
+    el.innerHTML = `<div class="empty-state"><span>Error al cargar logs de auditoría.</span></div>`;
+    document.getElementById('audit-pagination-container').style.display = 'none';
+    return;
+  }
+  
   const logs = data.logs || [];
-  const el   = document.getElementById('audit-table');
-  if (!logs.length) { el.innerHTML = `<div class="empty-state"><span>No hay logs de auditoría.</span></div>`; return; }
+  if (!logs.length) {
+    el.innerHTML = `<div class="empty-state"><span>No hay logs de auditoría que coincidan con la búsqueda.</span></div>`;
+    document.getElementById('audit-pagination-container').style.display = 'none';
+    return;
+  }
+  
   const actionColors = {
     LOGIN: '#10b981', LOGOUT: '#6b7280', CREATE: '#3b82f6',
-    UPDATE: '#f59e0b', DELETE: '#ef4444', RESET: '#8b5cf6'
+    UPDATE: '#f59e0b', DELETE: '#ef4444', RESET: '#8b5cf6',
+    EXPORT: '#0ea5e9', READ: '#8b5cf6'
   };
+  
   const rows = logs.map(l => `<tr>
     <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${fmtDate(l.logged_at)}</td>
     <td><strong style="color:var(--text-primary)">${l.username || '—'}</strong></td>
     <td><span style="color:${actionColors[l.action] || '#94a3b8'};font-weight:700;font-size:12px;">${l.action}</span></td>
     <td>${l.entity || '—'}</td>
-    <td style="font-size:12px;color:var(--text-muted)">${(l.details || '—').substring(0,60)}</td>
+    <td style="font-size:12px;color:var(--text-primary)" title="${escHtml(l.details || '')}">${escHtml(l.details || '—')}</td>
     <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${l.ip_address || '—'}</td>
   </tr>`).join('');
+  
   el.innerHTML = `<table class="data-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalles</th><th>IP</th></tr></thead><tbody>${rows}</tbody></table>`;
+  
+  // Actualizar y mostrar paginación
+  renderAuditPagination(data);
+}
+
+function renderAuditPagination(data) {
+  const container = document.getElementById('audit-pagination-container');
+  const infoEl    = document.getElementById('audit-pagination-info');
+  const buttonsEl = document.getElementById('audit-pagination-buttons');
+  
+  if (!data.total_count) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'flex';
+  
+  const startIdx = (data.page - 1) * data.limit + 1;
+  const endIdx   = Math.min(data.page * data.limit, data.total_count);
+  
+  infoEl.innerHTML = `Mostrando <strong>${startIdx}</strong> - <strong>${endIdx}</strong> de <strong>${data.total_count}</strong> registros`;
+  
+  let buttonsHtml = '';
+  
+  // Botón Anterior
+  buttonsHtml += `<button class="pagination-btn" ${data.page === 1 ? 'disabled' : ''} onclick="loadAuditLogs(${data.page - 1})">Anterior</button>`;
+  
+  // Rango de páginas a mostrar (máximo 5 botones de páginas visibles)
+  const range = 2;
+  const startPage = Math.max(1, data.page - range);
+  const endPage   = Math.min(data.total_pages, data.page + range);
+  
+  if (startPage > 1) {
+    buttonsHtml += `<button class="pagination-btn" onclick="loadAuditLogs(1)">1</button>`;
+    if (startPage > 2) {
+      buttonsHtml += `<span style="color:var(--text-muted);padding:0 4px;">...</span>`;
+    }
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    buttonsHtml += `<button class="pagination-btn ${i === data.page ? 'active' : ''}" onclick="loadAuditLogs(${i})">${i}</button>`;
+  }
+  
+  if (endPage < data.total_pages) {
+    if (endPage < data.total_pages - 1) {
+      buttonsHtml += `<span style="color:var(--text-muted);padding:0 4px;">...</span>`;
+    }
+    buttonsHtml += `<button class="pagination-btn" onclick="loadAuditLogs(${data.total_pages})">${data.total_pages}</button>`;
+  }
+  
+  // Botón Siguiente
+  buttonsHtml += `<button class="pagination-btn" ${data.page === data.total_pages ? 'disabled' : ''} onclick="loadAuditLogs(${data.page + 1})">Siguiente</button>`;
+  
+  buttonsEl.innerHTML = buttonsHtml;
+}
+
+function applyAuditFilters() {
+  loadAuditLogs(1);
+}
+
+function clearAuditFilters() {
+  document.getElementById('audit-filter-user').value = '';
+  document.getElementById('audit-filter-action').value = '';
+  document.getElementById('audit-filter-ip').value = '';
+  document.getElementById('audit-filter-date-start').value = '';
+  document.getElementById('audit-filter-date-end').value = '';
+  loadAuditLogs(1);
 }
 
 // UTILIDADES

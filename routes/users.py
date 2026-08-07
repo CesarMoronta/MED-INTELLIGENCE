@@ -107,7 +107,7 @@ def api_update_user(user_id):
     log_audit_action(
         username=u.get("username"), action="UPDATE", entity="User",
         entity_id=str(user_id),
-        details=f"Actualización de usuario ID={user_id}",
+        details=f"Actualizó usuario ID {user_id} (Nombre: '{username or user.get('username')}', Rol: '{role or user.get('role')}', Activo: {is_active})",
         ip_address=get_client_ip(), user_id=u.get("id")
     )
     return jsonify({"success": True, "user": _sanitize_user(user)})
@@ -214,6 +214,13 @@ def api_profile_upload_photo():
     session["user"]["photo_url"] = photo_url
     session.modified = True
 
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="UserPhoto",
+        entity_id=str(u["id"]),
+        details=f"Subió nueva foto de perfil: {photo_url}",
+        ip_address=get_client_ip(), user_id=u["id"]
+    )
+
     return jsonify({"success": True, "photo_url": photo_url})
 
 
@@ -238,6 +245,13 @@ def api_paypal_approved():
     # Generar factura de consumo electrónica
     from routes.billing import generate_subscription_invoice
     generate_subscription_invoice(u["id"])
+
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="UserSubscription",
+        entity_id=str(u["id"]),
+        details=f"Aprobó suscripción PayPal VIP (ID: {sub_id}, Plan: {plan_id})",
+        ip_address=get_client_ip(), user_id=u["id"]
+    )
 
     # Actualizar la sesión del usuario
     session["user"]["subscription_active"] = True
@@ -324,6 +338,13 @@ def api_cancel_subscription():
         """
         send_email(user["email"], subject, body)
 
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="UserSubscription",
+        entity_id=str(u["id"]),
+        details=f"Canceló suscripción PayPal VIP (Vence el: {expires_date_str})",
+        ip_address=get_client_ip(), user_id=u["id"]
+    )
+
     return jsonify({"success": True, "message": f"Suscripción cancelada con éxito. Tu acceso VIP seguirá activo hasta el {expires_date_str}.", "user": _sanitize_user(user)})
 
 
@@ -347,5 +368,13 @@ def api_send_test_email():
     </html>
     """
     send_email(email, subject, body)
+
+    log_audit_action(
+        username=u.get("username"), action="UPDATE", entity="User",
+        entity_id=str(u["id"]),
+        details=f"Envió correo electrónico de prueba a '{email}'",
+        ip_address=get_client_ip(), user_id=u["id"]
+    )
+
     return jsonify({"success": True, "message": f"Correo de prueba enviado a {email}."})
 
