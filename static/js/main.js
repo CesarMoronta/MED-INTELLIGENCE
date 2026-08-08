@@ -262,7 +262,11 @@ function renderSidebars() {
   const allowDoctorBilling = settings.allow_doctor_billing === 'true';
 
   const defaultOrders = {
-    admin: ['admin-dashboard', 'admin-doctors', 'admin-patients', 'admin-history', 'admin-schedules', 'billing', 'reports', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'],
+    admin: [
+      'admin-dashboard', 'dashboard', 'waiting-room', 'appointments', 'patients', 'admin-patients',
+      'diagnose', 'history', 'admin-history', 'admin-doctors', 'admin-schedules', 'doctor-schedules',
+      'billing', 'reports', 'simulator', 'admin-bayes', 'admin-users', 'admin-settings', 'admin-audit'
+    ],
     doctor: ['dashboard', 'appointments', 'waiting-room', 'patients', 'diagnose', 'history', 'doctor-schedules', 'simulator', 'reports'],
     secretaria: ['waiting-room', 'appointments', 'patients', 'admin-schedules', 'billing']
   };
@@ -460,15 +464,19 @@ function setupUI() {
   // Mostrar navegación según rol
   if (u.role === 'admin') {
     document.getElementById('nav-admin').style.display = 'block';
-    document.getElementById('nav-doctor').style.display = 'block';
-    document.getElementById('nav-secretaria').style.display = 'block';
+    document.getElementById('nav-doctor').style.display = 'none';
+    document.getElementById('nav-secretaria').style.display = 'none';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = '');
   } else if (u.role === 'secretaria') {
+    document.getElementById('nav-admin').style.display = 'none';
     document.getElementById('nav-secretaria').style.display = 'block';
+    document.getElementById('nav-doctor').style.display = 'none';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
   } else {
     // doctor
+    document.getElementById('nav-admin').style.display = 'none';
     document.getElementById('nav-doctor').style.display = 'block';
+    document.getElementById('nav-secretaria').style.display = 'none';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = 'none');
     // Ocultar botón "Nuevo Paciente" para doctores
     const btnNewPt = document.getElementById('btn-new-patient');
