@@ -1013,7 +1013,7 @@ async function searchPatientsForVisit() {
   const data = await api('GET', url);
   if (!data.success) return;
 
-  const list = document.getElementById('visit-patient-list');
+  if (!list) return;
   if (!data.patients.length) {
     list.innerHTML = `<div class="empty-state"><span>No se encontraron pacientes.</span></div>`;
     return;
