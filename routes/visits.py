@@ -62,10 +62,11 @@ def api_create_visit():
     if not visit_id:
         return jsonify({"success": False, "error": "Error al crear la visita."}), 500
 
+    patient_name = patient_check.get("name") if patient_check else "Desconocido"
     log_audit_action(
         username=u.get("username"), action="CREATE", entity="Visit",
         entity_id=str(visit_id),
-        details=f"Inició una {visit_type} para el paciente ID {patient_id}",
+        details=f"Inició una {visit_type} para el paciente '{patient_name}' (ID: {patient_id})",
         ip_address=get_client_ip(), user_id=u.get("id")
     )
 

@@ -136,10 +136,11 @@ def api_create_appointment():
 
     app_id = create_appointment(patient_id, doctor_id, scheduled_date, scheduled_time, notes, parent_app_id)
     u = get_current_user()
+    patient_name = patient.get("name") if patient else "Desconocido"
     log_audit_action(
         username=u.get("username"), action="CREATE", entity="Appointment",
         entity_id=str(app_id),
-        details=f"Agendó cita ID {app_id} para paciente ID {patient_id} con doctor ID {doctor_id} el {scheduled_date} a las {scheduled_time}",
+        details=f"Agendó cita ID {app_id} para el paciente '{patient_name}' (ID: {patient_id}) con doctor ID {doctor_id} el {scheduled_date} a las {scheduled_time}",
         ip_address=get_client_ip(), user_id=u.get("id")
     )
     return jsonify({"success": True, "appointment_id": app_id, "message": "Cita agendada."})

@@ -3374,6 +3374,18 @@ function renderAuditPagination(data) {
   buttonsEl.innerHTML = buttonsHtml;
 }
 
+let auditFilterTimeout = null;
+function onAuditFilterChange(isInstant = false) {
+  if (auditFilterTimeout) clearTimeout(auditFilterTimeout);
+  if (isInstant) {
+    loadAuditLogs(1);
+  } else {
+    auditFilterTimeout = setTimeout(() => {
+      loadAuditLogs(1);
+    }, 300);
+  }
+}
+
 function applyAuditFilters() {
   loadAuditLogs(1);
 }

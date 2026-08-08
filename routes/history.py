@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from database import (list_records, add_record, list_clinical_history,
-                      get_clinical_report, log_audit_action)
+                      get_clinical_report, log_audit_action, get_patient)
 from utils import requires_login, get_current_user, requires_role, get_client_ip
 
 history_bp = Blueprint("history_bp", __name__)
@@ -49,9 +49,11 @@ def api_add_record():
         "notes": notes
     }
     if add_record(record):
+        patient = get_patient(patient_id)
+        patient_name = patient.get("name") if patient else "Desconocido"
         log_audit_action(
             username=u.get("username"), action="CREATE", entity="ClinicalHistory",
-            details=f"Agregó registro clínico para el paciente ID {patient_id} con diagnóstico: '{diagnosis}'",
+            details=f"Agregó registro clínico para el paciente '{patient_name}' (ID: {patient_id}) con diagnóstico: '{diagnosis}'",
             ip_address=get_client_ip(), user_id=u.get("id")
         )
         return jsonify({"success": True})

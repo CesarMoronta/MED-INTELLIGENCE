@@ -33,7 +33,7 @@ def api_pdf_prescription(visit_id):
     log_audit_action(
         username=u.get("username"), action="EXPORT", entity="Prescription",
         entity_id=str(visit_id),
-        details=f"Descargó PDF de receta médica de la visita ID {visit_id} para paciente ID {visit.get('patient_id')}",
+        details=f"Descargó PDF de receta médica de la visita ID {visit_id} para el paciente '{visit.get('patient_name')}' (ID: {visit.get('patient_id')})",
         ip_address=get_client_ip(), user_id=u.get("id")
     )
 
@@ -63,7 +63,7 @@ def api_pdf_lab_order(visit_id):
     log_audit_action(
         username=u.get("username"), action="EXPORT", entity="LabOrder",
         entity_id=str(visit_id),
-        details=f"Descargó PDF de orden de laboratorio de la visita ID {visit_id} para paciente ID {visit.get('patient_id')}",
+        details=f"Descargó PDF de orden de laboratorio de la visita ID {visit_id} para el paciente '{visit.get('patient_name')}' (ID: {visit.get('patient_id')})",
         ip_address=get_client_ip(), user_id=u.get("id")
     )
 
