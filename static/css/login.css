@@ -601,3 +601,7 @@
         font-size: 9px;
       }
     }
+
+    .btn-toggle-password:hover {
+      color: var(--brand-primary) !important;
+    }

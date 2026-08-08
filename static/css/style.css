@@ -657,23 +657,60 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 .btn-primary, .btn-secondary, .btn-outline {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 9px 18px;
-  background: var(--bg-btn-secondary) !important;
-  border: 1px solid var(--border-btn-secondary) !important; border-radius: var(--radius-sm) !important;
-  color: var(--text-primary) !important; font-family: var(--font) !important; font-size: 13px; font-weight: 600;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font) !important; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: var(--transition); white-space: nowrap;
+  outline: none;
+}
+.btn-primary svg, .btn-secondary svg, .btn-outline svg { fill: none !important; transition: var(--transition); width: 16px; height: 16px; }
+
+/* Primarios */
+.btn-primary {
+  background: var(--bg-btn-primary) !important;
+  border: var(--border-btn-primary) !important;
+  color: #ffffff !important;
+  box-shadow: var(--shadow-btn-primary) !important;
+}
+.btn-primary svg { stroke: #ffffff !important; }
+.btn-primary:hover {
+  background: var(--bg-btn-primary-hover) !important;
+  border-color: rgba(79, 70, 229, 0.45) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-btn-primary-hover) !important;
+}
+.btn-primary:hover svg { stroke: #ffffff !important; }
+
+/* Secundarios / Outline */
+.btn-secondary, .btn-outline {
+  background: var(--bg-btn-secondary) !important;
+  border: 1px solid var(--border-btn-secondary) !important;
+  color: var(--text-primary) !important;
   box-shadow: none !important;
 }
-.btn-primary svg, .btn-secondary svg, .btn-outline svg { stroke: var(--brand-light) !important; fill: none !important; transition: var(--transition); width: 16px; height: 16px; }
-.btn-primary:hover, .btn-secondary:hover, .btn-outline:hover {
+.btn-secondary svg, .btn-outline svg { stroke: var(--brand-light) !important; }
+.btn-secondary:hover, .btn-outline:hover {
   background: var(--bg-btn-secondary-hover) !important;
   border-color: var(--border-btn-secondary-hover) !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm) !important;
   color: var(--text-primary) !important;
 }
-.btn-primary:hover svg, .btn-secondary:hover svg, .btn-outline:hover svg { stroke: var(--brand) !important; }
+.btn-secondary:hover svg, .btn-outline:hover svg { stroke: var(--brand) !important; }
+
+/* Focus outline for keyboard navigation */
+.btn-primary:focus-visible {
+  outline: 2px solid var(--brand-light) !important;
+  outline-offset: 2px;
+}
+.btn-secondary:focus-visible, .btn-outline:focus-visible {
+  outline: 2px solid var(--border-focus) !important;
+  outline-offset: 2px;
+}
+
 .btn-primary:disabled, .btn-secondary:disabled, .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
 .btn-primary.btn-large { padding: 14px 28px; font-size: 15px; border-radius: var(--radius); }
+
 
 /* Excepción para botones de cancelar/cerrar que deben ser rojos */
 .btn-outline.danger,
@@ -1070,6 +1107,100 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Skeleton Loading (Regla 3) */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 12px;
+  padding: 24px;
+  width: 100%;
+  min-height: 150px;
+}
+.loading-state .spinner-ring {
+  display: none !important;
+}
+.loading-state span {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+.loading-state::before,
+.loading-state::after {
+  content: '';
+  display: block;
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-hover) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.6s infinite ease-in-out;
+}
+.loading-state::before {
+  width: 85%;
+}
+.loading-state::after {
+  width: 60%;
+  animation-delay: 0.2s;
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Keyboard accessibility for symptom toggle chips (Regla 13/Criterios UX) */
+.symptom-toggle:focus-within {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18) !important;
+}
+
+/* Segmented Control Component (Regla 9) */
+.segmented-control {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  gap: 4px;
+  width: 100%;
+}
+.segmented-control input[type="radio"] {
+  display: none !important;
+}
+.segmented-control label {
+  flex: 1;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: calc(var(--radius-sm) - 4px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+  margin-bottom: 0 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+.segmented-control label:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.segmented-control input[type="radio"]:checked + label {
+  background: var(--brand);
+  color: #ffffff !important;
+  box-shadow: var(--shadow-sm);
+}
+:root.dark .segmented-control input[type="radio"]:checked + label {
+  background: var(--brand-light);
+  color: #ffffff !important;
+}
+.segmented-control input[type="radio"]:focus-visible + label {
+  box-shadow: 0 0 0 2px var(--border-focus);
+}
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* TWO COLUMN GRID                                                              */

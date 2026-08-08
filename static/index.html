@@ -604,11 +604,15 @@
                 <div class="form-row">
                   <div class="form-group">
                     <label class="form-label">Nivel de Alerta</label>
-                    <select id="manual-diag-alert" class="form-input">
-                      <option value="Verde">Verde (Bajo Riesgo)</option>
-                      <option value="Amarillo">Amarillo (Moderado)</option>
-                      <option value="Rojo">Rojo (Alto Riesgo / Emergencia)</option>
-                    </select>
+                    <div class="segmented-control">
+                      <input type="radio" id="alert-green" name="manual-diag-alert-radio" value="Verde" checked onchange="document.getElementById('manual-diag-alert').value = this.value" />
+                      <label for="alert-green" style="color: var(--green) !important;">Verde</label>
+                      <input type="radio" id="alert-yellow" name="manual-diag-alert-radio" value="Amarillo" onchange="document.getElementById('manual-diag-alert').value = this.value" />
+                      <label for="alert-yellow" style="color: var(--yellow) !important;">Amarillo</label>
+                      <input type="radio" id="alert-red" name="manual-diag-alert-radio" value="Rojo" onchange="document.getElementById('manual-diag-alert').value = this.value" />
+                      <label for="alert-red" style="color: var(--red) !important;">Rojo</label>
+                    </div>
+                    <input type="hidden" id="manual-diag-alert" value="Verde" />
                   </div>
                   <div class="form-group">
                     <label class="form-label">Especialista Recomendado</label>
@@ -1676,11 +1680,15 @@
           </div>
           <div class="form-group">
             <label class="form-label">Género</label>
-            <select id="pt-gender" class="form-input">
-              <option>Masculino</option>
-              <option>Femenino</option>
-              <option>Otro</option>
-            </select>
+            <div class="segmented-control">
+              <input type="radio" id="gender-m" name="pt-gender-radio" value="Masculino" checked onchange="document.getElementById('pt-gender').value = this.value" />
+              <label for="gender-m">Masculino</label>
+              <input type="radio" id="gender-f" name="pt-gender-radio" value="Femenino" onchange="document.getElementById('pt-gender').value = this.value" />
+              <label for="gender-f">Femenino</label>
+              <input type="radio" id="gender-o" name="pt-gender-radio" value="Otro" onchange="document.getElementById('pt-gender').value = this.value" />
+              <label for="gender-o">Otro</label>
+            </div>
+            <input type="hidden" id="pt-gender" value="Masculino" />
           </div>
         </div>
         <div class="form-group">
@@ -1690,29 +1698,25 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">País de Nacimiento</label>
-            <select id="pt-birth-country" class="form-input" onchange="updateCitiesDropdown('pt-birth-country', 'pt-birth-city')">
-              <option value="">Seleccione País</option>
-            </select>
+            <input type="text" id="pt-birth-country" class="form-input" list="list-birth-countries" placeholder="Escribe para buscar país..." onchange="updateCitiesDropdown('pt-birth-country', 'pt-birth-city')" autocomplete="off" />
+            <datalist id="list-birth-countries"></datalist>
           </div>
           <div class="form-group">
             <label class="form-label">Ciudad de Nacimiento</label>
-            <select id="pt-birth-city" class="form-input">
-              <option value="">Seleccione Ciudad</option>
-            </select>
+            <input type="text" id="pt-birth-city" class="form-input" list="list-birth-cities" placeholder="Escribe para buscar ciudad..." autocomplete="off" />
+            <datalist id="list-birth-cities"></datalist>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">País de Residencia</label>
-            <select id="pt-residence-country" class="form-input" onchange="updateCitiesDropdown('pt-residence-country', 'pt-residence-city')">
-              <option value="">Seleccione País</option>
-            </select>
+            <input type="text" id="pt-residence-country" class="form-input" list="list-residence-countries" placeholder="Escribe para buscar país..." onchange="updateCitiesDropdown('pt-residence-country', 'pt-residence-city')" autocomplete="off" />
+            <datalist id="list-residence-countries"></datalist>
           </div>
           <div class="form-group">
             <label class="form-label">Ciudad de Residencia</label>
-            <select id="pt-residence-city" class="form-input">
-              <option value="">Seleccione Ciudad</option>
-            </select>
+            <input type="text" id="pt-residence-city" class="form-input" list="list-residence-cities" placeholder="Escribe para buscar ciudad..." autocomplete="off" />
+            <datalist id="list-residence-cities"></datalist>
           </div>
         </div>
         <div class="form-row">
@@ -1909,8 +1913,16 @@
           </div>
           <div class="form-group">
             <label class="form-label">Contraseña <span class="badge-required">*</span></label>
-            <input type="password" id="usr-password" class="form-input" placeholder="Mín. 6 caracteres"
-              autocomplete="new-password" />
+            <div class="input-wrap" style="position: relative;">
+              <input type="password" id="usr-password" class="form-input" placeholder="Mín. 6 caracteres"
+                autocomplete="new-password" style="padding-right: 42px;" />
+              <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('usr-password', this)" aria-label="Mostrar contraseña" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color 0.2s;outline:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;width:16px;height:16px;">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
         <div class="form-row">
@@ -1920,11 +1932,15 @@
           </div>
           <div class="form-group">
             <label class="form-label">Rol</label>
-            <select id="usr-role" class="form-input" onchange="onRoleChange()">
-              <option value="doctor">Doctor</option>
-              <option value="secretaria">Secretaría</option>
-              <option value="admin">Administrador</option>
-            </select>
+            <div class="segmented-control">
+              <input type="radio" id="role-doctor" name="usr-role-radio" value="doctor" checked onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <label for="role-doctor">Doctor</label>
+              <input type="radio" id="role-secretaria" name="usr-role-radio" value="secretaria" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <label for="role-secretaria">Secretaría</label>
+              <input type="radio" id="role-admin" name="usr-role-radio" value="admin" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <label for="role-admin">Admin</label>
+            </div>
+            <input type="hidden" id="usr-role" value="doctor" />
           </div>
         </div>
         <div class="form-group">
@@ -2057,7 +2073,15 @@
             </div>
             <div class="form-group">
               <label class="form-label">Contraseña Nueva (dejar en blanco para conservar)</label>
-              <input type="password" id="my-password" class="form-input" placeholder="Mínimo 6 caracteres" />
+              <div class="input-wrap" style="position: relative;">
+                <input type="password" id="my-password" class="form-input" placeholder="Mínimo 6 caracteres" style="padding-right: 42px;" />
+                <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('my-password', this)" aria-label="Mostrar contraseña" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color 0.2s;outline:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;width:16px;height:16px;">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Campos Doctor -->
@@ -2376,11 +2400,14 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="charge-payment-method">Método de Pago</label>
-          <select class="form-input" id="charge-payment-method" style="width: 100%;">
-            <option value="efectivo">💵 Efectivo</option>
-            <option value="tarjeta">💳 Tarjeta de Crédito/Débito</option>
-          </select>
+          <label class="form-label">Método de Pago</label>
+          <div class="segmented-control">
+            <input type="radio" id="pm-cash" name="charge-payment-method-radio" value="efectivo" checked onchange="document.getElementById('charge-payment-method').value = this.value" />
+            <label for="pm-cash">💵 Efectivo</label>
+            <input type="radio" id="pm-card" name="charge-payment-method-radio" value="tarjeta" onchange="document.getElementById('charge-payment-method').value = this.value" />
+            <label for="pm-card">💳 Tarjeta</label>
+          </div>
+          <input type="hidden" id="charge-payment-method" value="efectivo" />
         </div>
         
         <!-- Pago a Crédito -->
@@ -2403,11 +2430,14 @@
         </div>
 
         <div class="form-group" style="margin-top: 12px;">
-          <label class="form-label" for="charge-ecf-type">Tipo de Comprobante</label>
-          <select class="form-input" id="charge-ecf-type" style="width: 100%;" onchange="toggleChargeEcfFields()">
-            <option value="32">📄 Consumidor Final (E32)</option>
-            <option value="31">🏢 Crédito Fiscal (E31)</option>
-          </select>
+          <label class="form-label">Tipo de Comprobante</label>
+          <div class="segmented-control">
+            <input type="radio" id="ecf-32" name="charge-ecf-type-radio" value="32" checked onchange="document.getElementById('charge-ecf-type').value = this.value; toggleChargeEcfFields();" />
+            <label for="ecf-32">📄 Consumidor (E32)</label>
+            <input type="radio" id="ecf-31" name="charge-ecf-type-radio" value="31" onchange="document.getElementById('charge-ecf-type').value = this.value; toggleChargeEcfFields();" />
+            <label for="ecf-31">🏢 Crédito (E31)</label>
+          </div>
+          <input type="hidden" id="charge-ecf-type" value="32" />
         </div>
 
         <div id="charge-ecf-31-fields"

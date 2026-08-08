@@ -418,6 +418,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSystemConfig();
   setupUI();
   buildSymptomToggles();
+  applyInputMasks();
 
   ['edad', 'temperatura', 'spo2', 'pas', 'pad', 'fc', 'fr', 'peso', 'altura', 'grasa_corporal'].forEach(k => {
     makeVitalManual(`val-${k}`, `v-${k}`);
@@ -778,46 +779,47 @@ async function viewPatient(id) {
 
 // Geodata helpers
 function initializeGeodataDropdowns() {
-  const birthCountrySelect = document.getElementById('pt-birth-country');
-  const resCountrySelect = document.getElementById('pt-residence-country');
-  if (!birthCountrySelect || !resCountrySelect) return;
+  const birthDL = document.getElementById('list-birth-countries');
+  const resDL = document.getElementById('list-residence-countries');
+  if (!birthDL || !resDL) return;
 
-  if (birthCountrySelect.options.length > 1) return;
+  if (birthDL.children.length > 0) return;
 
   const countries = Object.keys(COUNTRIES_AND_CITIES).sort();
-  let html = '<option value="">Seleccione País</option>';
+  let html = '';
   countries.forEach(c => {
-    html += `<option value="${c}">${c}</option>`;
+    html += `<option value="${c}"></option>`;
   });
 
-  birthCountrySelect.innerHTML = html;
-  resCountrySelect.innerHTML = html;
+  birthDL.innerHTML = html;
+  resDL.innerHTML = html;
   
-  document.getElementById('pt-birth-city').innerHTML = '<option value="">Seleccione Ciudad</option>';
-  document.getElementById('pt-residence-city').innerHTML = '<option value="">Seleccione Ciudad</option>';
+  const birthCityDL = document.getElementById('list-birth-cities');
+  const resCityDL = document.getElementById('list-residence-cities');
+  if (birthCityDL) birthCityDL.innerHTML = '';
+  if (resCityDL) resCityDL.innerHTML = '';
 }
 
 function updateCitiesDropdown(countrySelectId, citySelectId, selectCityValue = null) {
   const countryVal = document.getElementById(countrySelectId)?.value;
-  const citySelect = document.getElementById(citySelectId);
-  if (!citySelect) return;
+  const cityDatalistId = citySelectId === 'pt-birth-city' ? 'list-birth-cities' : 'list-residence-cities';
+  const cityDL = document.getElementById(cityDatalistId);
+  if (!cityDL) return;
 
-  let html = '<option value="">Seleccione Ciudad</option>';
-  let found = false;
+  let html = '';
   if (countryVal && COUNTRIES_AND_CITIES[countryVal]) {
     const cities = COUNTRIES_AND_CITIES[countryVal].sort();
     cities.forEach(city => {
-      const isSelected = (selectCityValue && selectCityValue.toLowerCase() === city.toLowerCase());
-      if (isSelected) found = true;
-      html += `<option value="${city}" ${isSelected ? 'selected' : ''}>${city}</option>`;
+      html += `<option value="${city}"></option>`;
     });
   }
   
-  if (selectCityValue && !found) {
-    html += `<option value="${selectCityValue}" selected>${selectCityValue}</option>`;
+  cityDL.innerHTML = html;
+  if (selectCityValue) {
+    document.getElementById(citySelectId).value = selectCityValue;
+  } else {
+    document.getElementById(citySelectId).value = '';
   }
-  
-  citySelect.innerHTML = html;
 }
 
 function openNewPatientModal() {
@@ -840,7 +842,10 @@ async function editPatient(id) {
   document.getElementById('pt-cedula').value = p.cedula || '';
   document.getElementById('pt-name').value   = p.name   || '';
   document.getElementById('pt-dob').value    = (p.dob || '').substring(0,10);
-  document.getElementById('pt-gender').value = p.gender || 'Otro';
+  const genderVal = p.gender || 'Masculino';
+  document.getElementById('pt-gender').value = genderVal;
+  const genderRadio = document.querySelector(`input[name="pt-gender-radio"][value="${genderVal}"]`);
+  if (genderRadio) genderRadio.checked = true;
   document.getElementById('pt-phone').value  = p.phone  || '';
   document.getElementById('pt-blood').value  = p.blood_type || '';
   
@@ -855,6 +860,7 @@ async function editPatient(id) {
   document.getElementById('pt-occupation').value     = p.occupation || '';
   document.getElementById('pt-education-level').value = p.education_level || '';
   document.getElementById('pt-past-surgeries').value = p.past_surgeries || '';
+  applyInputMasks();
   
   const photoUrlField = document.getElementById('pt-photo-url');
   const photoPreview = document.getElementById('pt-photo-preview');
@@ -975,6 +981,11 @@ function clearPatientForm() {
    'pt-ethnicity', 'pt-marital-status', 'pt-occupation', 'pt-education-level', 'pt-past-surgeries']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
   
+  const radioMale = document.getElementById('gender-m');
+  if (radioMale) radioMale.checked = true;
+  const ptGender = document.getElementById('pt-gender');
+  if (ptGender) ptGender.value = 'Masculino';
+
   const photoPreview = document.getElementById('pt-photo-preview');
   const photoPlaceholder = document.getElementById('pt-photo-placeholder');
   if (photoPreview) { photoPreview.src = ''; photoPreview.style.display = 'none'; }
@@ -3208,7 +3219,10 @@ async function editUser(id) {
   document.getElementById('edit-user-id').value               = u.id;
   document.getElementById('usr-username').value               = u.username || '';
   document.getElementById('usr-password').value               = '';
-  document.getElementById('usr-role').value                   = u.role || 'doctor';
+  const roleVal = u.role || 'doctor';
+  document.getElementById('usr-role').value                   = roleVal;
+  const roleRadio = document.querySelector(`input[name="usr-role-radio"][value="${roleVal}"]`);
+  if (roleRadio) roleRadio.checked = true;
   document.getElementById('usr-fullname').value               = u.full_name || '';
   document.getElementById('usr-email').value                  = u.email || '';
   document.getElementById('usr-matricula').value              = u.matricula || '';
@@ -3218,6 +3232,7 @@ async function editUser(id) {
   document.getElementById('usr-cedula').value                 = u.cedula || '';
   document.getElementById('usr-photourl').value               = u.photo_url || '';
   onRoleChange();
+  applyInputMasks();
   openModal('modal-new-user');
 }
 
@@ -3229,6 +3244,8 @@ function clearUserForm() {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const roleEl = document.getElementById('usr-role');
   if (roleEl) roleEl.value = 'doctor';
+  const roleRadio = document.getElementById('role-doctor');
+  if (roleRadio) roleRadio.checked = true;
   onRoleChange();
 }
 
@@ -4307,6 +4324,7 @@ async function openMyAccountModal() {
     document.getElementById('my-hospital').value = user.hospital || '';
     document.getElementById('my-cedula').value = user.cedula || '';
     document.getElementById('my-photourl').value = user.photo_url || '';
+    applyInputMasks();
 
     // Estado suscripción
     const badge = document.getElementById('sub-status-badge');
@@ -4995,6 +5013,15 @@ async function openChargeModal(visitId, patientName, patientId, pendingAmount) {
       console.error('Error al obtener info de facturación:', err);
     }
   }
+  const pmVal = document.getElementById('charge-payment-method').value || 'efectivo';
+  const pmRadio = document.querySelector(`input[name="charge-payment-method-radio"][value="${pmVal}"]`);
+  if (pmRadio) pmRadio.checked = true;
+
+  const ecfVal = document.getElementById('charge-ecf-type').value || '32';
+  const ecfRadio = document.querySelector(`input[name="charge-ecf-type-radio"][value="${ecfVal}"]`);
+  if (ecfRadio) ecfRadio.checked = true;
+
+  applyInputMasks();
 
   openModal('modal-charge-visit');
 }
