@@ -666,20 +666,20 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 
 /* Primarios */
 .btn-primary {
-  background: color-mix(in srgb, var(--brand) 12%, transparent) !important;
+  background: var(--brand) !important;
   border: 1.5px solid var(--brand) !important;
-  color: var(--brand) !important;
+  color: #ffffff !important;
   box-shadow: var(--shadow-sm) !important;
 }
-.btn-primary svg { stroke: var(--brand) !important; }
+.btn-primary svg { stroke: #ffffff !important; }
 .btn-primary:hover {
-  background: color-mix(in srgb, var(--brand) 22%, transparent) !important;
-  border-color: var(--brand) !important;
-  color: var(--brand) !important;
+  background: var(--brand-dark) !important;
+  border-color: var(--brand-dark) !important;
+  color: #ffffff !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-md) !important;
 }
-.btn-primary:hover svg { stroke: var(--brand) !important; }
+.btn-primary:hover svg { stroke: #ffffff !important; }
 
 :root.dark .btn-primary {
   background: rgba(99, 102, 241, 0.12) !important;
@@ -1234,10 +1234,10 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   transform: translateX(0);
 }
 .segmented-control:has(input[type="radio"]:nth-of-type(3)) input[type="radio"]:nth-of-type(2):checked ~ .segmented-indicator {
-  transform: translateX(calc((100% - 16px) / 3 + 4px));
+  transform: translateX(calc(100% + 4px));
 }
 .segmented-control:has(input[type="radio"]:nth-of-type(3)) input[type="radio"]:nth-of-type(3):checked ~ .segmented-indicator {
-  transform: translateX(calc(2 * (100% - 16px) / 3 + 8px));
+  transform: translateX(calc(200% + 8px));
 }
 
 /* 2 options sliding physical calculation */
@@ -1248,7 +1248,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   transform: translateX(0);
 }
 .segmented-control:has(input[type="radio"]:nth-of-type(2)):not(:has(input[type="radio"]:nth-of-type(3))) input[type="radio"]:nth-of-type(2):checked ~ .segmented-indicator {
-  transform: translateX(calc((100% - 12px) / 2 + 4px));
+  transform: translateX(calc(100% + 4px));
 }
 
 /* Active text colors dynamically mapped to active input sibling position */
