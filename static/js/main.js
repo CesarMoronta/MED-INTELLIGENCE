@@ -3257,7 +3257,23 @@ async function editUser(id) {
   document.getElementById('usr-telefono').value               = u.telefono || '';
   document.getElementById('usr-hospital').value               = u.hospital || '';
   document.getElementById('usr-cedula').value                 = u.cedula || '';
-  document.getElementById('usr-photourl').value               = u.photo_url || '';
+  
+  const photoUrl = u.photo_url || '';
+  document.getElementById('usr-photourl').value               = photoUrl;
+  const photoPreview = document.getElementById('usr-photo-preview');
+  const photoPlaceholder = document.getElementById('usr-photo-placeholder');
+  if (photoPreview && photoPlaceholder) {
+    if (photoUrl) {
+      photoPreview.src = photoUrl;
+      photoPreview.style.display = 'block';
+      photoPlaceholder.style.display = 'none';
+    } else {
+      photoPreview.src = '';
+      photoPreview.style.display = 'none';
+      photoPlaceholder.style.display = 'block';
+    }
+  }
+  
   onRoleChange();
   applyInputMasks();
   openModal('modal-new-user');
@@ -3273,6 +3289,12 @@ function clearUserForm() {
   if (roleEl) roleEl.value = 'doctor';
   const roleRadio = document.getElementById('role-doctor');
   if (roleRadio) roleRadio.checked = true;
+  
+  const photoPreview = document.getElementById('usr-photo-preview');
+  const photoPlaceholder = document.getElementById('usr-photo-placeholder');
+  if (photoPreview) { photoPreview.src = ''; photoPreview.style.display = 'none'; }
+  if (photoPlaceholder) photoPlaceholder.style.display = 'block';
+
   onRoleChange();
 }
 
@@ -4856,8 +4878,9 @@ function openCreditNoteModal(invoiceId, encf, clientName, totalAmount, dateStr, 
   document.getElementById('cn-original-total-text').textContent = `RD$ ${totalAmount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`;
 
   // Default behavior: Anulación total
-  const codeSelect = document.getElementById('cn-modification-code');
-  codeSelect.value = '1';
+  document.getElementById('cn-modification-code').value = '1';
+  const radio1 = document.getElementById('cn-type-1');
+  if (radio1) radio1.checked = true;
   
   const amountInput = document.getElementById('cn-credit-amount');
   amountInput.value = totalAmount.toFixed(2);
@@ -5179,15 +5202,28 @@ async function lookupDoctorCedula(prefix) {
       const photoEl = document.getElementById(`${prefix}-photourl`);
       if (photoEl) photoEl.value = info.foto || '';
       
-      // Update preview if it's the current user profile modal
-      if (prefix === 'my' && info.foto) {
-        const preview = document.getElementById('my-profile-preview');
-        const placeholder = document.getElementById('my-profile-placeholder');
-        if (preview && placeholder) {
+      // Update preview for usr, my, or pt prefix
+      const preview = document.getElementById(`${prefix}-photo-preview`);
+      const placeholder = document.getElementById(`${prefix}-photo-placeholder`);
+      if (preview && placeholder) {
+        if (info.foto) {
           preview.src = info.foto;
           preview.style.display = 'block';
           placeholder.style.display = 'none';
+        } else {
+          preview.src = '';
+          preview.style.display = 'none';
+          placeholder.style.display = 'block';
         }
+      }
+      
+      // Keep support for my-profile-preview if it still uses that exact ID
+      const myPreview = document.getElementById('my-profile-preview');
+      const myPlaceholder = document.getElementById('my-profile-placeholder');
+      if (prefix === 'my' && myPreview && myPlaceholder && info.foto) {
+        myPreview.src = info.foto;
+        myPreview.style.display = 'block';
+        myPlaceholder.style.display = 'none';
       }
     } else {
       toast('error', data.error || 'Cédula no encontrada en la JCE.');
