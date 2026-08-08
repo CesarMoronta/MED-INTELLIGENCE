@@ -189,3 +189,46 @@ function applyInputMasks() {
     });
   });
 }
+
+function getSkeletonTable(rows = 4, cols = 5) {
+  let html = '<div class="table-responsive" style="width:100%; overflow-x:auto;"><table class="data-table"><thead><tr>';
+  for (let c = 0; c < cols; c++) {
+    const w = [15, 25, 20, 15, 25][c % 5];
+    html += `<th style="width: ${w}%;"><div style="height: 14px; width: 60%; background: var(--border); border-radius: 4px;"></div></th>`;
+  }
+  html += '</tr></thead><tbody>';
+  html += getSkeletonTableRows(cols, rows);
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function getSkeletonTableRows(colspan, rows = 3) {
+  let html = '';
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < colspan; c++) {
+      const w = [30, 60, 45, 25, 50, 40, 35, 55][(r + c) % 8];
+      html += `
+        <td style="padding: 12px 16px;">
+          <div style="height: 14px; width: ${w}%; background: linear-gradient(90deg, var(--border) 25%, var(--bg-hover) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite ease-in-out; border-radius: 4px;"></div>
+        </td>
+      `;
+    }
+    html += '</tr>';
+  }
+  return html;
+}
+
+function getSkeletonList(rows = 3) {
+  let html = '<div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">';
+  for (let r = 0; r < rows; r++) {
+    html += `
+      <div class="doc-item" style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 8px;">
+        <div style="height: 16px; width: 55%; background: linear-gradient(90deg, var(--border) 25%, var(--bg-hover) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite ease-in-out; border-radius: 4px;"></div>
+        <div style="height: 12px; width: 35%; background: linear-gradient(90deg, var(--border) 25%, var(--bg-hover) 50%, var(--border) 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite ease-in-out; border-radius: 4px; animation-delay: 0.15s;"></div>
+      </div>
+    `;
+  }
+  html += '</div>';
+  return html;
+}

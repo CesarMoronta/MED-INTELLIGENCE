@@ -666,20 +666,33 @@ textarea.form-input { resize: vertical; min-height: 80px; }
 
 /* Primarios */
 .btn-primary {
-  background: var(--bg-btn-primary) !important;
-  border: var(--border-btn-primary) !important;
-  color: #ffffff !important;
-  box-shadow: var(--shadow-btn-primary) !important;
+  background: rgba(79, 70, 229, 0.05) !important;
+  border: 1.5px solid var(--brand) !important;
+  color: var(--brand) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
-.btn-primary svg { stroke: #ffffff !important; }
+.btn-primary svg { stroke: var(--brand) !important; }
 .btn-primary:hover {
-  background: var(--bg-btn-primary-hover) !important;
-  border-color: rgba(79, 70, 229, 0.45) !important;
-  color: #ffffff !important;
+  background: rgba(79, 70, 229, 0.12) !important;
+  border-color: var(--brand) !important;
+  color: var(--brand) !important;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-btn-primary-hover) !important;
+  box-shadow: var(--shadow-md) !important;
 }
-.btn-primary:hover svg { stroke: #ffffff !important; }
+.btn-primary:hover svg { stroke: var(--brand) !important; }
+
+:root.dark .btn-primary {
+  background: rgba(99, 102, 241, 0.12) !important;
+  border: 1.5px solid var(--brand-light) !important;
+  color: var(--brand-light) !important;
+}
+:root.dark .btn-primary svg { stroke: var(--brand-light) !important; }
+:root.dark .btn-primary:hover {
+  background: rgba(99, 102, 241, 0.22) !important;
+  border-color: var(--brand-light) !important;
+  color: var(--brand-light) !important;
+}
+:root.dark .btn-primary:hover svg { stroke: var(--brand-light) !important; }
 
 /* Secundarios / Outline */
 .btn-secondary, .btn-outline {

@@ -157,8 +157,7 @@ function switchTab(tab) {
   const panel = document.getElementById(`tab-${tab}`);
   if (panel) panel.classList.add('active');
 
-  const btn = document.querySelector(`[data-tab="${tab}"]`);
-  if (btn) btn.classList.add('active');
+  document.querySelectorAll(`.nav-item[data-tab="${tab}"]`).forEach(btn => btn.classList.add('active'));
 
   // Cargar datos de la pestaña
   const loaders = {
@@ -665,6 +664,8 @@ function renderAdminCharts(s) {
 
 // PACIENTES
 async function loadPatients(search = '') {
+  const el = document.getElementById('patients-list');
+  if (el) el.innerHTML = getSkeletonTable(5, 6);
   const url  = '/api/patients' + (search ? `?search=${encodeURIComponent(search)}` : '');
   const data = await api('GET', url);
   if (!data.success) return;
@@ -674,6 +675,8 @@ async function loadPatients(search = '') {
 }
 
 async function loadAdminPatients() {
+  const el = document.getElementById('admin-patients-list');
+  if (el) el.innerHTML = getSkeletonTable(5, 6);
   const search = document.getElementById('admin-patient-search')?.value || '';
   const url  = '/api/patients' + (search ? `?search=${encodeURIComponent(search)}` : '');
   const data = await api('GET', url);
@@ -1004,6 +1007,8 @@ function loadVisitPatients() {
 
 async function searchPatientsForVisit() {
   const q    = document.getElementById('visit-patient-search')?.value || '';
+  const list = document.getElementById('visit-patient-list');
+  if (list) list.innerHTML = getSkeletonList(3);
   const url  = '/api/patients' + (q ? `?search=${encodeURIComponent(q)}` : '');
   const data = await api('GET', url);
   if (!data.success) return;
@@ -1209,8 +1214,18 @@ async function loadDiagnoseTab() {
   document.getElementById('manual-diagnosis-inputs').style.display = 'none';
   document.getElementById('btn-diag-phase1').style.display = '';
 
-  // Si no es doctor, no es necesario validar suscripción
-  if (STATE.user.role !== 'doctor') return;
+  // Si no es doctor ni admin, salir
+  if (STATE.user.role !== 'doctor' && STATE.user.role !== 'admin') return;
+
+  if (STATE.user.role === 'admin') {
+    const banner = document.getElementById('no-sub-banner');
+    const btnIA = document.getElementById('btn-diag-phase1');
+    const manualInputs = document.getElementById('manual-diagnosis-inputs');
+    if (banner) banner.style.display = 'none';
+    if (btnIA) btnIA.style.display = '';
+    if (manualInputs) manualInputs.style.display = 'none';
+    return;
+  }
 
   // Cargar datos del perfil para obtener el estado de suscripción más reciente
   const res = await api('GET', '/api/profile');
@@ -2310,6 +2325,8 @@ function printReport() {
 
 
 async function loadAppointments() {
+  const el = document.getElementById('appointments-list');
+  if (el) el.innerHTML = getSkeletonTable(5, 6);
   const filterDoc = document.getElementById('appointment-doctor-filter')?.value;
   const url = '/api/appointments' + (filterDoc ? `?doctor_id=${filterDoc}` : '');
   const data = await api('GET', url);
@@ -2653,7 +2670,9 @@ function renderAppointmentsTable(apps) {
                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </button>` : ''
              }
-            ` : (STATE.user.role === 'doctor' && (a.status === 'abierta' || a.status === 'en_curso')) ?
+            ` : ''
+          }
+          ${(STATE.user.role === 'doctor' || STATE.user.role === 'admin') && (a.status === 'abierta' || a.status === 'en_curso') ?
             `<button class="btn-icon" title="Atender Consulta" style="color:var(--brand);" onclick="selectConsultAppointment(${a.id}, ${a.patient_id})">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
              </button>` : ''
@@ -2984,6 +3003,8 @@ function closeModalPrescriptionSuccess() {
 
 // HISTORIAL
 async function loadHistory() {
+  const el = document.getElementById('history-table');
+  if (el) el.innerHTML = getSkeletonTable(5, 6);
   const data = await api('GET', '/api/records');
   if (!data.success) { toast('error', 'Error cargando historial.'); return; }
   STATE.history = data.records || [];
@@ -2991,6 +3012,8 @@ async function loadHistory() {
 }
 
 async function loadAdminHistory() {
+  const el = document.getElementById('admin-history-table');
+  if (el) el.innerHTML = getSkeletonTable(5, 7);
   const data = await api('GET', '/api/records');
   if (!data.success) return;
   renderHistoryTable('admin-history-table', data.records || [], true);
@@ -3056,6 +3079,8 @@ function filterAdminHistory() {
 
 // USUARIOS (ADMIN)
 async function loadUsersTab() {
+  const el = document.getElementById('users-list');
+  if (el) el.innerHTML = getSkeletonTable(5, 5);
   const data = await api('GET', '/api/users');
   if (!data.success) { toast('error', 'Error cargando usuarios.'); return; }
   STATE.allUsers = data.users;
@@ -3063,6 +3088,8 @@ async function loadUsersTab() {
 }
 
 async function loadDoctorsTab() {
+  const el = document.getElementById('doctors-list');
+  if (el) el.innerHTML = getSkeletonTable(5, 6);
   const data = await api('GET', '/api/users');
   if (!data.success) return;
   const doctors = (data.users || []).filter(u => u.role === 'doctor');
@@ -3313,7 +3340,7 @@ async function loadAuditLogs(page = 1) {
   if (end)      params.append('date_end', end);
   
   const el = document.getElementById('audit-table');
-  el.innerHTML = `<div class="loading-state"><div class="spinner-ring"></div><span>Cargando logs...</span></div>`;
+  el.innerHTML = getSkeletonTable(5, 4);
   
   const data = await api('GET', `/api/audit_logs?${params.toString()}`);
   if (!data.success) {
@@ -3489,7 +3516,7 @@ async function loadPatientStatement(id) {
   if (!id) return;
   const el = document.getElementById('patient-statement-content');
   const totalEl = document.getElementById('patient-statement-total');
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  el.innerHTML = getSkeletonTable(5, 6);
   totalEl.textContent = 'Calculando...';
   
   const data = await api('GET', `/api/patients/${id}/account-statement`);
@@ -3720,7 +3747,7 @@ async function promptMarkDeceased(id, name) {
 async function loadPatientVitals(id) {
   if (!id) return;
   const el = document.getElementById('patient-vitals-content');
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  el.innerHTML = getSkeletonTable(5, 10);
   const data = await api('GET', `/api/patients/${id}/vitals-history?limit=10`);
   if (!data.success || !data.vitals_history?.length) {
     el.innerHTML = '<div class="empty-state"><span>Sin registros de vitales.</span></div>'; return;
@@ -3743,7 +3770,7 @@ async function loadPatientVitals(id) {
 async function loadPatientMeds(id) {
   if (!id) return;
   const el = document.getElementById('patient-meds-content');
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  el.innerHTML = getSkeletonList(3);
   const data = await api('GET', `/api/documents/prescriptions?patient_id=${id}`);
   if (!data.success || !data.prescriptions?.length) {
     el.innerHTML = '<div class="empty-state"><span>Sin recetas registradas.</span></div>'; return;
@@ -3761,7 +3788,7 @@ async function loadPatientMeds(id) {
 async function loadPatientAlerts(id) {
   if (!id) return;
   const el = document.getElementById('patient-alerts-content');
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  el.innerHTML = getSkeletonList(2);
   const data = await api('GET', `/api/history?patient_id=${id}&alert=rojo`);
   if (!data.success || !data.records?.length) {
     el.innerHTML = '<div class="empty-state"><span>Sin alertas críticas registradas. ✅</span></div>'; return;
@@ -3779,7 +3806,7 @@ async function loadPatientAlerts(id) {
 async function loadPatientDocs(id) {
   if (!id) return;
   const el = document.getElementById('patient-docs-content');
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+  el.innerHTML = getSkeletonList(3);
   const data = await api('GET', `/api/documents?patient_id=${id}`);
   if (!data.success) { el.innerHTML = '<div class="empty-state"><span>No disponible.</span></div>'; return; }
   const docs = data.documents || [];
@@ -3830,7 +3857,7 @@ async function deleteDocument(docId, patientId) {
 async function loadWaitingRoom() {
   const el = document.getElementById('waiting-room-list');
   if (!el) return;
-  el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div><span>Cargando...</span></div>';
+  el.innerHTML = getSkeletonList(4);
   const data = await api('GET', '/api/appointments?today=1');
   if (!data.success) { el.innerHTML = '<div class="empty-state"><span>No se pudo cargar la sala de espera.</span></div>'; return; }
   
@@ -4105,7 +4132,7 @@ function closeNotificationsPanel() {
 async function loadNotifMessages(silent = false) {
   const el = document.getElementById('notif-messages-list');
   if (!silent) {
-    el.innerHTML = '<div class="loading-state"><div class="spinner-ring"></div></div>';
+    el.innerHTML = getSkeletonList(3);
   }
   
   const data = await api('GET', '/api/notifications');
@@ -4682,7 +4709,7 @@ async function loadBillingTab() {
 async function loadBillingPending() {
   const el = document.getElementById('billing-pending-list');
   if (!el) return;
-  el.innerHTML = '<tr><td colspan="6" style="text-align:center;"><div class="spinner-ring" style="margin:10px auto;"></div></td></tr>';
+  el.innerHTML = getSkeletonTableRows(6, 3);
 
   const res = await api('GET', '/api/billing/pending');
   if (!res.success || !res.pending?.length) {
@@ -4718,7 +4745,7 @@ async function loadBillingPending() {
 async function loadBillingHistory() {
   const el = document.getElementById('billing-history-list');
   if (!el) return;
-  el.innerHTML = '<tr><td colspan="8" style="text-align:center;"><div class="spinner-ring" style="margin:10px auto;"></div></td></tr>';
+  el.innerHTML = getSkeletonTableRows(8, 4);
 
   const res = await api('GET', '/api/billing/invoices');
   if (!res.success || !res.invoices?.length) {
@@ -6553,7 +6580,7 @@ async function loadBlockedSlotsForAdmin() {
     return;
   }
 
-  tbody.innerHTML = `<tr><td colspan="5" style="padding:20px; text-align:center;"><div class="spinner-ring"></div> Cargando...</td></tr>`;
+  tbody.innerHTML = getSkeletonTableRows(5, 3);
 
   const res = await api('GET', `/api/schedules/doctor/${doctorId}/blocked`);
   if (res.success && res.slots) {
@@ -6660,7 +6687,7 @@ async function loadBlockedSlotsForDoctor() {
   const tbody = document.getElementById('doctor-blocked-slots-table-body');
   if (!tbody || !user.id) return;
 
-  tbody.innerHTML = `<tr><td colspan="4" style="padding:20px; text-align:center;"><div class="spinner-ring"></div> Cargando...</td></tr>`;
+  tbody.innerHTML = getSkeletonTableRows(4, 3);
 
   const res = await api('GET', `/api/schedules/doctor/${user.id}/blocked`);
   if (res.success && res.slots) {
