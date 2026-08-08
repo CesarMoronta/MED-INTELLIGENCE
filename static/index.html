@@ -101,14 +101,16 @@
     <div class="sidebar-footer">
       <div class="theme-switch-wrapper">
         <button class="theme-switch-btn" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Cambiar tema">
-          <div class="theme-switch-decorations">
-            <span class="star star-1">★</span>
-            <span class="star star-2">✦</span>
-            <span class="star star-3">★</span>
-          </div>
-          <div class="theme-switch-handle">
-            <svg class="handle-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <svg class="handle-icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <div class="theme-track-centered">
+            <div class="theme-switch-decorations">
+              <span class="star star-1">★</span>
+              <span class="star star-2">✦</span>
+              <span class="star star-3">★</span>
+            </div>
+            <div class="theme-switch-handle">
+              <svg class="handle-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <svg class="handle-icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </div>
           </div>
         </button>
       </div>
@@ -1923,8 +1925,8 @@
         <input type="hidden" id="edit-user-id" value="" />
         <input type="hidden" id="usr-photourl" value="" />
         
-        <!-- Foto de Perfil y campos de inicio lado a lado -->
-        <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+        <!-- Foto de Perfil y Cédula al inicio lado a lado -->
+        <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-end;">
           <div class="doctor-photo-preview"
             style="width: 100px; height: 120px; border-radius: 8px; border: 1px dashed var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-input); flex-shrink: 0;">
             <img id="usr-photo-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
@@ -1935,27 +1937,12 @@
             </svg>
           </div>
           <div style="flex: 1;">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Cédula</label>
-                <div style="display:flex; gap:8px;">
-                  <input type="text" id="usr-cedula" class="form-input" placeholder="001-0000000-0" style="flex: 1; min-width: 0;" />
-                  <button type="button" class="btn-primary" style="padding: 8px 12px; font-size:12px;"
-                    onclick="lookupDoctorCedula('usr')">Buscar JCE</button>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Rol</label>
-                <div class="segmented-control">
-                  <input type="radio" id="role-doctor" name="usr-role-radio" value="doctor" checked onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
-                  <input type="radio" id="role-secretaria" name="usr-role-radio" value="secretaria" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
-                  <input type="radio" id="role-admin" name="usr-role-radio" value="admin" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
-                  <label for="role-doctor">Doctor</label>
-                  <label for="role-secretaria">Secretaría</label>
-                  <label for="role-admin">Admin</label>
-                  <span class="segmented-indicator"></span>
-                </div>
-                <input type="hidden" id="usr-role" value="doctor" />
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Cédula</label>
+              <div style="display:flex; gap:8px;">
+                <input type="text" id="usr-cedula" class="form-input" placeholder="001-0000000-0" style="flex: 1; min-width: 0;" />
+                <button type="button" class="btn-primary" style="padding: 8px 12px; font-size:12px;"
+                  onclick="lookupDoctorCedula('usr')">Buscar JCE</button>
               </div>
             </div>
           </div>
@@ -1963,9 +1950,25 @@
 
         <div class="form-row">
           <div class="form-group">
+            <label class="form-label">Rol</label>
+            <div class="segmented-control">
+              <input type="radio" id="role-doctor" name="usr-role-radio" value="doctor" checked onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <input type="radio" id="role-secretaria" name="usr-role-radio" value="secretaria" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <input type="radio" id="role-admin" name="usr-role-radio" value="admin" onchange="document.getElementById('usr-role').value = this.value; onRoleChange();" />
+              <label for="role-doctor">Doctor</label>
+              <label for="role-secretaria">Secretaría</label>
+              <label for="role-admin">Admin</label>
+              <span class="segmented-indicator"></span>
+            </div>
+            <input type="hidden" id="usr-role" value="doctor" />
+          </div>
+          <div class="form-group">
             <label class="form-label">Usuario <span class="badge-required">*</span></label>
             <input type="text" id="usr-username" class="form-input" placeholder="dr.garcia" autocomplete="off" />
           </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
             <label class="form-label">Contraseña <span class="badge-required">*</span></label>
             <div class="input-wrap" style="position: relative;">
@@ -1979,16 +1982,15 @@
               </button>
             </div>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Nombre Completo</label>
-            <input type="text" id="usr-fullname" class="form-input" placeholder="Dr. José García" />
-          </div>
           <div class="form-group">
             <label class="form-label">Email</label>
             <input type="email" id="usr-email" class="form-input" placeholder="doctor@hospital.com" />
           </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Nombre Completo</label>
+          <input type="text" id="usr-fullname" class="form-input" placeholder="Dr. José García" />
         </div>
         
         <div id="doctor-fields">
