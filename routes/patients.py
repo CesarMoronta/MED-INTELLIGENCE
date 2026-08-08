@@ -282,7 +282,7 @@ def api_get_patient_billing_info(patient_id):
 
 @patients_bp.route("/api/patients/<int:patient_id>/mark-deceased", methods=["POST"])
 @requires_login
-@requires_role("doctor")
+@requires_role("doctor", "admin")
 def api_mark_patient_deceased(patient_id):
     """Marca un paciente como fallecido. Solo doctores. Requiere acta de defunción."""
     u = get_current_user()
@@ -333,11 +333,16 @@ def api_mark_patient_deceased(patient_id):
 
 @patients_bp.route("/api/patients/<int:patient_id>/account-statement", methods=["GET"])
 @requires_login
-@requires_role("doctor")
+@requires_role("doctor", "admin")
 def api_patient_account_statement(patient_id):
-    """Estado de cuenta del paciente. Solo visible para el doctor que lo haya atendido."""
+    """Estado de cuenta del paciente. Solo visible para el doctor que lo haya atendido o administradores."""
     u = get_current_user()
-    result = get_patient_account_statement(patient_id, doctor_id=u.get("id"))
+    is_admin = u.get("role") == "admin"
+    result = get_patient_account_statement(
+        patient_id,
+        doctor_id=u.get("id"),
+        bypass_validation=is_admin
+    )
     if result is None:
         return jsonify({"success": False, "error": "Acceso denegado o sin registros para este paciente."}), 403
     return jsonify({"success": True, "statement": result})

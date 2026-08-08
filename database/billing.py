@@ -210,21 +210,25 @@ def get_invoice_by_id(invoice_id: int) -> dict | None:
         "doctor_fullname": row[23]
     }
 
-def get_patient_account_statement(patient_id: int, doctor_id: int) -> dict | None:
+def get_patient_account_statement(patient_id: int, doctor_id: int = None, bypass_validation: bool = False) -> dict | None:
     # Validate access
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT 1 FROM dbo.appointments a WHERE a.patient_id = ? AND a.doctor_id = ?
-        UNION
-        SELECT 1 FROM dbo.emergency_visits ev WHERE ev.patient_id = ? AND ev.doctor_id = ?
-    """, patient_id, doctor_id, patient_id, doctor_id)
-    if not cursor.fetchone():
+    if not bypass_validation:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 1 FROM dbo.appointments a WHERE a.patient_id = ? AND a.doctor_id = ?
+            UNION
+            SELECT 1 FROM dbo.emergency_visits ev WHERE ev.patient_id = ? AND ev.doctor_id = ?
+        """, patient_id, doctor_id, patient_id, doctor_id)
+        row = cursor.fetchone()
         cursor.close()
         conn.close()
-        return None # Access denied or no records
+        if not row:
+            return None # Access denied or no records
 
     # Access granted, fetch invoices
+    conn = get_connection()
+    cursor = conn.cursor()
     cursor.execute("""
         SELECT i.id, i.created_at, i.invoice_type, i.total, i.amount_paid, i.balance_due, i.estado, i.due_date
         FROM dbo.invoices i

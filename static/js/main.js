@@ -460,6 +460,8 @@ function setupUI() {
   // Mostrar navegación según rol
   if (u.role === 'admin') {
     document.getElementById('nav-admin').style.display = 'block';
+    document.getElementById('nav-doctor').style.display = 'block';
+    document.getElementById('nav-secretaria').style.display = 'block';
     document.querySelectorAll('.admin-only-btn').forEach(b => b.style.display = '');
   } else if (u.role === 'secretaria') {
     document.getElementById('nav-secretaria').style.display = 'block';

@@ -323,8 +323,7 @@ def api_diagnose_final():
         # Verificar si tiene suscripción activa o si requiere modo manual
         u = get_current_user()
         user_db = get_user_by_id(u["id"]) if u.get("id") else None
-        is_subscribed = user_db.get("subscription_active", False) if user_db else False
-
+        is_subscribed = (user_db.get("subscription_active", False) if user_db else False) or (u.get("role") == "admin")
         is_manual = data.get("is_manual", False) or not is_subscribed
 
         if is_manual:
