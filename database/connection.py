@@ -15,7 +15,7 @@ LOCKOUT_MINUTES    = 15   # Minutos de bloqueo
 _local_data = threading.local()
 
 def get_connection() -> pyodbc.Connection:
-    conn_str = SQLSERVER_CONN
+    conn_str = os.environ.get("SQLSERVER_CONN", SQLSERVER_CONN)
     if "APP=" not in conn_str.upper() and "APPLICATION NAME=" not in conn_str.upper():
         conn_str += ";APP=MedIntelligenceApp"
     conn = pyodbc.connect(conn_str, autocommit=True)

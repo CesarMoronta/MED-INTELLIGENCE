@@ -184,9 +184,6 @@ def generate_database_sql_dump() -> str:
     from datetime import datetime
     from database import get_connection
 
-    conn = get_connection()
-    cursor = conn.cursor()
-
     timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [
         "-- =============================================================================",
@@ -230,6 +227,18 @@ def generate_database_sql_dump() -> str:
         lines.append("GO")
         return "\n".join(lines)
 
+    # Helper para hacer idempotentes vistas, procedimientos, triggers y funciones
+    import re
+    def make_ddl_idempotent(obj_name: str, obj_type: str, definition: str) -> str:
+        definition = definition.strip()
+        kw = obj_type.upper()
+        prefix = f"IF OBJECT_ID(N'dbo.[{obj_name}]') IS NOT NULL DROP {kw} dbo.[{obj_name}];\nGO\n"
+        pattern = re.compile(rf"^\s*CREATE\s+{kw}\b", re.IGNORECASE)
+        if pattern.search(definition):
+            idempotent_def = pattern.sub(f"CREATE OR ALTER {kw}", definition, count=1)
+            return f"{prefix}{idempotent_def}\nGO"
+        return f"{prefix}{definition}\nGO"
+
     # Intentar extraer dinámicamente Vistas, Triggers y Procedimientos Almacenados directamente del catálogo de SQL Server si existen
     try:
         # Vistas
@@ -245,10 +254,8 @@ def generate_database_sql_dump() -> str:
             lines.append("-- ─── Vistas Activas de la Base de Datos ──────────────────────────────────")
             for view_name, definition in views:
                 if definition:
-                    lines.append(f"IF OBJECT_ID(N'dbo.[{view_name}]', N'V') IS NOT NULL DROP VIEW dbo.[{view_name}];")
-                    lines.append("GO")
-                    lines.append(definition.strip())
-                    lines.append("\nGO\n")
+                    lines.append(make_ddl_idempotent(view_name, "VIEW", definition))
+                    lines.append("")
 
         # Procedimientos y Funciones
         cursor.execute("""
@@ -263,8 +270,9 @@ def generate_database_sql_dump() -> str:
             lines.append("-- ─── Procedimientos y Funciones Activos ──────────────────────────────────")
             for proc_name, definition, p_type in procs:
                 if definition:
-                    lines.append(definition.strip())
-                    lines.append("\nGO\n")
+                    obj_kw = "PROCEDURE" if p_type == "SQL_STORED_PROCEDURE" or p_type == "P" else "FUNCTION"
+                    lines.append(make_ddl_idempotent(proc_name, obj_kw, definition))
+                    lines.append("")
 
         # Triggers
         cursor.execute("""
@@ -279,11 +287,50 @@ def generate_database_sql_dump() -> str:
             lines.append("-- ─── Triggers Activos de la Base de Datos ───────────────────────────────")
             for trig_name, definition in triggers:
                 if definition:
-                    lines.append(definition.strip())
-                    lines.append("\nGO\n")
+                    lines.append(make_ddl_idempotent(trig_name, "TRIGGER", definition))
+                    lines.append("")
     except Exception:
         # Silencioso si se usa un mock o controlador sin catalogos sys completos
         pass
+
+    # Helper para formatear valores SQL Server de forma segura
+    def format_sql_value(val) -> str:
+        if val is None:
+            return "NULL"
+        elif isinstance(val, bool):
+            return "1" if val else "0"
+        elif isinstance(val, (int, float)):
+            return str(val)
+        elif hasattr(val, "isoformat"):
+            return f"'{val.isoformat()}'"
+        elif isinstance(val, (bytes, bytearray)):
+            return f"0x{val.hex()}"
+        elif isinstance(val, str):
+            escaped = val.replace("'", "''")
+            if "\r" in escaped or "\n" in escaped:
+                parts = []
+                current = []
+                for char in escaped:
+                    if char == "\r":
+                        if current:
+                            parts.append(f"N'{''.join(current)}'")
+                            current = []
+                        parts.append("CHAR(13)")
+                    elif char == "\n":
+                        if current:
+                            parts.append(f"N'{''.join(current)}'")
+                            current = []
+                        parts.append("CHAR(10)")
+                    else:
+                        current.append(char)
+                if current:
+                    parts.append(f"N'{''.join(current)}'")
+                return " + ".join(parts) if parts else "N''"
+            else:
+                return f"N'{escaped}'"
+        else:
+            s_val = str(val).replace("'", "''")
+            return f"N'{s_val}'"
 
     # 2. Exportación de Datos (INSERT INTO) de todas las tablas base con desactivación de restricciones
     lines.append("-- =============================================================================")
@@ -296,66 +343,57 @@ def generate_database_sql_dump() -> str:
     lines.append("GO")
     lines.append("")
 
+    data_cursor = None
     try:
-        cursor.execute("""
+        data_cursor = conn.cursor()
+        data_cursor.execute("""
             SELECT TABLE_SCHEMA, TABLE_NAME 
             FROM INFORMATION_SCHEMA.TABLES 
             WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA NOT IN ('sys')
             ORDER BY TABLE_NAME
         """)
-        tables = cursor.fetchall()
+        tables = data_cursor.fetchall()
 
         for row in (tables or []):
-            if not isinstance(row, (tuple, list)) or len(row) < 2:
-                continue
             schema_name, table_name = row[0], row[1]
             full_table = f"[{schema_name}].[{table_name}]"
             lines.append(f"-- -----------------------------------------------------------------------------")
             lines.append(f"-- Tabla: {full_table}")
             lines.append(f"-- -----------------------------------------------------------------------------")
 
-            cursor.execute(f"SELECT * FROM {full_table}")
-            if cursor.description is None:
-                lines.append("-- (Sin descripción)")
+            try:
+                tbl_cursor = conn.cursor()
+                tbl_cursor.execute(f"SELECT * FROM {full_table}")
+                if tbl_cursor.description is None:
+                    lines.append("-- (Sin descripción)")
+                    lines.append("")
+                    tbl_cursor.close()
+                    continue
+
+                columns = [col[0] for col in tbl_cursor.description]
+                rows = tbl_cursor.fetchall()
+                tbl_cursor.close()
+
+                if not rows:
+                    lines.append("-- (Sin registros)")
+                    lines.append("")
+                    continue
+
+                cols_str = ", ".join([f"[{col}]" for col in columns])
+
+                lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} ON;")
+
+                for r in rows:
+                    vals = [format_sql_value(val) for val in r]
+                    vals_str = ", ".join(vals)
+                    lines.append(f"INSERT INTO {full_table} ({cols_str}) VALUES ({vals_str});")
+
+                lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} OFF;")
+                lines.append("GO")
                 lines.append("")
-                continue
-
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-
-            if not rows:
-                lines.append("-- (Sin registros)")
+            except Exception as ex_tbl:
+                lines.append(f"-- Error exportando datos de la tabla {full_table}: {str(ex_tbl)}")
                 lines.append("")
-                continue
-
-            cols_str = ", ".join([f"[{col}]" for col in columns])
-
-            lines.append(f"DELETE FROM {full_table};")
-            lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} ON;")
-
-            for r in rows:
-                vals = []
-                for val in r:
-                    if val is None:
-                        vals.append("NULL")
-                    elif isinstance(val, bool):
-                        vals.append("1" if val else "0")
-                    elif isinstance(val, (int, float)):
-                        vals.append(str(val))
-                    elif hasattr(val, "isoformat"):
-                        vals.append(f"'{val.isoformat()}'")
-                    elif isinstance(val, (bytes, bytearray)):
-                        vals.append(f"0x{val.hex()}")
-                    else:
-                        s_val = str(val).replace("'", "''")
-                        vals.append(f"N'{s_val}'")
-
-                vals_str = ", ".join(vals)
-                lines.append(f"INSERT INTO {full_table} ({cols_str}) VALUES ({vals_str});")
-
-            lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} OFF;")
-            lines.append("GO")
-            lines.append("")
 
         lines.append("-- -----------------------------------------------------------------------------")
         lines.append("-- Reactivación de Restricciones y Triggers de la Base de Datos")
@@ -366,9 +404,16 @@ def generate_database_sql_dump() -> str:
         lines.append("")
         lines.append("-- Fin del Respaldo Completo")
         lines.append("GO")
+    except Exception as ex_dml:
+        print("DEBUG_DUMP EXCEPTION:", ex_dml)
+        lines.append(f"-- Error en la sección DML de exportación de datos: {str(ex_dml)}")
     finally:
         try:
-            cursor.close()
+            if data_cursor: data_cursor.close()
+        except Exception:
+            pass
+        try:
+            if cursor: cursor.close()
         except Exception:
             pass
         try:
