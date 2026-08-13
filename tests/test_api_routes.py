@@ -57,6 +57,28 @@ class APIRouteAuthTests(unittest.TestCase):
         self.assertTrue(data.get("success"))
         self.assertEqual(len(data.get("patients")), 1)
 
+    def test_export_backup_sql_unauthorized(self):
+        response = self.client.get("/api/export/backup.sql")
+        self.assertEqual(response.status_code, 401)
+
+    def test_export_backup_sql_doctor_forbidden(self):
+        with self.client.session_transaction() as sess:
+            sess["user"] = {"id": 2, "role": "doctor", "username": "dr_smith"}
+        response = self.client.get("/api/export/backup.sql")
+        self.assertEqual(response.status_code, 403)
+
+    @patch("routes.pdf_routes.generate_database_sql_dump")
+    def test_export_backup_sql_admin_success(self, mock_dump):
+        mock_dump.return_value = "-- TEST SQL DUMP CONTENT"
+        with self.client.session_transaction() as sess:
+            sess["user"] = {"id": 1, "role": "admin", "username": "admin"}
+
+        response = self.client.get("/api/export/backup.sql")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/sql", response.content_type)
+        self.assertIn("attachment; filename=med_intelligence_backup_", response.headers.get("Content-Disposition", ""))
+        self.assertEqual(response.data.decode("utf-8"), "-- TEST SQL DUMP CONTENT")
+
 
 if __name__ == "__main__":
     unittest.main()

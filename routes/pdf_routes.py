@@ -173,6 +173,211 @@ def api_export_history_csv():
     return response
 
 
+# ─── SQL: Backup Completo del Sistema ─────────────────────────────────────────
+
+def generate_database_sql_dump() -> str:
+    """
+    Genera un script SQL (.sql) completo con la estructura (Tablas, Vistas,
+    Procedimientos Almacenados, Triggers, Índices) y todos los datos del sistema.
+    """
+    import os
+    from datetime import datetime
+    from database import get_connection
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [
+        "-- =============================================================================",
+        "-- MED-INTELLIGENCE PRO - Respaldo Completo de Base de Datos",
+        f"-- Generado: {timestamp_str}",
+        "-- Incluye: Esquema (Tablas, Vistas, Procedimientos, Triggers, Índices) y Datos",
+        "-- =============================================================================",
+        "SET NOCOUNT ON;",
+        "GO",
+        ""
+    ]
+
+    # 1. Incluir el Esquema de Base de Datos DDL (Tablas, Vistas, Stored Procedures, Triggers, Índices)
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database_schema.txt")
+    if not os.path.exists(schema_path):
+        schema_path = "database_schema.txt"
+
+    lines.append("-- =============================================================================")
+    lines.append("-- SECCIÓN A: ESTRUCTURA Y ESQUEMA (Tablas, Vistas, Triggers, Procedimientos)")
+    lines.append("-- =============================================================================")
+    lines.append("")
+
+    if os.path.exists(schema_path):
+        try:
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_content = f.read()
+                lines.append(schema_content)
+                lines.append("")
+        except Exception:
+            lines.append("-- (No se pudo leer el archivo de esquema local)")
+            lines.append("")
+
+    # Intentar extraer dinámicamente Vistas, Triggers y Procedimientos Almacenados directamente del catálogo de SQL Server si existen
+    try:
+        # Vistas
+        cursor.execute("""
+            SELECT v.name, m.definition
+            FROM sys.views v
+            JOIN sys.sql_modules m ON v.object_id = m.object_id
+            WHERE v.is_ms_shipped = 0
+            ORDER BY v.name
+        """)
+        views = cursor.fetchall()
+        if views:
+            lines.append("-- ─── Vistas Activas de la Base de Datos ──────────────────────────────────")
+            for view_name, definition in views:
+                if definition:
+                    lines.append(f"IF OBJECT_ID(N'dbo.[{view_name}]', N'V') IS NOT NULL DROP VIEW dbo.[{view_name}];")
+                    lines.append("GO")
+                    lines.append(definition.strip())
+                    lines.append("\nGO\n")
+
+        # Procedimientos y Funciones
+        cursor.execute("""
+            SELECT p.name, m.definition, p.type_desc
+            FROM sys.objects p
+            JOIN sys.sql_modules m ON p.object_id = m.object_id
+            WHERE p.type IN ('P', 'FN', 'IF', 'TF') AND p.is_ms_shipped = 0
+            ORDER BY p.type, p.name
+        """)
+        procs = cursor.fetchall()
+        if procs:
+            lines.append("-- ─── Procedimientos y Funciones Activos ──────────────────────────────────")
+            for proc_name, definition, p_type in procs:
+                if definition:
+                    lines.append(definition.strip())
+                    lines.append("\nGO\n")
+
+        # Triggers
+        cursor.execute("""
+            SELECT t.name, m.definition
+            FROM sys.triggers t
+            JOIN sys.sql_modules m ON t.object_id = m.object_id
+            WHERE t.is_ms_shipped = 0
+            ORDER BY t.name
+        """)
+        triggers = cursor.fetchall()
+        if triggers:
+            lines.append("-- ─── Triggers Activos de la Base de Datos ───────────────────────────────")
+            for trig_name, definition in triggers:
+                if definition:
+                    lines.append(definition.strip())
+                    lines.append("\nGO\n")
+    except Exception:
+        # Silencioso si se usa un mock o controlador sin catalogos sys completos
+        pass
+
+    # 2. Exportación de Datos (INSERT INTO) de todas las tablas base
+    lines.append("-- =============================================================================")
+    lines.append("-- SECCIÓN B: DATOS DEL SISTEMA (DML - Registros de Tablas Base)")
+    lines.append("-- =============================================================================")
+    lines.append("")
+
+    try:
+        cursor.execute("""
+            SELECT TABLE_SCHEMA, TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA NOT IN ('sys')
+            ORDER BY TABLE_NAME
+        """)
+        tables = cursor.fetchall()
+
+        for row in (tables or []):
+            if not isinstance(row, (tuple, list)) or len(row) < 2:
+                continue
+            schema_name, table_name = row[0], row[1]
+            full_table = f"[{schema_name}].[{table_name}]"
+            lines.append(f"-- -----------------------------------------------------------------------------")
+            lines.append(f"-- Tabla: {full_table}")
+            lines.append(f"-- -----------------------------------------------------------------------------")
+
+            cursor.execute(f"SELECT * FROM {full_table}")
+            if cursor.description is None:
+                lines.append("-- (Sin descripción)")
+                lines.append("")
+                continue
+
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+            if not rows:
+                lines.append("-- (Sin registros)")
+                lines.append("")
+                continue
+
+            cols_str = ", ".join([f"[{col}]" for col in columns])
+
+            lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} ON;")
+
+            for r in rows:
+                vals = []
+                for val in r:
+                    if val is None:
+                        vals.append("NULL")
+                    elif isinstance(val, bool):
+                        vals.append("1" if val else "0")
+                    elif isinstance(val, (int, float)):
+                        vals.append(str(val))
+                    elif hasattr(val, "isoformat"):
+                        vals.append(f"'{val.isoformat()}'")
+                    elif isinstance(val, (bytes, bytearray)):
+                        vals.append(f"0x{val.hex()}")
+                    else:
+                        s_val = str(val).replace("'", "''")
+                        vals.append(f"N'{s_val}'")
+
+                vals_str = ", ".join(vals)
+                lines.append(f"INSERT INTO {full_table} ({cols_str}) VALUES ({vals_str});")
+
+            lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} OFF;")
+            lines.append("GO")
+            lines.append("")
+
+        lines.append("-- Fin del Respaldo Completo")
+        lines.append("GO")
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    return "\n".join(lines)
+
+
+@pdf_bp.route("/api/export/backup.sql", methods=["GET"])
+@requires_login
+@requires_role("admin")
+def api_export_backup_sql():
+    from datetime import datetime
+    sql_content = generate_database_sql_dump()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"med_intelligence_backup_{timestamp}.sql"
+
+    response = make_response(sql_content)
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-Type"] = "application/sql; charset=utf-8"
+
+    u = get_current_user()
+    log_audit_action(
+        username=u.get("username"), action="EXPORT", entity="DatabaseBackup",
+        details=f"Exportó respaldo completo de base de datos ({filename})",
+        ip_address=get_client_ip(), user_id=u.get("id")
+    )
+
+    return response
+
+
 # ─── PDF: Factura Electrónica (e-CF) ──────────────────────────────────────────
 
 @pdf_bp.route("/api/pdf/invoice/<int:invoice_id>", methods=["GET"])
