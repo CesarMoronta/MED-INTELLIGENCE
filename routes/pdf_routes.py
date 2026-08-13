@@ -215,9 +215,20 @@ def generate_database_sql_dump() -> str:
                 schema_content = f.read()
                 lines.append(schema_content)
                 lines.append("")
-        except Exception:
-            lines.append("-- (No se pudo leer el archivo de esquema local)")
+        except Exception as ex_file:
+            lines.append(f"-- (No se pudo leer el archivo de esquema local: {str(ex_file)})")
             lines.append("")
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+    except Exception as ex_conn:
+        lines.append(f"-- ADVERTENCIA: No se pudo conectar a la base de datos para extraer datos en vivo: {str(ex_conn)}")
+        lines.append("-- Fin del Respaldo (Solo Esquema)")
+        lines.append("GO")
+        return "\n".join(lines)
 
     # Intentar extraer dinámicamente Vistas, Triggers y Procedimientos Almacenados directamente del catálogo de SQL Server si existen
     try:
@@ -274,10 +285,15 @@ def generate_database_sql_dump() -> str:
         # Silencioso si se usa un mock o controlador sin catalogos sys completos
         pass
 
-    # 2. Exportación de Datos (INSERT INTO) de todas las tablas base
+    # 2. Exportación de Datos (INSERT INTO) de todas las tablas base con desactivación de restricciones
     lines.append("-- =============================================================================")
-    lines.append("-- SECCIÓN B: DATOS DEL SISTEMA (DML - Registros de Tablas Base)")
+    lines.append("-- SECCIÓN B: REGISTROS Y DATOS COMPLETOS (DML - INSERT INTO)")
     lines.append("-- =============================================================================")
+    lines.append("")
+    lines.append("-- Desactivar temporalmente Foreign Keys y Triggers para permitir inserción en cualquier orden")
+    lines.append("EXEC sp_MSforeachtable \"ALTER TABLE ? NOCHECK CONSTRAINT ALL\";")
+    lines.append("EXEC sp_MSforeachtable \"ALTER TABLE ? DISABLE TRIGGER ALL\";")
+    lines.append("GO")
     lines.append("")
 
     try:
@@ -314,6 +330,7 @@ def generate_database_sql_dump() -> str:
 
             cols_str = ", ".join([f"[{col}]" for col in columns])
 
+            lines.append(f"DELETE FROM {full_table};")
             lines.append(f"IF OBJECTPROPERTY(OBJECT_ID(N'{full_table}'), 'TableHasIdentity') = 1 SET IDENTITY_INSERT {full_table} ON;")
 
             for r in rows:
@@ -340,6 +357,13 @@ def generate_database_sql_dump() -> str:
             lines.append("GO")
             lines.append("")
 
+        lines.append("-- -----------------------------------------------------------------------------")
+        lines.append("-- Reactivación de Restricciones y Triggers de la Base de Datos")
+        lines.append("-- -----------------------------------------------------------------------------")
+        lines.append("EXEC sp_MSforeachtable \"ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL\";")
+        lines.append("EXEC sp_MSforeachtable \"ALTER TABLE ? ENABLE TRIGGER ALL\";")
+        lines.append("GO")
+        lines.append("")
         lines.append("-- Fin del Respaldo Completo")
         lines.append("GO")
     finally:
