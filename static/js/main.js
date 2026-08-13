@@ -5414,7 +5414,7 @@ function loadReportsTab() {
       { value: 'prescriptions', text: 'Prescripciones Emitidas' },
       { value: 'activity', text: 'Mi Actividad' },
       { value: 'billing', text: 'Mis Cobros y Facturación' },
-      { value: 'epidemiology', text: '🔬 Investigación y Epidemiología (Venta)' }
+      { value: 'epidemiology', text: 'Investigación y Epidemiología (Venta)' }
     ];
   } else {
     // Admin o Secretaria
@@ -5425,7 +5425,7 @@ function loadReportsTab() {
       { value: 'prescriptions', text: 'Prescripciones Emitidas' },
       { value: 'activity', text: 'Actividad de Doctores' },
       { value: 'billing', text: 'Facturación General' },
-      { value: 'epidemiology', text: '🔬 Investigación y Epidemiología (Venta)' }
+      { value: 'epidemiology', text: 'Investigación y Epidemiología (Venta)' }
     ];
     if (role === 'admin') {
       options.push({ value: 'audit', text: 'Registro de Auditoría' });
