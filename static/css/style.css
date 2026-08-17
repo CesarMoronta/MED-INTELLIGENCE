@@ -2660,5 +2660,32 @@ canvas.dashboard-chart {
   cursor: not-allowed;
 }
 
+/* ── CONSULTA CLINICA RESPONSIVE HEADER BUTTONS ── */
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.diagnostic-header {
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .diagnostic-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+  .header-actions {
+    width: 100%;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px;
+  }
+  .header-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 
 

@@ -407,19 +407,27 @@
 
     <!-- Consulta Clínica / Diagnóstico -->
     <div class="tab-panel" id="tab-diagnose">
-      <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="page-header diagnostic-header">
         <div>
           <h1 class="page-title">Consulta Clínica</h1>
           <p class="page-subtitle">Motor de diagnóstico bayesiano de 2 fases</p>
         </div>
-        <button class="btn-secondary" onclick="resetDiagnose()">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-            style="margin-right:8px; vertical-align:middle;">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-          Nueva Consulta
-        </button>
+        <div class="header-actions">
+          <button class="btn-primary" id="btn-diag-phase1-top" onclick="runPhase1()" style="display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Calcular Diagnóstico Preliminar (Fase 1)
+          </button>
+          <button class="btn-secondary" onclick="resetDiagnose()">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+              style="margin-right:8px; vertical-align:middle;">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            Nueva Consulta
+          </button>
+        </div>
       </div>
       <div id="diagnose-content">
         <!-- Banner sin suscripción -->
@@ -571,22 +579,22 @@
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <!-- Columna derecha: Síntomas + antecedentes -->
-              <div>
-                <div class="section-card">
-                  <div class="section-header">
-                    <h2>🤒 Síntomas del Paciente</h2>
-                  </div>
-                  <div class="symptoms-grid" id="symptoms-checkboxes"></div>
-                </div>
 
                 <div class="section-card" style="margin-top:20px;">
                   <div class="section-header">
                     <h2>📋 Antecedentes Patológicos</h2>
                   </div>
                   <div class="symptoms-grid" id="antecedentes-checkboxes"></div>
+                </div>
+              </div>
+
+              <!-- Columna derecha: Síntomas -->
+              <div>
+                <div class="section-card">
+                  <div class="section-header">
+                    <h2>🤒 Síntomas del Paciente</h2>
+                  </div>
+                  <div class="symptoms-grid" id="symptoms-checkboxes"></div>
                 </div>
               </div>
             </div>

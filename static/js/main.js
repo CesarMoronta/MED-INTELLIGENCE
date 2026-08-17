@@ -1213,6 +1213,8 @@ async function loadDiagnoseTab() {
   document.getElementById('no-sub-banner').style.display = 'none';
   document.getElementById('manual-diagnosis-inputs').style.display = 'none';
   document.getElementById('btn-diag-phase1').style.display = '';
+  const btnTopInit = document.getElementById('btn-diag-phase1-top');
+  if (btnTopInit) btnTopInit.style.display = '';
 
   // Si no es doctor ni admin, salir
   if (STATE.user.role !== 'doctor' && STATE.user.role !== 'admin') return;
@@ -1220,9 +1222,11 @@ async function loadDiagnoseTab() {
   if (STATE.user.role === 'admin') {
     const banner = document.getElementById('no-sub-banner');
     const btnIA = document.getElementById('btn-diag-phase1');
+    const btnIATop = document.getElementById('btn-diag-phase1-top');
     const manualInputs = document.getElementById('manual-diagnosis-inputs');
     if (banner) banner.style.display = 'none';
     if (btnIA) btnIA.style.display = '';
+    if (btnIATop) btnIATop.style.display = '';
     if (manualInputs) manualInputs.style.display = 'none';
     return;
   }
@@ -1235,15 +1239,18 @@ async function loadDiagnoseTab() {
     const isSubscribed = STATE.user.subscription_active;
     const banner = document.getElementById('no-sub-banner');
     const btnIA = document.getElementById('btn-diag-phase1');
+    const btnIATop = document.getElementById('btn-diag-phase1-top');
     const manualInputs = document.getElementById('manual-diagnosis-inputs');
 
     if (!isSubscribed) {
       if (banner) banner.style.display = 'block';
       if (btnIA) btnIA.style.display = 'none';
+      if (btnIATop) btnIATop.style.display = 'none';
       if (manualInputs) manualInputs.style.display = 'block';
     } else {
       if (banner) banner.style.display = 'none';
       if (btnIA) btnIA.style.display = '';
+      if (btnIATop) btnIATop.style.display = '';
       if (manualInputs) manualInputs.style.display = 'none';
     }
   }
@@ -1513,7 +1520,9 @@ async function runPhase1() {
   }
 
   const btn = document.getElementById('btn-diag-phase1');
+  const btnTop = document.getElementById('btn-diag-phase1-top');
   setButtonLoading(btn, true, 'Calculando...');
+  if (btnTop) setButtonLoading(btnTop, true, 'Calculando...');
 
   try {
     STATE.diagConstantes   = getConstantes();
@@ -1543,6 +1552,7 @@ async function runPhase1() {
     loadRefinementQuestions(res.probabilities);
   } finally {
     setButtonLoading(btn, false);
+    if (btnTop) setButtonLoading(btnTop, false);
   }
 }
 
@@ -6420,7 +6430,9 @@ async function applyRefinementAnswers() {
 
   // 2. Recalcular el diagnóstico preliminar
   const btn = document.getElementById('btn-diag-phase1');
+  const btnTop = document.getElementById('btn-diag-phase1-top');
   if (btn) setButtonLoading(btn, true, 'Recalculando...');
+  if (btnTop) setButtonLoading(btnTop, true, 'Recalculando...');
 
   try {
     const patientId = document.getElementById('diag-patient-id')?.value || (STATE.currentPatient ? STATE.currentPatient.id : null);
@@ -6444,6 +6456,7 @@ async function applyRefinementAnswers() {
     console.error("Error al recalcular diagnóstico:", err);
   } finally {
     if (btn) setButtonLoading(btn, false);
+    if (btnTop) setButtonLoading(btnTop, false);
   }
 }
 
