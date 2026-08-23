@@ -68,6 +68,48 @@ const ALL_ANTECEDENTES = [
   "Contacto con Casos Similares", "Antecedente de Litiasis Renal"
 ];
 
+
+// ─── Modales flotantes de secciones (Consulta Clínica) ─────────────────────
+
+function openSectionModal(modalId) {
+  openModal(modalId);
+}
+
+function closeSectionModal(modalId) {
+  closeModal(modalId);
+}
+
+function closeSectionModalOnOverlay(event, modalId) {
+  if (event.target === event.currentTarget) closeModal(modalId);
+}
+
+function updateSymptomsCountBadge() {
+  const checked = document.querySelectorAll('#symptoms-checkboxes input:checked').length;
+  const badge = document.getElementById('symptoms-count-badge');
+  const num = document.getElementById('symptoms-count-num');
+  if (badge && num) {
+    num.textContent = checked;
+    badge.style.display = checked > 0 ? 'block' : 'none';
+  }
+  // Highlight del botón si hay síntomas seleccionados
+  const btn = document.getElementById('btn-open-symptoms');
+  if (btn) btn.style.borderColor = checked > 0 ? 'rgba(99,102,241,0.50)' : '';
+}
+
+function updateAntecedentesCountBadge() {
+  const checked = document.querySelectorAll('#antecedentes-checkboxes input:checked').length;
+  const badge = document.getElementById('antecedentes-count-badge');
+  const num = document.getElementById('antecedentes-count-num');
+  if (badge && num) {
+    num.textContent = checked;
+    badge.style.display = checked > 0 ? 'block' : 'none';
+  }
+  const btn = document.getElementById('btn-open-antecedentes');
+  if (btn) btn.style.borderColor = checked > 0 ? 'rgba(99,102,241,0.50)' : '';
+}
+
+// Cerrar modales de sección con Escape (el sistema modal ya lo maneja globalmente)
+
 function resetDiagnose() {
   // Clear select and info
   const sel = document.getElementById('diag-visit-select');
@@ -112,6 +154,18 @@ function resetDiagnose() {
       toggleSymptom(cb);
     }
   });
+
+  // Reset badges de conteo de secciones
+  const sympBadge = document.getElementById('symptoms-count-badge');
+  if (sympBadge) sympBadge.style.display = 'none';
+  const antBadge = document.getElementById('antecedentes-count-badge');
+  if (antBadge) antBadge.style.display = 'none';
+  const vitalsBadge = document.getElementById('vitals-summary-badge');
+  if (vitalsBadge) vitalsBadge.style.display = 'none';
+  const btnSym = document.getElementById('btn-open-symptoms');
+  if (btnSym) btnSym.style.borderColor = '';
+  const btnAnt = document.getElementById('btn-open-antecedentes');
+  if (btnAnt) btnAnt.style.borderColor = '';
 
   // Hide phase 1 and final results, show phase 1 inputs
   const phase1Result = document.getElementById('phase1-result');
@@ -1424,6 +1478,14 @@ async function selectConsultAppointment(appId, ptId) {
       }
     });
   }
+
+  // Actualizar badges de secciones
+  const vitalsBadge = document.getElementById('vitals-summary-badge');
+  if (vitalsBadge) vitalsBadge.style.display = 'block';
+  const btnVitals = document.getElementById('btn-open-vitals');
+  if (btnVitals) btnVitals.style.borderColor = 'rgba(16,185,129,0.45)';
+  updateAntecedentesCountBadge();
+
   switchTab('diagnose');
 }
 

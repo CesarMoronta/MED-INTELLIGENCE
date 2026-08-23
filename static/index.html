@@ -450,8 +450,10 @@
         <!-- Fase 1 -->
         <div id="phase-1-panel">
           <div id="phase-1-inputs">
-            <div class="two-col-grid">
-              <!-- Columna izquierda: Paciente + constantes -->
+            <!-- Nueva estructura: Datos del Paciente (izquierda) + Botones de secciones (derecha) -->
+            <div style="display: grid; grid-template-columns: 1fr 200px; gap: 20px; align-items: start;">
+
+              <!-- Columna izquierda: Solo Datos del Paciente -->
               <div>
                 <div class="section-card">
                   <div class="section-header">
@@ -497,116 +499,47 @@
                       placeholder="Redacta anotaciones adicionales sobre la evolución del paciente, examen físico general..."></textarea>
                   </div>
                 </div>
-
-                <div class="section-card" style="margin-top:20px;">
-                  <div class="section-header">
-                    <h2>🩺 Constantes Vitales</h2>
-                  </div>
-                  <div class="vitals-grid">
-                    <div class="vital-group">
-                      <div class="vital-header"><label>Edad (Años)</label><span id="val-edad" class="vital-val-display"
-                          style="color:var(--primary-color);">30</span></div>
-                      <input type="hidden" id="v-edad" value="30" />
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>Temperatura (°C)</label><input type="number" id="val-temperatura"
-                          class="vital-val-input" step="0.1" value="37.0" /></div>
-                      <input type="range" id="v-temperatura" class="form-range" step="0.1" value="37.0" min="34"
-                        max="42" oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-temperatura"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>SpO2 (%)</label><input type="number" id="val-spo2"
-                          class="vital-val-input" value="98" /></div>
-                      <input type="range" id="v-spo2" class="form-range" value="98" min="50" max="100"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-spo2"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>PAS (mmHg)</label><input type="number" id="val-pas"
-                          class="vital-val-input" value="120" /></div>
-                      <input type="range" id="v-pas" class="form-range" value="120" min="60" max="250"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-pas"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>PAD (mmHg)</label><input type="number" id="val-pad"
-                          class="vital-val-input" value="80" /></div>
-                      <input type="range" id="v-pad" class="form-range" value="80" min="40" max="150"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-pad"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>FC (bpm)</label><input type="number" id="val-fc"
-                          class="vital-val-input" value="80" /></div>
-                      <input type="range" id="v-fc" class="form-range" value="80" min="30" max="250"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-fc"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>FR (rpm)</label><input type="number" id="val-fr"
-                          class="vital-val-input" value="16" /></div>
-                      <input type="range" id="v-fr" class="form-range" value="16" min="6" max="50"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-fr"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>Peso (kg)</label><input type="number" id="val-peso"
-                          class="vital-val-input" value="70" /></div>
-                      <input type="range" id="v-peso" class="form-range" value="70" min="2" max="250"
-                        oninput="updateVitalBadge(this); calculateIMC();" />
-                      <div class="vital-badge" id="badge-peso"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>Altura (cm)</label><input type="number" id="val-altura"
-                          class="vital-val-input" value="170" /></div>
-                      <input type="range" id="v-altura" class="form-range" value="170" min="40" max="250"
-                        oninput="updateVitalBadge(this); calculateIMC();" />
-                      <div class="vital-badge" id="badge-altura"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>Grasa Corp. (%)</label><input type="number"
-                          id="val-grasa_corporal" class="vital-val-input" value="20" /></div>
-                      <input type="range" id="v-grasa_corporal" class="form-range" value="20" min="1" max="60"
-                        oninput="updateVitalBadge(this)" />
-                      <div class="vital-badge" id="badge-grasa_corporal"></div>
-                    </div>
-                    <div class="vital-group">
-                      <div class="vital-header"><label>IMC</label><span id="val-imc" class="vital-val-display"
-                          style="color:var(--primary-color);">24.2</span></div>
-                      <input type="hidden" id="v-imc" value="24.2" />
-                      <div class="vital-badge" id="badge-imc">Normal</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="section-card" style="margin-top:20px;">
-                  <div class="section-header">
-                    <h2>📋 Antecedentes Patológicos</h2>
-                  </div>
-                  <div class="symptoms-grid" id="antecedentes-checkboxes"></div>
-                </div>
               </div>
 
-              <!-- Columna derecha: Síntomas -->
-              <div>
-                <div class="section-card">
-                  <div class="section-header">
-                    <h2>🤒 Síntomas del Paciente</h2>
-                  </div>
-                  <div class="symptoms-grid" id="symptoms-checkboxes"></div>
+              <!-- Columna derecha: Botones verticales de acceso rápido -->
+              <div style="display: flex; flex-direction: column; gap: 12px; position: sticky; top: 20px;">
+                <!-- Botón Constantes Vitales -->
+                <button class="panel-quick-btn" id="btn-open-vitals" onclick="openSectionModal('modal-vitales')" title="Constantes Vitales">
+                  <span class="panel-quick-btn-icon">🩺</span>
+                  <span class="panel-quick-btn-label">Constantes<br>Vitales</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="panel-quick-btn-arrow"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+
+                <!-- Botón Síntomas -->
+                <button class="panel-quick-btn" id="btn-open-symptoms" onclick="openSectionModal('modal-sintomas')" title="Síntomas del Paciente">
+                  <span class="panel-quick-btn-icon">🤒</span>
+                  <span class="panel-quick-btn-label">Síntomas<br>del Paciente</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="panel-quick-btn-arrow"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+
+                <!-- Botón Antecedentes -->
+                <button class="panel-quick-btn" id="btn-open-antecedentes" onclick="openSectionModal('modal-antecedentes')" title="Antecedentes Patológicos">
+                  <span class="panel-quick-btn-icon">📋</span>
+                  <span class="panel-quick-btn-label">Antecedentes<br>Patológicos</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="panel-quick-btn-arrow"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+
+                <!-- Indicadores de selección -->
+                <div id="vitals-summary-badge" style="display:none; font-size:11px; color:var(--primary-color); text-align:center; padding:6px 8px; background:rgba(6,182,212,0.08); border-radius:8px; border:1px solid rgba(6,182,212,0.2);">
+                  ✓ Vitales cargados
+                </div>
+                <div id="symptoms-count-badge" style="display:none; font-size:11px; color:var(--primary-color); text-align:center; padding:6px 8px; background:rgba(6,182,212,0.08); border-radius:8px; border:1px solid rgba(6,182,212,0.2);">
+                  <span id="symptoms-count-num">0</span> síntomas
+                </div>
+                <div id="antecedentes-count-badge" style="display:none; font-size:11px; color:var(--primary-color); text-align:center; padding:6px 8px; background:rgba(6,182,212,0.08); border-radius:8px; border:1px solid rgba(6,182,212,0.2);">
+                  <span id="antecedentes-count-num">0</span> antecedentes
                 </div>
               </div>
             </div>
 
-            <div class="form-actions" style="margin-top:24px;">
-              <button class="btn-primary btn-large" id="btn-diag-phase1" onclick="runPhase1()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
-                Calcular Diagnóstico Preliminar (Fase 1)
-              </button>
-            </div>
+            <!-- Modales de sección movidos al nivel del body (ver al final del HTML) -->
+
+            <!-- Botón de calcular movido al header (top bar) para evitar duplicado -->
 
             <!-- Formulario de Diagnóstico Manual (Para Doctores sin Suscripción) -->
             <div id="manual-diagnosis-inputs" style="display: none; margin-top: 24px;">
@@ -2793,6 +2726,113 @@
     </div>
   </div>
 
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- MODALES DE SECCIONES — CONSULTA CLÍNICA               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- MODAL: Constantes Vitales -->
+  <div id="modal-vitales" class="modal-overlay" onclick="closeModalOnBg(event,'modal-vitales')">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <h2>🩺 Constantes Vitales</h2>
+        <button class="modal-close" onclick="closeSectionModal('modal-vitales')" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="vitals-grid">
+          <div class="vital-group">
+            <div class="vital-header"><label>Edad (Años)</label><span id="val-edad" class="vital-val-display" style="color:var(--primary-color);">30</span></div>
+            <input type="hidden" id="v-edad" value="30" />
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>Temperatura (°C)</label><input type="number" id="val-temperatura" class="vital-val-input" step="0.1" value="37.0" /></div>
+            <input type="range" id="v-temperatura" class="form-range" step="0.1" value="37.0" min="34" max="42" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-temperatura"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>SpO2 (%)</label><input type="number" id="val-spo2" class="vital-val-input" value="98" /></div>
+            <input type="range" id="v-spo2" class="form-range" value="98" min="50" max="100" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-spo2"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>PAS (mmHg)</label><input type="number" id="val-pas" class="vital-val-input" value="120" /></div>
+            <input type="range" id="v-pas" class="form-range" value="120" min="60" max="250" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-pas"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>PAD (mmHg)</label><input type="number" id="val-pad" class="vital-val-input" value="80" /></div>
+            <input type="range" id="v-pad" class="form-range" value="80" min="40" max="150" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-pad"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>FC (bpm)</label><input type="number" id="val-fc" class="vital-val-input" value="80" /></div>
+            <input type="range" id="v-fc" class="form-range" value="80" min="30" max="250" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-fc"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>FR (rpm)</label><input type="number" id="val-fr" class="vital-val-input" value="16" /></div>
+            <input type="range" id="v-fr" class="form-range" value="16" min="6" max="50" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-fr"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>Peso (kg)</label><input type="number" id="val-peso" class="vital-val-input" value="70" /></div>
+            <input type="range" id="v-peso" class="form-range" value="70" min="2" max="250" oninput="updateVitalBadge(this); calculateIMC();" />
+            <div class="vital-badge" id="badge-peso"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>Altura (cm)</label><input type="number" id="val-altura" class="vital-val-input" value="170" /></div>
+            <input type="range" id="v-altura" class="form-range" value="170" min="40" max="250" oninput="updateVitalBadge(this); calculateIMC();" />
+            <div class="vital-badge" id="badge-altura"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>Grasa Corp. (%)</label><input type="number" id="val-grasa_corporal" class="vital-val-input" value="20" /></div>
+            <input type="range" id="v-grasa_corporal" class="form-range" value="20" min="1" max="60" oninput="updateVitalBadge(this)" />
+            <div class="vital-badge" id="badge-grasa_corporal"></div>
+          </div>
+          <div class="vital-group">
+            <div class="vital-header"><label>IMC</label><span id="val-imc" class="vital-val-display" style="color:var(--primary-color);">24.2</span></div>
+            <input type="hidden" id="v-imc" value="24.2" />
+            <div class="vital-badge" id="badge-imc">Normal</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeSectionModal('modal-vitales')">✓ Guardar y Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Síntomas del Paciente -->
+  <div id="modal-sintomas" class="modal-overlay" onclick="closeModalOnBg(event,'modal-sintomas')">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <h2>🤒 Síntomas del Paciente</h2>
+        <button class="modal-close" onclick="closeSectionModal('modal-sintomas')" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="symptoms-grid" id="symptoms-checkboxes"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeSectionModal('modal-sintomas'); updateSymptomsCountBadge();">✓ Guardar y Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Antecedentes Patológicos -->
+  <div id="modal-antecedentes" class="modal-overlay" onclick="closeModalOnBg(event,'modal-antecedentes')">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <h2>📋 Antecedentes Patológicos</h2>
+        <button class="modal-close" onclick="closeSectionModal('modal-antecedentes')" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="symptoms-grid" id="antecedentes-checkboxes"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeSectionModal('modal-antecedentes'); updateAntecedentesCountBadge();">✓ Guardar y Cerrar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="/js/utils.js?v=3"></script>
